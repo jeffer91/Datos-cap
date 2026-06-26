@@ -43,6 +43,21 @@ const {
   handleTemplateDiagnostic
 } = require('../src/modules/templates/templateController');
 
+const {
+  handleCreateLocalBackup,
+  handleListLocalBackups,
+  handleBackupDiagnostic
+} = require('../src/modules/backup/backupController');
+
+const {
+  handleEnsureLocalStructure,
+  handleListRestorableBackups,
+  handleValidateBackup,
+  handleBuildRestorePlan,
+  handleRestoreBackupControlled,
+  handleRestoreDiagnostic
+} = require('../src/modules/restore/restoreController');
+
 let mainWindow = null;
 let ipcRegistered = false;
 
@@ -104,6 +119,17 @@ function registerBaseIpc() {
   ipcMain.handle('templates:list', async (_event, payload) => handleListMasterTemplates(payload));
   ipcMain.handle('templates:get', async (_event, localId) => handleGetMasterTemplate(localId));
   ipcMain.handle('templates:diagnostic', async () => handleTemplateDiagnostic());
+
+  ipcMain.handle('backup:create', async (_event, payload) => handleCreateLocalBackup(payload));
+  ipcMain.handle('backup:list', async () => handleListLocalBackups());
+  ipcMain.handle('backup:diagnostic', async () => handleBackupDiagnostic());
+
+  ipcMain.handle('restore:repairStructure', async () => handleEnsureLocalStructure());
+  ipcMain.handle('restore:listBackups', async () => handleListRestorableBackups());
+  ipcMain.handle('restore:validate', async (_event, backupRoot) => handleValidateBackup(backupRoot));
+  ipcMain.handle('restore:plan', async (_event, payload) => handleBuildRestorePlan(payload));
+  ipcMain.handle('restore:run', async (_event, payload) => handleRestoreBackupControlled(payload));
+  ipcMain.handle('restore:diagnostic', async () => handleRestoreDiagnostic());
 
   ipcRegistered = true;
 }
