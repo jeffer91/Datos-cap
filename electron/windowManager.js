@@ -58,6 +58,11 @@ const {
   handleRestoreDiagnostic
 } = require('../src/modules/restore/restoreController');
 
+const {
+  handleStartupDiagnostic,
+  handleStartupRepair
+} = require('../src/modules/startup/startupController');
+
 let mainWindow = null;
 let ipcRegistered = false;
 
@@ -130,6 +135,9 @@ function registerBaseIpc() {
   ipcMain.handle('restore:plan', async (_event, payload) => handleBuildRestorePlan(payload));
   ipcMain.handle('restore:run', async (_event, payload) => handleRestoreBackupControlled(payload));
   ipcMain.handle('restore:diagnostic', async () => handleRestoreDiagnostic());
+
+  ipcMain.handle('startup:diagnostic', async () => handleStartupDiagnostic());
+  ipcMain.handle('startup:repair', async () => handleStartupRepair());
 
   ipcRegistered = true;
 }
