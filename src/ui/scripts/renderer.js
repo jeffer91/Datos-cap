@@ -20,17 +20,18 @@ function renderHomeScreen() {
   container.innerHTML = `
     <section class="hero-card">
       <div>
-        <p class="eyebrow">Bloque 12 activo</p>
-        <h3>Plantillas maestras por estilo</h3>
-        <p>La app ya tiene base local, comparación y generación de plantillas maestras reutilizables.</p>
+        <p class="eyebrow">Bloque 13 activo</p>
+        <h3>Centro de control y diagnóstico avanzado</h3>
+        <p>La app ya puede revisar estado general, biblioteca, comparación, plantillas y rutas base.</p>
       </div>
-      <div class="hero-badge"><span>STYLE</span><strong>TPL</strong></div>
+      <div class="hero-badge"><span>CTRL</span><strong>OK</strong></div>
     </section>
     <section class="dashboard-grid">
       <article class="info-card"><h4>Electron</h4><p>Ventana principal lista.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>SQLite</h4><p>Base local preparada.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Comparación</h4><p>Compara análisis y detecta patrones.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Plantillas</h4><p>Crea JSON/TXT de plantillas maestras.</p><span class="card-status ready">Activo</span></article>
+      <article class="info-card"><h4>Centro de control</h4><p>Diagnóstico visual del sistema.</p><span class="card-status ready">Activo</span></article>
     </section>`;
 }
 
@@ -57,12 +58,8 @@ async function changeScreen(screenName, title) {
     return;
   }
 
-  if (screenName === 'diagnostico') {
-    const app = await window.videoAuditor.app.diagnostic();
-    const comparison = await window.videoAuditor.comparison.diagnostic();
-    const templates = await window.videoAuditor.templates.diagnostic();
-    renderPlaceholderScreen();
-    setDiagnostic('Diagnóstico general.', { app, comparison, templates });
+  if (screenName === 'diagnostico' && window.VideoAuditorScreens?.renderControlCenterScreen) {
+    await window.VideoAuditorScreens.renderControlCenterScreen(getElement('#screenContainer'));
     return;
   }
 
