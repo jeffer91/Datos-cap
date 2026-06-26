@@ -20,15 +20,16 @@ function renderHomeScreen() {
   container.innerHTML = `
     <section class="hero-card">
       <div>
-        <p class="eyebrow">Bloque 16 activo</p>
-        <h3>Restauración controlada y modo reparación</h3>
-        <p>La app ya puede revisar respaldos, validar manifiestos, crear vista previa y reparar carpetas locales.</p>
+        <p class="eyebrow">Bloque 19 activo</p>
+        <h3>Importación, procesamiento FFmpeg y biblioteca conectados</h3>
+        <p>La app ya puede importar videos, procesarlos con FFmpeg real y mostrar los análisis en biblioteca.</p>
       </div>
-      <div class="hero-badge"><span>SAFE</span><strong>FIX</strong></div>
+      <div class="hero-badge"><span>FFMPEG</span><strong>ON</strong></div>
     </section>
     <section class="dashboard-grid">
-      <article class="info-card"><h4>Electron</h4><p>Ventana principal lista.</p><span class="card-status ready">Activo</span></article>
-      <article class="info-card"><h4>SQLite</h4><p>Base local preparada.</p><span class="card-status ready">Activo</span></article>
+      <article class="info-card"><h4>Importar video</h4><p>Selecciona y registra videos locales.</p><span class="card-status ready">Activo</span></article>
+      <article class="info-card"><h4>Procesamiento</h4><p>Metadatos, audio, frames, cortes y pausas reales.</p><span class="card-status ready">Activo</span></article>
+      <article class="info-card"><h4>Biblioteca</h4><p>Consulta análisis guardados en SQLite.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Comparación</h4><p>Compara análisis y detecta patrones.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Plantillas</h4><p>Crea JSON/TXT de plantillas maestras.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Recuperación</h4><p>Valida respaldos y repara estructura local.</p><span class="card-status ready">Activo</span></article>
@@ -45,6 +46,16 @@ async function changeScreen(screenName, title) {
   if (screenName === 'inicio') {
     renderHomeScreen();
     setDiagnostic('Inicio cargado.');
+    return;
+  }
+
+  if (screenName === 'importar' && window.VideoAuditorScreens?.renderImportScreen) {
+    await window.VideoAuditorScreens.renderImportScreen(getElement('#screenContainer'));
+    return;
+  }
+
+  if (screenName === 'biblioteca' && window.VideoAuditorScreens?.renderLibraryScreen) {
+    await window.VideoAuditorScreens.renderLibraryScreen(getElement('#screenContainer'));
     return;
   }
 
@@ -91,6 +102,9 @@ function bindEvents() {
       changeScreen(button.dataset.screen, button.textContent);
     });
   });
+
+  const btnTest = getElement('#btnTestElectron');
+  if (btnTest) btnTest.addEventListener('click', testElectronConnection);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
