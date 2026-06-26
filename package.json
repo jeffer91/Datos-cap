@@ -1,0 +1,36 @@
+{
+  "name": "video-auditor-app",
+  "version": "0.1.0",
+  "description": "App local Electron para auditoría inteligente de videos, análisis de estilo, reportes PDF/TXT y plantillas de edición.",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/windowManager.js && node --check src/app/appController.js && node --check src/database/sqliteConnection.js && node --check src/database/migrations.js && node --check src/services/ffmpegService.js && node --check src/modules/videoImport/videoImportController.js && node --check src/modules/videoImport/videoImportService.js && node --check src/modules/videoImport/videoValidator.js && node --check src/modules/videoImport/videoMetadataService.js && node --check src/modules/mediaProcessing/metadataExtractor.js && node --check src/modules/mediaProcessing/audioExtractor.js && node --check src/modules/mediaProcessing/frameExtractor.js && node --check src/modules/mediaProcessing/mediaProcessingService.js && node --check src/modules/mediaProcessing/processingController.js && node --check src/modules/cutDetection/sceneChangeDetector.js && node --check src/modules/cutDetection/cutFrequencyAnalyzer.js && node --check src/modules/cutDetection/visualRhythmAnalyzer.js && node --check src/modules/cutDetection/cutDetectionService.js && node --check src/modules/cutDetection/cutDetectionController.js && node --check src/modules/audioAnalysis/silenceDetector.js && node --check src/modules/audioAnalysis/audioRhythmAnalyzer.js && node --check src/modules/audioAnalysis/musicCueDetector.js && node --check src/modules/transcription/transcriptFormatter.js && node --check src/modules/transcription/localTranscriptionService.js && node --check src/modules/transcription/transcriptionController.js"
+  },
+  "keywords": [
+    "electron",
+    "video",
+    "auditoria",
+    "edicion",
+    "analisis",
+    "youtube",
+    "local",
+    "sqlite",
+    "ffmpeg",
+    "cut-detection",
+    "audio-analysis",
+    "transcription"
+  ],
+  "author": "Jeff",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "latest",
+    "ffmpeg-static": "latest",
+    "ffprobe-static": "latest"
+  },
+  "devDependencies": {
+    "electron": "latest"
+  }
+}
