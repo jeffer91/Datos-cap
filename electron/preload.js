@@ -44,5 +44,12 @@ contextBridge.exposeInMainWorld('videoAuditor', {
     listAnalyses: (limit = 50) => ipcRenderer.invoke('comparison:listAnalyses', limit),
     compare: (payload = {}) => ipcRenderer.invoke('comparison:compare', payload),
     diagnostic: () => ipcRenderer.invoke('comparison:diagnostic')
+  },
+
+  templates: {
+    createMaster: (payload = {}) => ipcRenderer.invoke('templates:createMaster', payload),
+    list: (payload = {}) => ipcRenderer.invoke('templates:list', payload),
+    get: (localId) => ipcRenderer.invoke('templates:get', localId),
+    diagnostic: () => ipcRenderer.invoke('templates:diagnostic')
   }
 });
