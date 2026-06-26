@@ -23,9 +23,9 @@
       <section class="module-card">
         <div class="module-header compact">
           <div>
-            <p class="eyebrow">Bloque 19 activo</p>
-            <h3>Biblioteca local</h3>
-            <p>Consulta videos y análisis generados por el motor multimedia real.</p>
+            <p class="eyebrow">Bloque 20 activo</p>
+            <h3>Biblioteca local y reportes rápidos</h3>
+            <p>Consulta análisis generados y crea reportes rápidos HTML/TXT desde cada análisis.</p>
           </div>
           <button id="btnReloadLibrary" type="button" class="secondary-button">Actualizar</button>
         </div>
@@ -80,21 +80,17 @@
           <p>Cortes: ${escapeHtml(analysis.cut_count || 0)} · Frames: ${escapeHtml(analysis.frame_count || 0)} · Pausas: ${escapeHtml(analysis.silence_count || 0)}</p>
         </div>
         <div class="analysis-actions">
+          <button class="primary-button small-button btn-create-quick-report" data-id="${escapeHtml(analysis.local_id)}">Crear reporte</button>
           <button class="secondary-button small-button btn-analysis-detail" data-id="${escapeHtml(analysis.local_id)}">Detalle</button>
           <button class="secondary-button small-button btn-open-analysis-json" data-path="${escapeHtml(analysis.analysis_json_path || '')}">Abrir JSON</button>
+          <button class="secondary-button small-button btn-open-report" data-path="${escapeHtml(analysis.pdf_report_path || '')}" ${analysis.pdf_report_path ? '' : 'disabled'}>Abrir HTML</button>
+          <button class="secondary-button small-button btn-open-report" data-path="${escapeHtml(analysis.txt_report_path || '')}" ${analysis.txt_report_path ? '' : 'disabled'}>Abrir TXT</button>
         </div>
       </article>
     `).join('');
   }
 
-  async function loadLibrary() {
-    const summary = await window.videoAuditor.library.getSummary();
-    renderSummary(summary);
-
-    const result = await window.videoAuditor.library.listAnalyses({});
-    const container = getElement('#libraryAnalysesContainer');
-    if (container) container.innerHTML = renderAnalyses(result.analyses || []);
-
+  function bindAnalysisButtons() {
     document.querySelectorAll('.btn-analysis-detail').forEach((button) => {
       button.addEventListener('click', async () => {
         const detail = await window.videoAuditor.library.getAnalysisDetails(button.dataset.id);
@@ -108,6 +104,32 @@
         setDiagnostic('Apertura de JSON técnico.', opened);
       });
     });
+
+    document.querySelectorAll('.btn-open-report').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const opened = await window.videoAuditor.fileSystem.openPath(button.dataset.path);
+        setDiagnostic('Apertura de reporte.', opened);
+      });
+    });
+
+    document.querySelectorAll('.btn-create-quick-report').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const result = await window.videoAuditor.quickReport.create(button.dataset.id);
+        setDiagnostic('Reporte rápido generado.', result);
+        await loadLibrary();
+      });
+    });
+  }
+
+  async function loadLibrary() {
+    const summary = await window.videoAuditor.library.getSummary();
+    renderSummary(summary);
+
+    const result = await window.videoAuditor.library.listAnalyses({});
+    const container = getElement('#libraryAnalysesContainer');
+    if (container) container.innerHTML = renderAnalyses(result.analyses || []);
+
+    bindAnalysisButtons();
 
     setDiagnostic('Biblioteca cargada.', { summary, analyses: result.total });
   }
