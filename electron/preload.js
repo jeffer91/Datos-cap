@@ -51,5 +51,19 @@ contextBridge.exposeInMainWorld('videoAuditor', {
     list: (payload = {}) => ipcRenderer.invoke('templates:list', payload),
     get: (localId) => ipcRenderer.invoke('templates:get', localId),
     diagnostic: () => ipcRenderer.invoke('templates:diagnostic')
+  },
+
+  backup: {
+    create: (payload = {}) => ipcRenderer.invoke('backup:create', payload),
+    list: () => ipcRenderer.invoke('backup:list'),
+    diagnostic: () => ipcRenderer.invoke('backup:diagnostic')
+  },
+
+  restore: {
+    repairStructure: () => ipcRenderer.invoke('restore:repairStructure'),
+    listBackups: () => ipcRenderer.invoke('restore:listBackups'),
+    validate: (backupRoot) => ipcRenderer.invoke('restore:validate', backupRoot),
+    plan: (payload = {}) => ipcRenderer.invoke('restore:plan', payload),
+    diagnostic: () => ipcRenderer.invoke('restore:diagnostic')
   }
 });
