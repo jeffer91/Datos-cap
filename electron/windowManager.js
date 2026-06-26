@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 
 const {
   initializeApp,
@@ -22,94 +22,79 @@ const {
   handleGetMediaProcessingDiagnostic
 } = require('../src/modules/mediaProcessing/processingController');
 
+const {
+  handleGetLibrarySummary,
+  handleListLibraryAnalyses,
+  handleListLibraryVideos,
+  handleGetAnalysisDetails,
+  handleGetRecentLibraryActivity
+} = require('../src/modules/library/libraryController');
+
+const {
+  handleListComparableAnalyses,
+  handleCompareAnalyses,
+  handleComparisonDiagnostic
+} = require('../src/modules/comparison/comparisonController');
+
 let mainWindow = null;
 let ipcRegistered = false;
 
 function registerBaseIpc() {
   if (ipcRegistered) return;
 
-  ipcMain.handle('app:ping', async () => {
-    return {
-      ok: true,
-      appName: 'Video Auditor App',
-      mode: 'electron-local',
-      platform: process.platform,
-      timestamp: new Date().toISOString()
-    };
-  });
+  ipcMain.handle('app:ping', async () => ({
+    ok: true,
+    appName: 'Video Auditor App',
+    mode: 'electron-local',
+    platform: process.platform,
+    timestamp: new Date().toISOString()
+  }));
 
-  ipcMain.handle('app:initialize', async () => {
-    return initializeApp();
-  });
-
-  ipcMain.handle('app:getStatus', async () => {
-    return getAppStatus();
-  });
-
-  ipcMain.handle('app:diagnostic', async () => {
-    return runBaseDiagnostic();
-  });
-
-  ipcMain.handle('app:getConfig', async () => {
-    return getBaseConfiguration();
-  });
+  ipcMain.handle('app:initialize', async () => initializeApp());
+  ipcMain.handle('app:getStatus', async () => getAppStatus());
+  ipcMain.handle('app:diagnostic', async () => runBaseDiagnostic());
+  ipcMain.handle('app:getConfig', async () => getBaseConfiguration());
 
   ipcMain.handle('dialog:selectVideo', async () => {
-    const extensions = APP_CONFIG.supportedVideoExtensions.map((extension) =>
-      extension.replace('.', '')
-    );
-
+    const extensions = APP_CONFIG.supportedVideoExtensions.map((extension) => extension.replace('.', ''));
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Seleccionar video para auditar',
       properties: ['openFile'],
-      filters: [
-        {
-          name: 'Videos permitidos',
-          extensions
-        }
-      ]
+      filters: [{ name: 'Videos permitidos', extensions }]
     });
 
     if (result.canceled || !result.filePaths.length) {
-      return {
-        ok: true,
-        canceled: true
-      };
+      return { ok: true, canceled: true };
     }
 
     const filePath = result.filePaths[0];
-
-    return {
-      ok: true,
-      canceled: false,
-      filePath,
-      fileName: path.basename(filePath)
-    };
+    return { ok: true, canceled: false, filePath, fileName: path.basename(filePath) };
   });
 
-  ipcMain.handle('videoImport:getOptions', async () => {
-    return handleGetVideoImportOptions();
+  ipcMain.handle('fileSystem:openPath', async (_event, targetPath) => {
+    if (!targetPath) return { ok: false, message: 'No se recibió una ruta para abrir.' };
+    const errorMessage = await shell.openPath(targetPath);
+    if (errorMessage) return { ok: false, message: 'No se pudo abrir el archivo.', error: errorMessage, path: targetPath };
+    return { ok: true, message: 'Archivo abierto correctamente.', path: targetPath };
   });
 
-  ipcMain.handle('videoImport:importVideo', async (_event, payload) => {
-    return handleImportVideo(payload);
-  });
+  ipcMain.handle('videoImport:getOptions', async () => handleGetVideoImportOptions());
+  ipcMain.handle('videoImport:importVideo', async (_event, payload) => handleImportVideo(payload));
+  ipcMain.handle('videoImport:listRecentVideos', async (_event, limit) => handleListRecentImportedVideos(limit));
+  ipcMain.handle('videoImport:getVideo', async (_event, localId) => handleGetImportedVideo(localId));
 
-  ipcMain.handle('videoImport:listRecentVideos', async (_event, limit) => {
-    return handleListRecentImportedVideos(limit);
-  });
+  ipcMain.handle('mediaProcessing:processVideo', async (_event, payload) => handleProcessImportedVideo(payload));
+  ipcMain.handle('mediaProcessing:diagnostic', async () => handleGetMediaProcessingDiagnostic());
 
-  ipcMain.handle('videoImport:getVideo', async (_event, localId) => {
-    return handleGetImportedVideo(localId);
-  });
+  ipcMain.handle('library:getSummary', async () => handleGetLibrarySummary());
+  ipcMain.handle('library:listAnalyses', async (_event, payload) => handleListLibraryAnalyses(payload));
+  ipcMain.handle('library:listVideos', async (_event, payload) => handleListLibraryVideos(payload));
+  ipcMain.handle('library:getAnalysisDetails', async (_event, analysisLocalId) => handleGetAnalysisDetails(analysisLocalId));
+  ipcMain.handle('library:getRecentActivity', async (_event, limit) => handleGetRecentLibraryActivity(limit));
 
-  ipcMain.handle('mediaProcessing:processVideo', async (_event, payload) => {
-    return handleProcessImportedVideo(payload);
-  });
-
-  ipcMain.handle('mediaProcessing:diagnostic', async () => {
-    return handleGetMediaProcessingDiagnostic();
-  });
+  ipcMain.handle('comparison:listAnalyses', async (_event, limit) => handleListComparableAnalyses(limit));
+  ipcMain.handle('comparison:compare', async (_event, payload) => handleCompareAnalyses(payload));
+  ipcMain.handle('comparison:diagnostic', async () => handleComparisonDiagnostic());
 
   ipcRegistered = true;
 }
@@ -137,16 +122,11 @@ function createMainWindow() {
     }
   });
 
-  const indexPath = path.join(__dirname, '..', 'src', 'ui', 'index.html');
-
-  mainWindow.loadFile(indexPath);
+  mainWindow.loadFile(path.join(__dirname, '..', 'src', 'ui', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-
-    if (!app.isPackaged) {
-      mainWindow.webContents.openDevTools({ mode: 'detach' });
-    }
+    if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
   mainWindow.on('closed', () => {
@@ -156,7 +136,4 @@ function createMainWindow() {
   return mainWindow;
 }
 
-module.exports = {
-  createMainWindow,
-  registerBaseIpc
-};
+module.exports = { createMainWindow, registerBaseIpc };
