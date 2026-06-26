@@ -9,6 +9,8 @@ const { createAnalysis, replaceTechnicalEvents } = require('../../database/repos
 const { readMediaMetadata } = require('./metadataProbe');
 const { exportAudioWav } = require('./audioExport');
 const { exportFrames } = require('./frameExport');
+const { scanVisualChanges, analyzeVisualFrequency } = require('../mediaProcessing/mediaVisualScan');
+const { scanAudioPauses, analyzeAudioPacing } = require('../mediaProcessing/mediaAudioScan');
 
 function createAnalysisLocalId() {
   const random = crypto.randomBytes(4).toString('hex');
@@ -37,6 +39,19 @@ function buildMetadataEvents(metadata) {
       }
     }
   ];
+}
+
+function buildVisualEvents(visualEvents = []) {
+  return visualEvents.map((event, index) => ({
+    event_type: 'cut_detected',
+    event_label: `Cambio visual ${index + 1}`,
+    start_time: event.start_time,
+    end_time: event.end_time,
+    start_seconds: event.start_seconds,
+    end_seconds: event.end_seconds,
+    confidence: event.confidence,
+    details_json: event.details_json
+  }));
 }
 
 async function processVideoWithMediaEngine(payload = {}) {
@@ -93,6 +108,49 @@ async function processVideoWithMediaEngine(payload = {}) {
       maxFrames: 300
     });
 
+    const visualScan = await scanVisualChanges({
+      videoPath: video.local_video_path,
+      threshold: 0.3
+    });
+
+    const visualFrequency = analyzeVisualFrequency(
+      visualScan.events,
+      metadata.durationSeconds
+    );
+
+    let silenceResult = {
+      ok: false,
+      silenceCount: 0,
+      silences: [],
+      technicalEvents: [],
+      message: 'No se analizaron pausas porque no hay audio disponible.'
+    };
+
+    let audioRhythm = {
+      ok: false,
+      silenceCount: 0,
+      speechSegmentCount: 0,
+      speechSegments: [],
+      rhythm: {
+        level: 'unknown',
+        label: 'Ritmo de audio no determinado'
+      },
+      technicalEvents: []
+    };
+
+    if (audioResult.ok && audioResult.audioPath) {
+      silenceResult = await scanAudioPauses({
+        audioPath: audioResult.audioPath,
+        noiseThreshold: '-35dB',
+        minSilenceDuration: 0.35
+      });
+
+      audioRhythm = analyzeAudioPacing({
+        silences: silenceResult.silences,
+        durationSeconds: metadata.durationSeconds
+      });
+    }
+
     const updatedVideo = updateVideo(video.local_id, {
       duration_seconds: metadata.durationSeconds,
       fps: metadata.fps,
@@ -124,9 +182,17 @@ async function processVideoWithMediaEngine(payload = {}) {
           frameCount: frameResult.frameCount
         }
       },
+      visual: {
+        scan: visualScan,
+        frequency: visualFrequency
+      },
+      audioAnalysis: {
+        silence: silenceResult,
+        rhythm: audioRhythm
+      },
       notes: [
-        'Bloque 18 activa procesamiento real de metadatos, audio y frames.',
-        'Cortes avanzados, silencios avanzados y transcripción real quedan para bloques posteriores.'
+        'Bloque 18 activa procesamiento real de metadatos, audio, frames, cortes visuales y pausas.',
+        'Transcripción real queda para un bloque posterior.'
       ]
     };
 
@@ -137,19 +203,19 @@ async function processVideoWithMediaEngine(payload = {}) {
       video_local_id: video.local_id,
       analysis_mode: analysisMode,
       status: 'media_processed',
-      summary: 'Procesamiento multimedia real completado: metadatos, audio y frames.',
-      human_summary: 'La app leyó datos reales del video, extrajo audio si existía y generó fotogramas de referencia.',
-      technical_summary: 'FFprobe metadata + FFmpeg audio extraction + FFmpeg frame extraction.',
+      summary: 'Procesamiento multimedia real completado: metadatos, audio, frames, cortes visuales y pausas.',
+      human_summary: 'La app leyó datos reales del video, extrajo audio si existía, generó fotogramas, detectó cambios visuales y pausas de audio.',
+      technical_summary: 'FFprobe metadata + FFmpeg audio extraction + FFmpeg frame extraction + scene select + silencedetect.',
       audio_path: audioResult.audioPath || null,
       frames_folder_path: frameResult.outputFolder,
       transcript_path: null,
       analysis_json_path: analysisJsonPath,
       pdf_report_path: null,
       txt_report_path: null,
-      cut_count: 0,
-      average_cut_seconds: null,
+      cut_count: visualFrequency.cutCount || 0,
+      average_cut_seconds: visualFrequency.averageCutSeconds,
       frame_count: frameResult.frameCount,
-      silence_count: 0,
+      silence_count: silenceResult.silenceCount || 0,
       music_event_count: 0,
       transcript_word_count: 0,
       hook_count: 0,
@@ -157,16 +223,19 @@ async function processVideoWithMediaEngine(payload = {}) {
       error_message: null
     });
 
-    const savedTechnicalEvents = replaceTechnicalEvents(
-      analysisLocalId,
-      buildMetadataEvents(metadata)
-    );
+    const savedTechnicalEvents = replaceTechnicalEvents(analysisLocalId, [
+      ...buildMetadataEvents(metadata),
+      ...buildVisualEvents(visualScan.events),
+      ...silenceResult.technicalEvents
+    ]);
 
     logInfo('Procesamiento mediaEngine completado', {
       videoLocalId: video.local_id,
       analysisLocalId,
       frameCount: frameResult.frameCount,
       hasAudio: metadata.hasAudio,
+      cutCount: visualFrequency.cutCount,
+      silenceCount: silenceResult.silenceCount,
       analysisJsonPath
     });
 
@@ -181,6 +250,14 @@ async function processVideoWithMediaEngine(payload = {}) {
         outputFolder: frameResult.outputFolder,
         intervalSeconds: frameResult.intervalSeconds,
         frameCount: frameResult.frameCount
+      },
+      visual: {
+        scan: visualScan,
+        frequency: visualFrequency
+      },
+      audioAnalysis: {
+        silence: silenceResult,
+        rhythm: audioRhythm
       },
       analysisJsonPath,
       savedTechnicalEvents,
@@ -209,6 +286,8 @@ function getMediaEngineDiagnostic() {
       'lectura real de metadatos con ffprobe',
       'extracción real de audio wav',
       'extracción real de frames jpg',
+      'detección real de cambios visuales',
+      'detección real de pausas de audio',
       'guardado en SQLite',
       'guardado de JSON técnico'
     ]
