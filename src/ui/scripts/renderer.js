@@ -20,17 +20,54 @@ function renderHomeScreen() {
   container.innerHTML = `
     <section class="hero-card">
       <div>
-        <p class="eyebrow">Video Auditor App</p>
-        <h3>Base local subida a GitHub</h3>
-        <p>Proyecto Electron local, modular, con SQLite y estructura para análisis de videos.</p>
+        <p class="eyebrow">Bloque 12 activo</p>
+        <h3>Plantillas maestras por estilo</h3>
+        <p>La app ya tiene base local, comparación y generación de plantillas maestras reutilizables.</p>
       </div>
-      <div class="hero-badge"><span>LOCAL</span><strong>PC</strong></div>
+      <div class="hero-badge"><span>STYLE</span><strong>TPL</strong></div>
     </section>
     <section class="dashboard-grid">
       <article class="info-card"><h4>Electron</h4><p>Ventana principal lista.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>SQLite</h4><p>Base local preparada.</p><span class="card-status ready">Activo</span></article>
-      <article class="info-card"><h4>Módulos</h4><p>Estructura modular inicial.</p><span class="card-status ready">Base</span></article>
+      <article class="info-card"><h4>Comparación</h4><p>Compara análisis y detecta patrones.</p><span class="card-status ready">Activo</span></article>
+      <article class="info-card"><h4>Plantillas</h4><p>Crea JSON/TXT de plantillas maestras.</p><span class="card-status ready">Activo</span></article>
     </section>`;
+}
+
+function renderPlaceholderScreen() {
+  getElement('#screenContainer').innerHTML = '<section class="module-card"><div class="empty-state">Módulo preparado para próximos bloques.</div></section>';
+}
+
+async function changeScreen(screenName, title) {
+  getElement('#screenTitle').textContent = title;
+
+  if (screenName === 'inicio') {
+    renderHomeScreen();
+    setDiagnostic('Inicio cargado.');
+    return;
+  }
+
+  if (screenName === 'comparacion' && window.VideoAuditorScreens?.renderComparisonScreen) {
+    await window.VideoAuditorScreens.renderComparisonScreen(getElement('#screenContainer'));
+    return;
+  }
+
+  if (screenName === 'plantillas' && window.VideoAuditorScreens?.renderTemplatesScreen) {
+    await window.VideoAuditorScreens.renderTemplatesScreen(getElement('#screenContainer'));
+    return;
+  }
+
+  if (screenName === 'diagnostico') {
+    const app = await window.videoAuditor.app.diagnostic();
+    const comparison = await window.videoAuditor.comparison.diagnostic();
+    const templates = await window.videoAuditor.templates.diagnostic();
+    renderPlaceholderScreen();
+    setDiagnostic('Diagnóstico general.', { app, comparison, templates });
+    return;
+  }
+
+  renderPlaceholderScreen();
+  setDiagnostic(`Pantalla seleccionada: ${title}`);
 }
 
 async function testElectronConnection() {
@@ -49,9 +86,7 @@ function bindEvents() {
     button.addEventListener('click', () => {
       document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('active'));
       button.classList.add('active');
-      getElement('#screenTitle').textContent = button.textContent;
-      if (button.dataset.screen === 'inicio') renderHomeScreen();
-      else getElement('#screenContainer').innerHTML = '<section class="module-card"><div class="empty-state">Módulo preparado para próximos bloques.</div></section>';
+      changeScreen(button.dataset.screen, button.textContent);
     });
   });
 }
