@@ -20,18 +20,18 @@ function renderHomeScreen() {
   container.innerHTML = `
     <section class="hero-card">
       <div>
-        <p class="eyebrow">Bloque 13 activo</p>
-        <h3>Centro de control y diagnóstico avanzado</h3>
-        <p>La app ya puede revisar estado general, biblioteca, comparación, plantillas y rutas base.</p>
+        <p class="eyebrow">Bloque 16 activo</p>
+        <h3>Restauración controlada y modo reparación</h3>
+        <p>La app ya puede revisar respaldos, validar manifiestos, crear vista previa y reparar carpetas locales.</p>
       </div>
-      <div class="hero-badge"><span>CTRL</span><strong>OK</strong></div>
+      <div class="hero-badge"><span>SAFE</span><strong>FIX</strong></div>
     </section>
     <section class="dashboard-grid">
       <article class="info-card"><h4>Electron</h4><p>Ventana principal lista.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>SQLite</h4><p>Base local preparada.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Comparación</h4><p>Compara análisis y detecta patrones.</p><span class="card-status ready">Activo</span></article>
       <article class="info-card"><h4>Plantillas</h4><p>Crea JSON/TXT de plantillas maestras.</p><span class="card-status ready">Activo</span></article>
-      <article class="info-card"><h4>Centro de control</h4><p>Diagnóstico visual del sistema.</p><span class="card-status ready">Activo</span></article>
+      <article class="info-card"><h4>Recuperación</h4><p>Valida respaldos y repara estructura local.</p><span class="card-status ready">Activo</span></article>
     </section>`;
 }
 
@@ -55,6 +55,11 @@ async function changeScreen(screenName, title) {
 
   if (screenName === 'plantillas' && window.VideoAuditorScreens?.renderTemplatesScreen) {
     await window.VideoAuditorScreens.renderTemplatesScreen(getElement('#screenContainer'));
+    return;
+  }
+
+  if (screenName === 'recuperacion' && window.VideoAuditorScreens?.renderRecoveryScreen) {
+    await window.VideoAuditorScreens.renderRecoveryScreen(getElement('#screenContainer'));
     return;
   }
 
