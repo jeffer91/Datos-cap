@@ -17,7 +17,6 @@
           <p>App local inteligente</p>
         </div>
       </div>
-
       <nav class="nav">
         <button class="nav-item active" data-screen="inicio">Inicio</button>
         <button class="nav-item" data-screen="importar">Importar video</button>
@@ -26,13 +25,11 @@
         <button class="nav-item" data-screen="plantillas">Plantillas</button>
         <button class="nav-item" data-screen="diagnostico">Diagnóstico</button>
       </nav>
-
       <div class="sidebar-footer">
         <span class="status-dot"></span>
         <span id="electronStatus">Verificando Electron...</span>
       </div>
     </aside>
-
     <main class="main-content">
       <header class="topbar">
         <div>
@@ -41,20 +38,15 @@
         </div>
         <button id="btnTestElectron" class="primary-button">Estado de la app</button>
       </header>
-
       <section id="screenContainer" class="screen-container"></section>
-
       <section class="console-panel">
-        <div class="console-header">
-          <h4>Diagnóstico</h4>
-          <span>Electron / SQLite / Local</span>
-        </div>
+        <div class="console-header"><h4>Diagnóstico</h4><span>Electron / SQLite / Local</span></div>
         <pre id="diagnosticOutput">Esperando inicialización...</pre>
       </section>
     </main>
   </div>
-
   <script src="./screens/comparisonScreen.js"></script>
+  <script src="./screens/templatesScreen.js"></script>
   <script src="./scripts/renderer.js"></script>
 </body>
 </html>
