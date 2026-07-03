@@ -4,7 +4,7 @@ Ruta o ubicación: /src/funcionalidades/01-carga/carga.css
 Función principal:
 - Dar estilo minimalista a la pantalla Carga.
 - Ocultar la interfaz anterior solo cuando Carga esté activa.
-- Diseñar panel lateral de 6 pasos, resumen mínimo y botón flotante Continuar.
+- Diseñar panel lateral de 6 pasos, resumen mínimo, pop-up y botón flotante Continuar.
 ========================================================= */
 
 body.editor-carga-activa .app-shell {
@@ -267,6 +267,49 @@ body.editor-carga-activa .screen-container {
   background: #94a3b8;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.carga-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, .18);
+  animation: cargaPopupIn .18s ease-out;
+}
+
+.carga-popup.is-hiding {
+  animation: cargaPopupOut .2s ease-in forwards;
+}
+
+.carga-popup-card {
+  min-width: min(360px, calc(100vw - 40px));
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+  padding: 24px 26px;
+  text-align: center;
+}
+
+.carga-popup-card strong {
+  display: block;
+  color: #132033;
+  font-size: 18px;
+}
+
+.plantillas-estilo-card {
+  min-height: 260px;
+}
+
+@keyframes cargaPopupIn {
+  from { opacity: 0; transform: scale(.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cargaPopupOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.98); }
 }
 
 @media (max-width: 820px) {
