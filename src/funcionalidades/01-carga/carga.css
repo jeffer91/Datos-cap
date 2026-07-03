@@ -1,0 +1,242 @@
+/* =========================================================
+Nombre completo: carga.css
+Ruta o ubicación: /src/funcionalidades/01-carga/carga.css
+Función principal:
+- Dar estilo minimalista a la pantalla Carga.
+- Ocultar la interfaz anterior solo cuando Carga esté activa.
+- Diseñar panel lateral de 6 pasos y botón flotante Continuar.
+========================================================= */
+
+body.editor-carga-activa .app-shell {
+  grid-template-columns: 1fr;
+}
+
+body.editor-carga-activa .sidebar,
+body.editor-carga-activa .topbar,
+body.editor-carga-activa .console-panel {
+  display: none;
+}
+
+body.editor-carga-activa .main-content {
+  min-height: 100vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+body.editor-carga-activa .screen-container {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.carga-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  background: #f4f7fb;
+  position: relative;
+}
+
+.carga-steps-panel {
+  min-height: 100vh;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 22px 16px;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 14px;
+}
+
+.carga-brand-mini {
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  padding: 8px 4px 18px;
+}
+
+.carga-brand-mini strong {
+  display: block;
+  font-size: 20px;
+}
+
+.carga-brand-mini span {
+  display: block;
+  margin-top: 5px;
+  color: #aeb9cc;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.carga-step-nav {
+  border: 0;
+  border-radius: 14px;
+  min-height: 38px;
+  background: rgba(255, 255, 255, .08);
+  color: #dbeafe;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.carga-step-nav:hover {
+  background: rgba(255, 255, 255, .14);
+}
+
+.carga-step-list {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  overflow: hidden;
+}
+
+.carga-step-item {
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: #dbeafe;
+  text-align: left;
+}
+
+.carga-step-item.is-activo {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.carga-step-item.is-completado {
+  background: rgba(20, 163, 111, .16);
+  color: #dcfce7;
+}
+
+.carga-step-symbol {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .1);
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+
+.carga-step-item.is-activo .carga-step-symbol {
+  background: #2457ff;
+  color: #ffffff;
+}
+
+.carga-step-text b,
+.carga-step-text small {
+  display: block;
+}
+
+.carga-step-text b {
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+.carga-step-text small {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.carga-main-panel {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 34px;
+}
+
+.carga-drop-card {
+  width: min(560px, 100%);
+  min-height: 340px;
+  border: 2px dashed #b8c7df;
+  border-radius: 30px;
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgba(27, 39, 66, .12);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 34px;
+  transition: border-color .2s ease, transform .2s ease, background .2s ease;
+}
+
+.carga-drop-card.is-dragover,
+.carga-drop-card:hover {
+  border-color: #2457ff;
+  background: #f8fbff;
+  transform: translateY(-2px);
+}
+
+.carga-drop-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  background: #e8efff;
+  color: #2457ff;
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.carga-drop-card strong {
+  font-size: 30px;
+  color: #132033;
+}
+
+.carga-drop-card span {
+  color: #68758a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.carga-primary-action {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: #2457ff;
+  color: #ffffff;
+  padding: 14px 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.carga-floating-next {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: #2457ff;
+  color: #ffffff;
+  padding: 16px 24px;
+  font-weight: 950;
+  box-shadow: 0 20px 45px rgba(36, 87, 255, .28);
+  cursor: pointer;
+}
+
+.carga-floating-next:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 820px) {
+  .carga-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .carga-steps-panel {
+    min-height: auto;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .carga-main-panel {
+    min-height: calc(100vh - 360px);
+    padding: 20px;
+  }
+}
