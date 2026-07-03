@@ -4,7 +4,7 @@ Ruta o ubicación: /src/funcionalidades/01-carga/carga.view.js
 Función principal:
 - Renderizar la pantalla mínima de Carga.
 - Mostrar panel lateral de 6 pasos visibles.
-- Mostrar zona central de carga y botón flotante Continuar.
+- Mostrar zona central de carga, resumen mínimo y botón flotante Continuar.
 ========================================================= */
 (function(window) {
   'use strict';
@@ -26,6 +26,34 @@ Función principal:
         </button>
       `;
     }).join('');
+  }
+
+  function renderResumenCarga() {
+    const state = window.VideoEditorCargaState.cargaState;
+    const service = window.VideoEditorCargaService;
+
+    if (state.cargando) {
+      return '<div class="carga-mini-summary is-loading" data-carga-summary>Analizando videos...</div>';
+    }
+
+    if (state.error) {
+      return `<div class="carga-mini-summary is-error" data-carga-summary>${state.error}</div>`;
+    }
+
+    if (!state.videos.length || !state.resumen) {
+      return '<div class="carga-mini-summary" data-carga-summary hidden></div>';
+    }
+
+    const formatos = Object.entries(state.resumen.formatos)
+      .map(([nombre, cantidad]) => `${cantidad} ${nombre}`)
+      .join(' · ');
+
+    return `
+      <div class="carga-mini-summary is-ready" data-carga-summary>
+        <strong>${state.resumen.totalVideos} video${state.resumen.totalVideos === 1 ? '' : 's'} listo${state.resumen.totalVideos === 1 ? '' : 's'}</strong>
+        <span>${service.formatearPeso(state.resumen.pesoTotalBytes)} · ${formatos}</span>
+      </div>
+    `;
   }
 
   function renderCargaView() {
@@ -53,13 +81,14 @@ Función principal:
           <section class="carga-drop-card" data-carga-drop-zone>
             <input id="cargaVideoInput" type="file" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm" multiple hidden />
             <div class="carga-drop-icon">＋</div>
-            <strong>Cargar videos</strong>
-            <span>${mensaje}</span>
+            <strong data-carga-main-title>Cargar videos</strong>
+            <span data-carga-main-hint>${mensaje}</span>
             <button class="carga-primary-action" type="button" data-carga-action="choose-files">Elegir videos</button>
+            ${renderResumenCarga()}
           </section>
         </main>
 
-        <button class="carga-floating-next" type="button" data-carga-action="continue" disabled>
+        <button class="carga-floating-next" type="button" data-carga-action="continue" ${window.VideoEditorCargaState.cargaState.listoParaContinuar ? '' : 'disabled'}>
           Continuar
         </button>
       </section>
@@ -68,6 +97,7 @@ Función principal:
 
   window.VideoEditorCargaView = {
     renderCargaView,
-    renderPasosLaterales
+    renderPasosLaterales,
+    renderResumenCarga
   };
 })(window);
