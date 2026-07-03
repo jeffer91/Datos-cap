@@ -4,7 +4,7 @@ Ruta o ubicación: /src/funcionalidades/01-carga/carga.css
 Función principal:
 - Dar estilo minimalista a la pantalla Carga.
 - Ocultar la interfaz anterior solo cuando Carga esté activa.
-- Diseñar panel lateral de 6 pasos y botón flotante Continuar.
+- Diseñar panel lateral de 6 pasos, resumen mínimo y botón flotante Continuar.
 ========================================================= */
 
 body.editor-carga-activa .app-shell {
@@ -203,6 +203,50 @@ body.editor-carga-activa .screen-container {
   padding: 14px 20px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.carga-mini-summary {
+  width: min(380px, 100%);
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  padding: 12px 14px;
+  color: #68758a;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.carga-mini-summary[hidden] {
+  display: none;
+}
+
+.carga-mini-summary strong {
+  font-size: 15px;
+  color: #132033;
+}
+
+.carga-mini-summary span {
+  font-size: 12px;
+  color: #68758a;
+}
+
+.carga-mini-summary.is-ready {
+  background: #e8fff6;
+  border-color: #b7f7dc;
+}
+
+.carga-mini-summary.is-loading {
+  background: #e8efff;
+  border-color: #c7d6ff;
+  color: #173fc7;
+}
+
+.carga-mini-summary.is-error {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #b42318;
 }
 
 .carga-floating-next {
