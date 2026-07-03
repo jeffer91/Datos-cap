@@ -3,8 +3,8 @@ Nombre completo: carga.controller.js
 Ruta o ubicación: /src/funcionalidades/01-carga/carga.controller.js
 Función principal:
 - Montar la pantalla Carga en el contenedor principal.
-- Conectar navegación lateral de 6 pasos visibles.
 - Cargar uno o varios videos y ejecutar análisis básico.
+- Mostrar pop-up corto de carga correcta y navegar a Plantillas de estilo.
 ========================================================= */
 (function(window, document) {
   'use strict';
@@ -15,9 +15,42 @@ Función principal:
     lista.innerHTML = window.VideoEditorCargaView.renderPasosLaterales();
   }
 
+  function mostrarPopupCargaCorrecta(totalVideos) {
+    const anterior = document.querySelector('[data-carga-popup]');
+    if (anterior) anterior.remove();
+
+    const popup = document.createElement('div');
+    popup.className = 'carga-popup';
+    popup.dataset.cargaPopup = 'ok';
+    popup.innerHTML = `
+      <div class="carga-popup-card">
+        <strong>${totalVideos === 1 ? 'Video cargado correctamente.' : 'Videos cargados correctamente.'}</strong>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    window.setTimeout(() => {
+      popup.classList.add('is-hiding');
+      window.setTimeout(() => popup.remove(), 220);
+    }, 1400);
+  }
+
   function renderizarPantalla(container) {
     container.innerHTML = window.VideoEditorCargaView.renderCargaView();
     bindCargaEvents(container);
+  }
+
+  function navegarAPlantillasEstilo(container) {
+    if (!window.VideoEditorCargaState.cargaState.listoParaContinuar) return;
+
+    if (window.VideoEditorPlantillasEstiloController?.renderPlantillasEstiloScreen) {
+      window.VideoEditorPlantillasEstiloController.renderPlantillasEstiloScreen(container);
+      return;
+    }
+
+    window.VideoEditorCargaState.definirPasoActual(1);
+    actualizarPasos(container);
   }
 
   async function procesarArchivos(container, archivos) {
@@ -32,6 +65,7 @@ Función principal:
       stateApi.guardarVideosAnalizados(videos);
       stateApi.finalizarCarga();
       renderizarPantalla(container);
+      mostrarPopupCargaCorrecta(videos.length);
     } catch (error) {
       stateApi.guardarError(error.message);
       renderizarPantalla(container);
@@ -64,7 +98,7 @@ Función principal:
         }
 
         if (action === 'continue') {
-          return;
+          navegarAPlantillasEstilo(container);
         }
       });
     });
@@ -101,6 +135,7 @@ Función principal:
   function renderCargaScreen(container) {
     if (!container || !window.VideoEditorCargaView) return;
     document.body.classList.add('editor-carga-activa');
+    window.VideoEditorCargaState.definirPasoActual(0);
     renderizarPantalla(container);
   }
 
