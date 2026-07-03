@@ -15,7 +15,12 @@ function setElectronStatus(ok, text) {
   if (statusDot) statusDot.classList.toggle('ok', Boolean(ok));
 }
 
+function desactivarModoCarga() {
+  document.body.classList.remove('editor-carga-activa');
+}
+
 function renderHomeScreen() {
+  desactivarModoCarga();
   const container = getElement('#screenContainer');
   container.innerHTML = `
     <section class="hero-card">
@@ -37,11 +42,21 @@ function renderHomeScreen() {
 }
 
 function renderPlaceholderScreen() {
+  desactivarModoCarga();
   getElement('#screenContainer').innerHTML = '<section class="module-card"><div class="empty-state">Módulo preparado para próximos bloques.</div></section>';
 }
 
 async function changeScreen(screenName, title) {
-  getElement('#screenTitle').textContent = title;
+  const screenTitle = getElement('#screenTitle');
+  if (screenTitle) screenTitle.textContent = title;
+
+  if (screenName === 'carga' && window.VideoEditorCargaController?.renderCargaScreen) {
+    window.VideoEditorCargaController.renderCargaScreen(getElement('#screenContainer'));
+    setDiagnostic('Pantalla Carga cargada.');
+    return;
+  }
+
+  desactivarModoCarga();
 
   if (screenName === 'inicio') {
     renderHomeScreen();
@@ -109,6 +124,6 @@ function bindEvents() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   bindEvents();
-  renderHomeScreen();
+  await changeScreen('carga', 'Carga');
   await testElectronConnection();
 });
