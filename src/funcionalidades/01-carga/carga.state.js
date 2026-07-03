@@ -4,7 +4,7 @@ Ruta o ubicación: /src/funcionalidades/01-carga/carga.state.js
 Función principal:
 - Definir el estado inicial de la pantalla Carga.
 - Centralizar los pasos globales del flujo de edición.
-- Guardar videos cargados y su análisis básico.
+- Guardar videos cargados, análisis básico y avance de paso.
 ========================================================= */
 (function(window) {
   'use strict';
@@ -48,10 +48,23 @@ Función principal:
     resumen: null,
     cargando: false,
     error: '',
+    cargaCompletada: false,
     listoParaContinuar: false
   };
 
+  function ajustarVentanaAlPaso() {
+    const maxInicio = Math.max(0, PASOS_EDITOR_VIDEO.length - cargaState.pasosVisibles);
+    if (cargaState.pasoActual < cargaState.ventanaInicio) {
+      cargaState.ventanaInicio = cargaState.pasoActual;
+    }
+    if (cargaState.pasoActual >= cargaState.ventanaInicio + cargaState.pasosVisibles) {
+      cargaState.ventanaInicio = cargaState.pasoActual - cargaState.pasosVisibles + 1;
+    }
+    cargaState.ventanaInicio = Math.max(0, Math.min(maxInicio, cargaState.ventanaInicio));
+  }
+
   function obtenerPasosVisibles() {
+    ajustarVentanaAlPaso();
     const inicio = Math.max(0, cargaState.ventanaInicio);
     const fin = inicio + cargaState.pasosVisibles;
     return PASOS_EDITOR_VIDEO.slice(inicio, fin).map((nombre, index) => ({
@@ -67,6 +80,14 @@ Función principal:
     const siguiente = cargaState.ventanaInicio + direccion;
     cargaState.ventanaInicio = Math.max(0, Math.min(maxInicio, siguiente));
     return obtenerPasosVisibles();
+  }
+
+  function definirPasoActual(indicePaso) {
+    const numero = Number(indicePaso);
+    if (!Number.isFinite(numero)) return cargaState;
+    cargaState.pasoActual = Math.max(0, Math.min(PASOS_EDITOR_VIDEO.length - 1, numero));
+    ajustarVentanaAlPaso();
+    return cargaState;
   }
 
   function calcularResumen(videos) {
@@ -88,6 +109,7 @@ Función principal:
     cargaState.videos = Array.isArray(videos) ? videos : [];
     cargaState.resumen = calcularResumen(cargaState.videos);
     cargaState.listoParaContinuar = cargaState.videos.length > 0;
+    cargaState.cargaCompletada = cargaState.videos.length > 0;
     cargaState.error = '';
     return cargaState;
   }
@@ -114,6 +136,7 @@ Función principal:
     cargaState,
     obtenerPasosVisibles,
     moverVentanaPasos,
+    definirPasoActual,
     guardarVideosAnalizados,
     iniciarCarga,
     finalizarCarga,
