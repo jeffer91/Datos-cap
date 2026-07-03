@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Video Auditor App</title>
   <link rel="stylesheet" href="./styles/global.css" />
+  <link rel="stylesheet" href="../funcionalidades/01-carga/carga.css" />
   <link rel="stylesheet" href="./styles/recovery.css" />
 </head>
 <body>
@@ -19,7 +20,8 @@
         </div>
       </div>
       <nav class="nav">
-        <button class="nav-item active" data-screen="inicio">Inicio</button>
+        <button class="nav-item active" data-screen="carga">Carga</button>
+        <button class="nav-item" data-screen="inicio">Inicio</button>
         <button class="nav-item" data-screen="importar">Importar video</button>
         <button class="nav-item" data-screen="biblioteca">Biblioteca</button>
         <button class="nav-item" data-screen="comparacion">Comparación</button>
@@ -35,8 +37,8 @@
     <main class="main-content">
       <header class="topbar">
         <div>
-          <h2 id="screenTitle">Inicio</h2>
-          <p id="screenSubtitle">Base inicial de la app local para auditar videos.</p>
+          <h2 id="screenTitle">Carga</h2>
+          <p id="screenSubtitle">Sube uno o varios videos para iniciar el flujo.</p>
         </div>
         <button id="btnTestElectron" class="primary-button">Estado de la app</button>
       </header>
@@ -47,6 +49,10 @@
       </section>
     </main>
   </div>
+  <script src="../funcionalidades/01-carga/carga.state.js"></script>
+  <script src="../funcionalidades/01-carga/carga.service.js"></script>
+  <script src="../funcionalidades/01-carga/carga.view.js"></script>
+  <script src="../funcionalidades/01-carga/carga.controller.js"></script>
   <script src="./screens/importScreen.js"></script>
   <script src="./screens/libraryScreen.js"></script>
   <script src="./screens/comparisonScreen.js"></script>
