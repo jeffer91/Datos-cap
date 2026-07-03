@@ -2,9 +2,9 @@
 Nombre completo: plantillas-estilo.controller.js
 Ruta o ubicación: /src/funcionalidades/02-plantillas-estilo/plantillas-estilo.controller.js
 Función principal:
-- Montar la pantalla mínima de Plantillas de estilo.
+- Montar la pantalla visual de Plantillas de estilo.
 - Mantener navegación lateral de 6 pasos visibles.
-- Preparar el destino del botón Continuar de Carga.
+- Preparar eventos base para selección real en el siguiente bloque.
 ========================================================= */
 (function(window, document) {
   'use strict';
@@ -30,6 +30,13 @@ Función principal:
           window.VideoEditorCargaState.moverVentanaPasos(1);
           actualizarPasos(container);
         }
+      });
+    });
+
+    container.querySelectorAll('[data-plantilla-id]').forEach((boton) => {
+      boton.addEventListener('click', () => {
+        container.querySelectorAll('[data-plantilla-id]').forEach((item) => item.classList.remove('is-selected'));
+        boton.classList.add('is-selected');
       });
     });
   }
