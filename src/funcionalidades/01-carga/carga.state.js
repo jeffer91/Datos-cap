@@ -4,7 +4,7 @@ Ruta o ubicación: /src/funcionalidades/01-carga/carga.state.js
 Función principal:
 - Definir el estado inicial de la pantalla Carga.
 - Centralizar los pasos globales del flujo de edición.
-- Preparar la base para mostrar solo 6 pasos visibles en el panel lateral.
+- Guardar videos cargados y su análisis básico.
 ========================================================= */
 (function(window) {
   'use strict';
@@ -45,6 +45,9 @@ Función principal:
     ventanaInicio: 0,
     pasosVisibles: 6,
     videos: [],
+    resumen: null,
+    cargando: false,
+    error: '',
     listoParaContinuar: false
   };
 
@@ -66,10 +69,54 @@ Función principal:
     return obtenerPasosVisibles();
   }
 
+  function calcularResumen(videos) {
+    const lista = Array.isArray(videos) ? videos : [];
+    const formatos = lista.reduce((acc, video) => {
+      const clave = video.orientacion || 'desconocido';
+      acc[clave] = (acc[clave] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      totalVideos: lista.length,
+      pesoTotalBytes: lista.reduce((total, video) => total + Number(video.pesoBytes || 0), 0),
+      formatos
+    };
+  }
+
+  function guardarVideosAnalizados(videos) {
+    cargaState.videos = Array.isArray(videos) ? videos : [];
+    cargaState.resumen = calcularResumen(cargaState.videos);
+    cargaState.listoParaContinuar = cargaState.videos.length > 0;
+    cargaState.error = '';
+    return cargaState;
+  }
+
+  function iniciarCarga() {
+    cargaState.cargando = true;
+    cargaState.error = '';
+    return cargaState;
+  }
+
+  function finalizarCarga() {
+    cargaState.cargando = false;
+    return cargaState;
+  }
+
+  function guardarError(error) {
+    cargaState.cargando = false;
+    cargaState.error = error || 'No se pudo cargar el video.';
+    return cargaState;
+  }
+
   window.VideoEditorCargaState = {
     PASOS_EDITOR_VIDEO,
     cargaState,
     obtenerPasosVisibles,
-    moverVentanaPasos
+    moverVentanaPasos,
+    guardarVideosAnalizados,
+    iniciarCarga,
+    finalizarCarga,
+    guardarError
   };
 })(window);
