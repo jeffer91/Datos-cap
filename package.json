@@ -6,7 +6,8 @@
       "Configurar la aplicación Electron.",
       "Definir scripts de ejecución.",
       "Declarar dependencias para lectura de PDF, generación de Excel y manejo de archivos.",
-      "Preparar la app para extraer datos y exportarlos a Excel y JSON."
+      "Preparar la app para extraer datos y exportarlos a Excel y JSON.",
+      "Agregar script de diagnóstico automático selftest."
     ]
   },
   "name": "plan-docente-extractor",
@@ -18,7 +19,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "selftest": "node src/diagnostics/selftest.js"
   },
   "dependencies": {
     "electron": "^31.7.7",
