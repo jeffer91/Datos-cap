@@ -7,7 +7,7 @@ Función o funciones:
 - Validar archivos seleccionados desde el proceso principal.
 - Mostrar resumen de documentos válidos, inválidos y duplicados.
 - Guardar temporalmente la carpeta de salida elegida.
-- Preparar la interfaz para la extracción y exportación Excel + JSON.
+- Ejecutar la generación real de Excel + JSON.
 ========================================================= */
 
 "use strict";
@@ -15,7 +15,9 @@ Función o funciones:
 const state = {
   selectedPaths: [],
   validation: null,
-  outputDir: ""
+  outputDir: "",
+  isGenerating: false,
+  lastResult: null
 };
 
 const elements = {
@@ -70,12 +72,16 @@ function updateButtons() {
   const canGenerate = Boolean(
     hasValidation &&
     state.validation.canContinue &&
-    state.outputDir
+    state.outputDir &&
+    !state.isGenerating
   );
 
-  elements.btnValidate.disabled = !hasFiles;
-  elements.btnClear.disabled = !hasFiles;
+  elements.btnSelectPdf.disabled = state.isGenerating;
+  elements.btnValidate.disabled = !hasFiles || state.isGenerating;
+  elements.btnClear.disabled = !hasFiles || state.isGenerating;
+  elements.btnChooseOutput.disabled = state.isGenerating;
   elements.btnGenerate.disabled = !canGenerate;
+  elements.btnGenerate.textContent = state.isGenerating ? "Generando..." : "Generar Excel + JSON";
 }
 
 function updateSummary() {
@@ -185,10 +191,56 @@ function renderValidationTable() {
   `;
 }
 
+function renderResultTable(result) {
+  if (!result || !result.ok) {
+    return;
+  }
+
+  const summary = result.summary || {};
+  const files = result.files || {};
+  const excel = files.excel || {};
+  const json = files.json || {};
+  const rowsByTable = summary.rows_by_table || {};
+
+  const tableRows = Object.keys(rowsByTable)
+    .map((tableName) => {
+      return `
+        <tr>
+          <td>${escapeHtml(tableName)}</td>
+          <td>${escapeHtml(rowsByTable[tableName])}</td>
+          <td>${escapeHtml((summary.warnings_by_table || {})[tableName] || 0)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const resultHtml = `
+    <div class="status-box status-success">
+      Reporte generado correctamente.<br>
+      Excel: ${escapeHtml(excel.filePath || "")}<br>
+      JSON: ${escapeHtml(json.filePath || "")}
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Tabla</th>
+          <th>Filas</th>
+          <th>Advertencias</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  `;
+
+  elements.filesTableContainer.innerHTML = resultHtml;
+}
+
 function resetState() {
   state.selectedPaths = [];
   state.validation = null;
   state.outputDir = "";
+  state.isGenerating = false;
+  state.lastResult = null;
 
   elements.emptyBox.style.display = "block";
   setStatus("Esperando selección de documentos.", "info");
@@ -229,6 +281,7 @@ async function handleSelectPdfFiles() {
 
     state.selectedPaths = Array.isArray(result.filePaths) ? result.filePaths : [];
     state.validation = null;
+    state.lastResult = null;
 
     if (!state.selectedPaths.length) {
       setStatus("No se seleccionaron archivos.", "warning");
@@ -263,6 +316,7 @@ async function handleValidatePdfFiles() {
   try {
     const validation = await window.planDocenteAPI.validatePdfFiles(state.selectedPaths);
     state.validation = validation;
+    state.lastResult = null;
 
     updateSummary();
     updateButtons();
@@ -275,7 +329,7 @@ async function handleValidatePdfFiles() {
 
     if (validation.invalidCount > 0) {
       setStatus(
-        `Validación completada: ${validation.validCount} válido(s) y ${validation.invalidCount} para revisar. Se podrá generar el reporte marcando revisión.`,
+        `Validación completada: ${validation.validCount} válido(s) y ${validation.invalidCount} para revisar. Se generará el reporte solo con los PDF válidos.`,
         "warning"
       );
       return;
@@ -310,11 +364,64 @@ async function handleChooseOutputDirectory() {
   }
 }
 
-function handleGeneratePlaceholder() {
-  setStatus(
-    "La base ya está lista. En el siguiente bloque conectaremos el extractor PDF y los exportadores Excel + JSON.",
-    "info"
-  );
+async function handleGenerateReport() {
+  if (!hasBridge()) {
+    setStatus("No está disponible la comunicación con Electron.", "danger");
+    return;
+  }
+
+  if (!state.validation || !state.validation.canContinue) {
+    setStatus("Primero valida los PDF antes de generar el reporte.", "warning");
+    return;
+  }
+
+  if (!state.outputDir) {
+    setOutputStatus("Selecciona una carpeta de salida antes de generar.", "warning");
+    return;
+  }
+
+  state.isGenerating = true;
+  state.lastResult = null;
+  updateButtons();
+  setStatus("Procesando PDF, extrayendo campos y construyendo tablas...", "info");
+  setOutputStatus("Generando archivos Excel y JSON...", "info");
+
+  try {
+    const result = await window.planDocenteAPI.generatePlanReport({
+      filePaths: state.selectedPaths,
+      outputDir: state.outputDir
+    });
+
+    state.lastResult = result;
+
+    if (!result.ok) {
+      setStatus(result.message || "No se pudo generar el reporte.", "danger");
+      setOutputStatus("No se generaron archivos de salida.", "danger");
+      return;
+    }
+
+    const summary = result.summary || {};
+    const revisionRows = Number(summary.requiere_revision_rows || 0);
+    const totalRows = Number(summary.total_rows || 0);
+
+    setStatus(
+      `Reporte generado: ${totalRows} fila(s) totales. Registros para revisión: ${revisionRows}.`,
+      revisionRows > 0 ? "warning" : "success"
+    );
+
+    setOutputStatus(
+      `Archivos creados en: ${result.outputDir}`,
+      "success"
+    );
+
+    renderResultTable(result);
+  } catch (error) {
+    setStatus(`Error al generar reporte: ${error.message}`, "danger");
+    setOutputStatus("Ocurrió un error durante la generación.", "danger");
+  } finally {
+    state.isGenerating = false;
+    updateButtons();
+  }
 }
 
 function bindEvents() {
@@ -322,7 +429,7 @@ function bindEvents() {
   elements.btnValidate.addEventListener("click", handleValidatePdfFiles);
   elements.btnClear.addEventListener("click", resetState);
   elements.btnChooseOutput.addEventListener("click", handleChooseOutputDirectory);
-  elements.btnGenerate.addEventListener("click", handleGeneratePlaceholder);
+  elements.btnGenerate.addEventListener("click", handleGenerateReport);
 }
 
 function init() {
