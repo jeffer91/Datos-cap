@@ -1,0 +1,30 @@
+{
+  "_comentarios": {
+    "nombre_completo": "package.json",
+    "ruta_o_ubicacion": "/plan-docente-extractor/package.json",
+    "funcion_o_funciones": [
+      "Configurar la aplicación Electron.",
+      "Definir scripts de ejecución.",
+      "Declarar dependencias para lectura de PDF, generación de Excel y manejo de archivos.",
+      "Preparar la app para extraer datos y exportarlos a Excel y JSON."
+    ]
+  },
+  "name": "plan-docente-extractor",
+  "version": "1.0.0",
+  "description": "Aplicación Electron para extraer datos variables de Planes Individuales de Formación y Capacitación Docente y generar tablas en Excel y JSON.",
+  "main": "main.js",
+  "author": "Jefferson Villarreal",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "electron": "^31.7.7",
+    "fs-extra": "^11.2.0",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {}
+}
