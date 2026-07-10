@@ -12,7 +12,8 @@ Función o funciones:
 
 const processors = [
   require("../document-types/plan-individual"),
-  require("../document-types/planificacion-curso")
+  require("../document-types/planificacion-curso"),
+  require("../document-types/acuerdo-patrocinio")
 ];
 
 const registry = new Map(processors.map((processor) => [processor.id, processor]));
