@@ -1,12 +1,11 @@
 /* =========================================================
 Nombre completo: main.js
-Ruta o ubicación: /plan-docente-extractor/main.js
+Ruta o ubicación: /main.js
 Función o funciones:
 - Crear la ventana principal de la aplicación Electron.
-- Configurar seguridad básica: contextIsolation, preload y sin nodeIntegration.
-- Permitir seleccionar múltiples archivos PDF desde el sistema.
-- Validar documentos usando el validador central.
-- Ejecutar la generación del reporte usando el procesador central.
+- Exponer operaciones seguras para los ocho apartados documentales.
+- Seleccionar, validar y procesar PDF según el tipo elegido.
+- Mantener compatibilidad temporal con los canales del Plan Individual.
 ========================================================= */
 
 "use strict";
@@ -15,18 +14,20 @@ const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 
 const { validatePdfFiles, validateOutputRequest } = require("./src/validators/document.validator");
-const { processReport } = require("./src/processors/report.processor");
+const { processDocument } = require("./src/core/document.processor");
+const { listDocumentTypes, assertDocumentType } = require("./src/core/document-type.registry");
 
 let mainWindow = null;
 
-const APP_NAME = "Plan Docente Extractor";
+const APP_NAME = "Gestor Documental de Capacitación";
+const DEFAULT_DOCUMENT_TYPE = "plan-individual";
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 1100,
-    minHeight: 720,
+    width: 1380,
+    height: 860,
+    minWidth: 1120,
+    minHeight: 700,
     title: APP_NAME,
     backgroundColor: "#f4f6f9",
     show: false,
@@ -34,76 +35,50 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   });
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
-
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-  });
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.on("closed", () => { mainWindow = null; });
 }
 
 function createErrorResponse(error, fallbackMessage) {
+  const message = error && error.message ? error.message : fallbackMessage;
   return {
     ok: false,
-    message: error && error.message ? error.message : fallbackMessage,
+    message,
     files: {},
     summary: {},
     warnings: [],
-    error: {
-      name: error && error.name ? error.name : "Error",
-      message: error && error.message ? error.message : fallbackMessage,
-      stack: error && error.stack ? error.stack : ""
-    }
+    errors: [{ message }]
   };
 }
 
-async function selectPdfFiles() {
+async function selectPdfFiles(documentType = DEFAULT_DOCUMENT_TYPE) {
+  const definition = assertDocumentType(documentType);
+
   if (!mainWindow) {
-    return {
-      canceled: true,
-      filePaths: []
-    };
+    return { canceled: true, documentType: definition.id, filePaths: [] };
   }
 
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: "Seleccionar planes individuales en PDF",
-    buttonLabel: "Cargar PDF",
-    properties: ["openFile", "multiSelections"],
-    filters: [
-      {
-        name: "Documentos PDF",
-        extensions: ["pdf"]
-      }
-    ]
+    title: `Seleccionar: ${definition.shortLabel}`,
+    buttonLabel: definition.allowMultiple ? "Cargar PDF" : "Cargar documento",
+    properties: definition.allowMultiple ? ["openFile", "multiSelections"] : ["openFile"],
+    filters: [{ name: "Documentos PDF", extensions: ["pdf"] }]
   });
 
-  if (result.canceled) {
-    return {
-      canceled: true,
-      filePaths: []
-    };
-  }
-
   return {
-    canceled: false,
-    filePaths: result.filePaths || []
+    canceled: result.canceled,
+    documentType: definition.id,
+    filePaths: result.canceled ? [] : (result.filePaths || [])
   };
 }
 
 async function chooseOutputDirectory() {
-  if (!mainWindow) {
-    return {
-      canceled: true,
-      outputDir: ""
-    };
-  }
+  if (!mainWindow) return { canceled: true, outputDir: "" };
 
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Seleccionar carpeta de salida",
@@ -112,20 +87,25 @@ async function chooseOutputDirectory() {
   });
 
   if (result.canceled || !result.filePaths || !result.filePaths[0]) {
-    return {
-      canceled: true,
-      outputDir: ""
-    };
+    return { canceled: true, outputDir: "" };
   }
 
-  return {
-    canceled: false,
-    outputDir: result.filePaths[0]
-  };
+  return { canceled: false, outputDir: result.filePaths[0] };
 }
 
-async function generatePlanReport(payload) {
-  const requestCheck = validateOutputRequest(payload);
+async function validateDocumentFiles(payload) {
+  const config = payload || {};
+  const documentType = config.documentType || DEFAULT_DOCUMENT_TYPE;
+  assertDocumentType(documentType);
+  return validatePdfFiles(config.filePaths || [], { documentType });
+}
+
+async function generateDocumentReport(payload) {
+  const config = {
+    ...(payload || {}),
+    documentType: payload && payload.documentType ? payload.documentType : DEFAULT_DOCUMENT_TYPE
+  };
+  const requestCheck = validateOutputRequest(config);
 
   if (!requestCheck.ok) {
     return {
@@ -133,11 +113,12 @@ async function generatePlanReport(payload) {
       message: requestCheck.issues.join(" "),
       files: {},
       summary: {},
-      warnings: requestCheck.issues
+      warnings: requestCheck.issues,
+      errors: []
     };
   }
 
-  const validation = validatePdfFiles(payload.filePaths || []);
+  const validation = validatePdfFiles(config.filePaths || [], { documentType: config.documentType });
 
   if (!validation.canContinue) {
     return {
@@ -146,44 +127,50 @@ async function generatePlanReport(payload) {
       validation,
       files: {},
       summary: {},
-      warnings: validation.invalidFiles.map((file) => ({
-        archivo: file.name,
-        errores: file.errors
-      }))
+      warnings: validation.invalidFiles.map((file) => ({ archivo: file.name, errores: file.errors })),
+      errors: []
     };
   }
 
-  return processReport({
-    outputDir: payload.outputDir,
+  return processDocument({
+    documentType: config.documentType,
+    outputDir: config.outputDir,
     validation
   });
 }
 
 function registerIpcHandlers() {
-  ipcMain.handle("app:get-info", async () => {
-    return {
-      appName: APP_NAME,
-      version: app.getVersion(),
-      platform: process.platform
-    };
+  ipcMain.handle("app:get-info", async () => ({
+    appName: APP_NAME,
+    version: app.getVersion(),
+    platform: process.platform
+  }));
+
+  ipcMain.handle("document-types:list", async () => listDocumentTypes());
+  ipcMain.handle("dialog:select-document-pdfs", async (_event, documentType) => {
+    return selectPdfFiles(documentType || DEFAULT_DOCUMENT_TYPE);
+  });
+  ipcMain.handle("files:validate-document-pdfs", async (_event, payload) => validateDocumentFiles(payload));
+  ipcMain.handle("dialog:choose-output-dir", async () => chooseOutputDirectory());
+  ipcMain.handle("reports:generate-document-report", async (_event, payload) => {
+    try {
+      return await generateDocumentReport(payload);
+    } catch (error) {
+      console.error("Error al generar reporte documental:", error);
+      return createErrorResponse(error, "Error desconocido al generar el reporte.");
+    }
   });
 
-  ipcMain.handle("dialog:select-pdfs", async () => {
-    return selectPdfFiles();
-  });
-
+  // Compatibilidad temporal con la interfaz anterior.
+  ipcMain.handle("dialog:select-pdfs", async () => selectPdfFiles(DEFAULT_DOCUMENT_TYPE));
   ipcMain.handle("files:validate-pdfs", async (_event, filePaths) => {
-    return validatePdfFiles(filePaths);
+    return validateDocumentFiles({ documentType: DEFAULT_DOCUMENT_TYPE, filePaths });
   });
-
-  ipcMain.handle("dialog:choose-output-dir", async () => {
-    return chooseOutputDirectory();
-  });
-
   ipcMain.handle("reports:generate-plan-report", async (_event, payload) => {
     try {
-      return await generatePlanReport(payload);
+      return await generateDocumentReport({ ...(payload || {}), documentType: DEFAULT_DOCUMENT_TYPE });
     } catch (error) {
+      console.error("Error al generar reporte de Plan Individual:", error);
       return createErrorResponse(error, "Error desconocido al generar el reporte.");
     }
   });
@@ -194,14 +181,10 @@ app.whenReady().then(() => {
   createMainWindow();
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  if (process.platform !== "darwin") app.quit();
 });
