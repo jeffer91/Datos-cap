@@ -32,7 +32,20 @@ jobs:
           done < <(find . -path './node_modules' -prune -o -name '*.js' -print0)
 
       - name: Auditar estructura, duplicados y flujos
-        run: npm run audit
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run audit | tee artifacts/repository-audit.log
+
+      - name: Publicar reporte de auditoría
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-audit
+          path: artifacts/repository-audit.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Diagnóstico general
         run: npm run selftest
