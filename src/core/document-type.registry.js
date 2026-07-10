@@ -4,7 +4,7 @@ Ruta o ubicación: /src/core/document-type.registry.js
 Función o funciones:
 - Registrar los ocho tipos documentales de la aplicación.
 - Entregar definiciones seguras al proceso principal y a la interfaz.
-- Validar identificadores de apartados antes de procesar archivos.
+- Validar identificadores, prefijos y colecciones antes de iniciar.
 ========================================================= */
 
 "use strict";
@@ -20,12 +20,40 @@ const definitions = [
   require("../document-types/plan-general-capacitacion/definition")
 ];
 
-const registry = new Map(definitions.map((definition) => [definition.id, definition]));
+function buildRegistry(items) {
+  const registry = new Map();
+  const prefixes = new Set();
+  const collections = new Map();
+
+  items.forEach((definition) => {
+    const id = String(definition && definition.id || "").trim();
+    if (!id) throw new Error("Existe una definición documental sin identificador.");
+    if (registry.has(id)) throw new Error(`Tipo documental duplicado: ${id}.`);
+
+    const reportPrefix = String(definition.reportPrefix || "").trim();
+    if (!reportPrefix) throw new Error(`El tipo ${id} no declara reportPrefix.`);
+    if (prefixes.has(reportPrefix)) throw new Error(`Prefijo de reporte duplicado: ${reportPrefix}.`);
+    prefixes.add(reportPrefix);
+
+    (definition.tables || []).forEach((table) => {
+      const tableName = String(table && table.name || "").trim();
+      if (!tableName) throw new Error(`El tipo ${id} contiene una tabla sin nombre.`);
+      if (collections.has(tableName)) {
+        throw new Error(`Colección duplicada entre ${collections.get(tableName)} y ${id}: ${tableName}.`);
+      }
+      collections.set(tableName, id);
+    });
+
+    registry.set(id, definition);
+  });
+
+  return registry;
+}
+
+const registry = buildRegistry(definitions);
 
 function cloneDefinition(definition) {
-  if (!definition) {
-    return null;
-  }
+  if (!definition) return null;
 
   return {
     ...definition,
@@ -48,11 +76,9 @@ function hasDocumentType(documentTypeId) {
 
 function assertDocumentType(documentTypeId) {
   const definition = getDocumentType(documentTypeId);
-
   if (!definition) {
     throw new Error(`Tipo documental no reconocido: ${documentTypeId || "vacío"}.`);
   }
-
   return definition;
 }
 
@@ -61,6 +87,7 @@ function getEnabledDocumentTypes() {
 }
 
 module.exports = {
+  buildRegistry,
   listDocumentTypes,
   getDocumentType,
   hasDocumentType,
