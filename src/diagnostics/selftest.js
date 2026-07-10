@@ -4,7 +4,7 @@ Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar un diagnóstico rápido sin abrir Electron.
 - Verificar ocho tipos documentales y ocho procesadores activos.
-- Comprobar contratos, cantidad de tablas, identificadores y códigos.
+- Comprobar contratos, identificadores, exportadores y base local.
 - Validar una exportación mínima a Excel y JSON.
 ========================================================= */
 
@@ -17,6 +17,7 @@ const path = require("path");
 const ids = require("../utils/ids");
 const normalizer = require("../extractor/normalizer");
 const exporters = require("../exporters");
+const { createPersistenceService } = require("../database");
 const { listDocumentTypes, getDocumentType } = require("../core/document-type.registry");
 const { assertProcessor, listProcessorIds, listProcessors } = require("../core/processor.registry");
 
@@ -66,6 +67,12 @@ function runSelfTest() {
   assertCondition(normalizer.parseCodigoDocumento("UGPA-RGI2-01-PRO￾70-2025-10", "70") === "UGPA-RGI2-01-PRO-70-2025-10", "No se normaliza correctamente un código del Plan de Capacitación.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
+  const persistenceService = createPersistenceService(path.join(tempDir, "local-database"));
+  const databaseSummary = persistenceService.getSummary();
+  assertCondition(databaseSummary.ok, "La base local no pudo inicializarse.");
+  assertCondition(databaseSummary.databaseVersion === 1, "La versión de la base local no es la esperada.");
+  assertCondition(fs.existsSync(databaseSummary.databasePath), "No se creó la carpeta de la base local.");
+
   const exportResult = exporters.exportAll({
     outputDir: tempDir,
     baseName: "selftest_reporte_minimo",
@@ -82,7 +89,16 @@ function runSelfTest() {
   assertCondition(fs.existsSync(exportResult.files.excel.filePath), "No se creó el Excel de diagnóstico.");
   assertCondition(fs.existsSync(exportResult.files.json.filePath), "No se creó el JSON de diagnóstico.");
 
-  return { ok: true, startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(), tempDir, documentTypes: documentTypes.map((item) => item.id), processors: processorDetails, files: exportResult.files };
+  return {
+    ok: true,
+    startedAt: startedAt.toISOString(),
+    finishedAt: new Date().toISOString(),
+    tempDir,
+    documentTypes: documentTypes.map((item) => item.id),
+    processors: processorDetails,
+    database: databaseSummary,
+    files: exportResult.files
+  };
 }
 
 if (require.main === module) {
