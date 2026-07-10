@@ -2,10 +2,10 @@
 Nombre completo: flow-isolation.test.js
 Ruta o ubicación: /src/diagnostics/flow-isolation.test.js
 Función o funciones:
-- Ejecutar los ocho procesadores de manera secuencial sobre una misma base local.
-- Verificar que cada flujo produzca únicamente sus tablas declaradas.
+- Ejecutar los ocho procesadores secuencialmente sobre una misma base local.
+- Verificar que cada flujo produzca y exporte únicamente sus tablas declaradas.
 - Confirmar que ningún módulo sobrescriba documentos o filas de otro módulo.
-- Comprobar consultas por tipo y deduplicación después del flujo completo.
+- Comprobar consultas, deduplicación, respaldo y restauración integral.
 ========================================================= */
 
 "use strict";
@@ -16,7 +16,13 @@ const path = require("path");
 
 const { listDocumentTypes } = require("../core/document-type.registry");
 const { assertProcessor } = require("../core/processor.registry");
-const { createPersistenceService, createQueryService } = require("../database");
+const { exportAll } = require("../exporters");
+const {
+  createPersistenceService,
+  createQueryService,
+  createBackupService,
+  BACKUP_EXTENSION
+} = require("../database");
 
 const { createSyntheticPdfDocument } = require("./plan-individual.parser.test");
 const { createSyntheticPlanningDocument } = require("./planificacion-curso.parser.test");
@@ -48,6 +54,38 @@ function sorted(values) {
 
 function sameValues(left, right) {
   return JSON.stringify(sorted(left)) === JSON.stringify(sorted(right));
+}
+
+function createSheetLabels(definition) {
+  return Object.fromEntries(definition.tables.map((table) => [table.name, table.sheet]));
+}
+
+function validateExport(definition, expectedTables, exportResult) {
+  assertCondition(exportResult && exportResult.ok, `${definition.id}: la exportación no terminó correctamente.`);
+  assertCondition(exportResult.documentType === definition.id, `${definition.id}: la exportación informó otro tipo documental.`);
+
+  const excelPath = exportResult.files && exportResult.files.excel && exportResult.files.excel.filePath;
+  const jsonPath = exportResult.files && exportResult.files.json && exportResult.files.json.filePath;
+  assertCondition(excelPath && fs.existsSync(excelPath), `${definition.id}: no se creó el archivo Excel.`);
+  assertCondition(jsonPath && fs.existsSync(jsonPath), `${definition.id}: no se creó el archivo JSON.`);
+  assertCondition(fs.statSync(excelPath).size > 0, `${definition.id}: el Excel quedó vacío.`);
+  assertCondition(fs.statSync(jsonPath).size > 0, `${definition.id}: el JSON quedó vacío.`);
+
+  const payload = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+  assertCondition(payload.metadata.tipo_documental === definition.id, `${definition.id}: el JSON contiene otro tipo documental.`);
+  assertCondition(payload.metadata.nombre_tipo_documental === definition.label, `${definition.id}: el JSON contiene otro nombre documental.`);
+  assertCondition(sameValues(Object.keys(payload.tablas || {}), expectedTables), `${definition.id}: el JSON perdió o agregó tablas.`);
+  expectedTables.forEach((tableName) => {
+    assertCondition(Array.isArray(payload.tablas[tableName]), `${definition.id}: ${tableName} no es un arreglo en el JSON.`);
+    assertCondition(payload.tablas[tableName].length > 0, `${definition.id}: ${tableName} quedó vacía en el JSON.`);
+  });
+
+  return {
+    excelPath,
+    jsonPath,
+    excelSize: fs.statSync(excelPath).size,
+    jsonSize: fs.statSync(jsonPath).size
+  };
 }
 
 function executeModule(definition, persistence, outputDirectory) {
@@ -83,11 +121,28 @@ function executeModule(definition, persistence, outputDirectory) {
     });
   });
 
+  const moduleOutputDirectory = path.join(outputDirectory, definition.id);
+  fs.mkdirSync(moduleOutputDirectory, { recursive: true });
+  const exportResult = exportAll({
+    outputDir: moduleOutputDirectory,
+    baseName: `verificacion_${definition.id}`,
+    documentType: definition.id,
+    documentLabel: definition.label,
+    sheetOrder: expectedTables,
+    sheetLabels: createSheetLabels(definition),
+    tables: tableResult.tables,
+    summary: tableResult.summary || {},
+    validations: tableResult.validations || {},
+    warnings: [],
+    errors: []
+  });
+  const exportedFiles = validateExport(definition, expectedTables, exportResult);
+
   const persistenceResult = persistence.persistProcessingResult({
     definition,
     documentType: definition.id,
     processorId: processor.id,
-    outputDir: outputDirectory,
+    outputDir: moduleOutputDirectory,
     parseResult,
     tableResult
   });
@@ -97,8 +152,8 @@ function executeModule(definition, persistence, outputDirectory) {
 
   persistence.finalizeProcessingRun(persistenceResult.runId, {
     ok: true,
-    outputDir: outputDirectory,
-    files: {}
+    outputDir: moduleOutputDirectory,
+    files: exportResult.files
   });
 
   return {
@@ -107,7 +162,67 @@ function executeModule(definition, persistence, outputDirectory) {
     sourceDocument,
     parseResult,
     tableResult,
+    exportResult,
+    exportedFiles,
     persistenceResult
+  };
+}
+
+function verifyQueries(definitions, query) {
+  definitions.forEach((definition) => {
+    const result = query.queryDocuments({ documentType: definition.id, pageSize: 100 });
+    assertCondition(result.ok, `${definition.id}: la consulta falló.`);
+    assertCondition(result.pagination.total === 1, `${definition.id}: la consulta debía devolver un documento.`);
+    assertCondition(result.items[0].tipo_documental === definition.id, `${definition.id}: la consulta devolvió otro tipo.`);
+
+    const detail = query.getDocumentDetail(result.items[0].id_documento, { rowLimit: 500 });
+    assertCondition(detail.ok, `${definition.id}: no se recuperó el detalle documental.`);
+    const detailCollections = Object.keys(detail.collections || detail.colecciones || {});
+    assertCondition(
+      sameValues(detailCollections, definition.tables.map((table) => table.name)),
+      `${definition.id}: el detalle no contiene exactamente sus colecciones.`
+    );
+  });
+}
+
+function verifyBackupAndRestore(tempDirectory, persistence, definitions, expectedSummary) {
+  const backupDirectory = path.join(tempDirectory, "backups-origin");
+  const backupPath = path.join(tempDirectory, `verificacion-integral${BACKUP_EXTENSION}`);
+  const backupService = createBackupService(persistence.database, {
+    appVersion: "2.2.1-final-verification",
+    backupDirectory,
+    defaultRetention: 3
+  });
+
+  const backup = backupService.createBackup(backupPath, { reason: "verificacion-integral" });
+  assertCondition(backup.ok, "No se pudo crear el respaldo integral.");
+  assertCondition(fs.existsSync(backup.filePath), "El respaldo integral no existe físicamente.");
+  const validation = backupService.validateBackup(backup.filePath);
+  assertCondition(validation.ok, "El respaldo integral no superó su propia validación.");
+  assertCondition(validation.summary.recordCount === expectedSummary.totalRecords, "El respaldo integral perdió registros.");
+
+  const restoredPersistence = createPersistenceService(path.join(tempDirectory, "database-restored"));
+  const restoredBackupService = createBackupService(restoredPersistence.database, {
+    appVersion: "2.2.1-final-verification",
+    backupDirectory: path.join(tempDirectory, "backups-restored"),
+    defaultRetention: 3
+  });
+  const restored = restoredBackupService.restoreBackup(backup.filePath, { mode: "replace" });
+  assertCondition(restored.ok, "La restauración integral falló.");
+
+  const restoredSummary = restoredPersistence.getSummary();
+  assertCondition(restoredSummary.documentCount === expectedSummary.documentCount, "La restauración cambió el total de documentos.");
+  assertCondition(restoredSummary.activeDocumentCount === expectedSummary.activeDocumentCount, "La restauración cambió los documentos activos.");
+  assertCondition(restoredSummary.tableRows === expectedSummary.tableRows, "La restauración cambió el total de filas.");
+  assertCondition(restoredSummary.processingRunCount === expectedSummary.processingRunCount, "La restauración cambió el historial.");
+
+  const restoredQuery = createQueryService(restoredPersistence.database);
+  verifyQueries(definitions, restoredQuery);
+
+  return {
+    backup,
+    validation: validation.summary,
+    restoredSummary
   };
 }
 
@@ -129,6 +244,13 @@ function runFlowIsolationTest() {
     "Las colecciones persistidas no coinciden con la suma de las tablas declaradas."
   );
 
+  const exportPaths = executions.flatMap((execution) => [
+    execution.exportedFiles.excelPath,
+    execution.exportedFiles.jsonPath
+  ]);
+  assertCondition(exportPaths.length === 16, "No se generaron los 16 archivos esperados para los ocho módulos.");
+  assertCondition(new Set(exportPaths).size === exportPaths.length, "Dos módulos utilizaron la misma ruta de exportación.");
+
   const collectionOwners = new Map();
   executions.forEach((execution) => {
     const documentId = execution.parseResult.parsed[0].id_documento;
@@ -143,12 +265,7 @@ function runFlowIsolationTest() {
     });
   });
 
-  definitions.forEach((definition) => {
-    const result = query.queryDocuments({ documentType: definition.id, pageSize: 100 });
-    assertCondition(result.ok, `${definition.id}: la consulta falló.`);
-    assertCondition(result.pagination.total === 1, `${definition.id}: la consulta debía devolver un documento.`);
-    assertCondition(result.items[0].tipo_documental === definition.id, `${definition.id}: la consulta devolvió otro tipo.`);
-  });
+  verifyQueries(definitions, query);
 
   const summaryBeforeDuplicate = persistence.getSummary();
   assertCondition(summaryBeforeDuplicate.documentCount === 8, "La base debía contener ocho documentos.");
@@ -167,7 +284,7 @@ function runFlowIsolationTest() {
   persistence.finalizeProcessingRun(duplicatePersistence.runId, {
     ok: true,
     outputDir: outputDirectory,
-    files: {}
+    files: first.exportResult.files
   });
 
   assertCondition(duplicatePersistence.documentsSaved === 0, "El reprocesamiento idéntico duplicó el documento.");
@@ -179,15 +296,19 @@ function runFlowIsolationTest() {
   assertCondition(finalSummary.tableRows === summaryBeforeDuplicate.tableRows, "El duplicado alteró el total de filas.");
   assertCondition(finalSummary.processingRunCount === 9, "El reprocesamiento no quedó registrado en el historial.");
 
+  const backupVerification = verifyBackupAndRestore(tempDirectory, persistence, definitions, finalSummary);
+
   return {
     ok: true,
     tempDirectory,
     documentTypes: definitions.length,
     processorsExecuted: executions.length,
     collections: actualCollectionNames.length,
+    exportsGenerated: exportPaths.length,
     collectionOwners: Object.fromEntries(collectionOwners),
     summaryBeforeDuplicate,
-    finalSummary
+    finalSummary,
+    backupVerification
   };
 }
 
@@ -204,6 +325,10 @@ if (require.main === module) {
 
 module.exports = {
   FIXTURE_FACTORIES,
+  createSheetLabels,
+  validateExport,
   executeModule,
+  verifyQueries,
+  verifyBackupAndRestore,
   runFlowIsolationTest
 };
