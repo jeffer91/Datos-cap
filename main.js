@@ -4,20 +4,22 @@ Ruta o ubicación: /main.js
 Función o funciones:
 - Crear la ventana principal de la aplicación Electron.
 - Exponer operaciones seguras para los ocho apartados documentales.
-- Seleccionar, validar y procesar PDF según el tipo elegido.
-- Mantener compatibilidad temporal con los canales del Plan Individual.
+- Seleccionar, validar, procesar, guardar y exportar documentos.
+- Administrar resumen, historial y carpeta física de la base local.
 ========================================================= */
 
 "use strict";
 
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 
 const { validatePdfFiles, validateOutputRequest } = require("./src/validators/document.validator");
 const { processDocument } = require("./src/core/document.processor");
 const { listDocumentTypes, assertDocumentType } = require("./src/core/document-type.registry");
+const { createPersistenceService } = require("./src/database");
 
 let mainWindow = null;
+let persistenceService = null;
 
 const APP_NAME = "Gestor Documental de Capacitación";
 const DEFAULT_DOCUMENT_TYPE = "plan-individual";
@@ -54,6 +56,19 @@ function createErrorResponse(error, fallbackMessage) {
     warnings: [],
     errors: [{ message }]
   };
+}
+
+function initializeLocalDatabase() {
+  const databaseDirectory = path.join(app.getPath("userData"), "local-database");
+  persistenceService = createPersistenceService(databaseDirectory);
+  return persistenceService.getSummary();
+}
+
+function requirePersistenceService() {
+  if (!persistenceService) {
+    throw new Error("La base local no está disponible. Reinicia la aplicación y revisa los permisos de la carpeta de usuario.");
+  }
+  return persistenceService;
 }
 
 async function selectPdfFiles(documentType = DEFAULT_DOCUMENT_TYPE) {
@@ -97,7 +112,8 @@ async function validateDocumentFiles(payload) {
   const config = payload || {};
   const documentType = config.documentType || DEFAULT_DOCUMENT_TYPE;
   assertDocumentType(documentType);
-  return validatePdfFiles(config.filePaths || [], { documentType });
+  const validation = validatePdfFiles(config.filePaths || [], { documentType });
+  return requirePersistenceService().enrichValidation(validation, documentType);
 }
 
 async function generateDocumentReport(payload) {
@@ -118,7 +134,10 @@ async function generateDocumentReport(payload) {
     };
   }
 
-  const validation = validatePdfFiles(config.filePaths || [], { documentType: config.documentType });
+  const validation = requirePersistenceService().enrichValidation(
+    validatePdfFiles(config.filePaths || [], { documentType: config.documentType }),
+    config.documentType
+  );
 
   if (!validation.canContinue) {
     return {
@@ -135,15 +154,24 @@ async function generateDocumentReport(payload) {
   return processDocument({
     documentType: config.documentType,
     outputDir: config.outputDir,
-    validation
+    validation,
+    persistenceService: requirePersistenceService()
   });
+}
+
+async function openDatabaseFolder() {
+  const service = requirePersistenceService();
+  const errorMessage = await shell.openPath(service.getDatabasePath());
+  if (errorMessage) throw new Error(errorMessage);
+  return { ok: true, databasePath: service.getDatabasePath() };
 }
 
 function registerIpcHandlers() {
   ipcMain.handle("app:get-info", async () => ({
     appName: APP_NAME,
     version: app.getVersion(),
-    platform: process.platform
+    platform: process.platform,
+    databaseAvailable: Boolean(persistenceService)
   }));
 
   ipcMain.handle("document-types:list", async () => listDocumentTypes());
@@ -158,6 +186,31 @@ function registerIpcHandlers() {
     } catch (error) {
       console.error("Error al generar reporte documental:", error);
       return createErrorResponse(error, "Error desconocido al generar el reporte.");
+    }
+  });
+
+  ipcMain.handle("database:get-summary", async () => {
+    try {
+      return requirePersistenceService().getSummary();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo consultar la base local.");
+    }
+  });
+  ipcMain.handle("database:list-recent-runs", async (_event, options) => {
+    try {
+      return {
+        ok: true,
+        runs: requirePersistenceService().listRecentRuns(options || {})
+      };
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo consultar el historial local.");
+    }
+  });
+  ipcMain.handle("database:open-folder", async () => {
+    try {
+      return await openDatabaseFolder();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo abrir la carpeta de la base local.");
     }
   });
 
@@ -177,6 +230,13 @@ function registerIpcHandlers() {
 }
 
 app.whenReady().then(() => {
+  try {
+    initializeLocalDatabase();
+  } catch (error) {
+    persistenceService = null;
+    console.error("No se pudo iniciar la base local:", error);
+  }
+
   registerIpcHandlers();
   createMainWindow();
 
