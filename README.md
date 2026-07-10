@@ -277,6 +277,8 @@ npm run test:local-database
 npm run test:query-service
 ```
 
+GitHub Actions verifica sintaxis, ocho procesadores, base local, deduplicación, versionado, consultas, filtros, paginación y detalle documental.
+
 ## Seguridad y trazabilidad
 
 - `contextIsolation` activado.
