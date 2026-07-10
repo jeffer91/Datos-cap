@@ -70,8 +70,6 @@ Menú con ocho apartados, registro central, reglas de documentos únicos y repet
 
 ### 6. Instrumento de Evaluación de la Capacitación
 
-Procesa documentos `UGPA-RGI1-XX-PRO-135-AÑO-MES` y genera ocho tablas:
-
 ```text
 01_archivos
 02_datos_generales
@@ -83,25 +81,40 @@ Procesa documentos `UGPA-RGI1-XX-PRO-135-AÑO-MES` y genera ocho tablas:
 08_responsables
 ```
 
+Extrae participantes, resultados cuantitativos, escala Likert, objetivos, conclusiones y recomendaciones. Cuando una marca no conserva su columna en el texto del PDF, solicita revisión en lugar de inventar el dato.
+
+### 7. Informe de Impacto de la Capacitación
+
+Procesa documentos `UGPA-INF-XX-PRO-135-AÑO-MES` y genera siete tablas:
+
+```text
+01_archivos
+02_datos_generales
+03_indicadores
+04_objetivos
+05_metodologia
+06_analisis
+07_responsables
+```
+
 Extrae:
 
-- Curso, periodo de capacitación, facilitador, fecha y carrera.
-- Participantes con identificación, discapacidad, carné y género.
-- Cumplimiento del cronograma.
-- Participación activa.
-- Uso de recursos tecnológicos.
-- Actividades metodológicas.
-- Ajustes del facilitador.
-- Promedio de aprendizaje, satisfacción, aprobación, aplicabilidad y seguimiento.
-- Escala Likert de cinco ítems.
-- Objetivos de aprendizaje y porcentaje de cumplimiento.
-- Resultados cualitativos, observaciones, conclusiones y recomendaciones.
+- Nombre del curso, carrera o público destinatario.
+- Periodo, fechas de inicio y finalización.
+- Facilitador y número de participantes.
+- Fecha de elaboración, versión y código institucional.
+- Indicadores cualitativos con sus porcentajes.
+- Indicadores cuantitativos de participación, cronograma y aplicabilidad.
+- Evaluación del cumplimiento de objetivos.
+- Métodos e instrumentos de medición.
+- Escalas de satisfacción, observación, pruebas y entrevistas.
+- Resultados cualitativos y cuantitativos.
+- Análisis de causalidad y variables moderadoras.
+- Conclusiones y recomendaciones.
 - Elaborado, revisado y aprobado.
 - Páginas reales, páginas declaradas e inconsistencias.
 
-Cuando el PDF contiene una marca `X`, pero el texto extraído no conserva la columna Likert, el módulo guarda `MARCA_SIN_COLUMNA` y solicita revisión visual en lugar de inventar la respuesta.
-
-Las identificaciones pueden ser de 10 dígitos, más cortas o alfanuméricas. Las que no tengan 10 dígitos se conservan con advertencia, sin bloquear el procesamiento.
+Los indicadores se separan incluso cuando el PDF elimina los saltos de línea y junta varios resultados en un solo párrafo. Cada indicador conserva su texto completo, porcentaje, tipo de impacto y documento de origen.
 
 ## Módulos activos
 
@@ -110,12 +123,13 @@ Las identificaciones pueden ser de 10 dígitos, más cortas o alfanuméricas. La
 - Acuerdo de Patrocinio.
 - Informe Final de Capacitación.
 - Instrumento de Evaluación de la Capacitación.
+- Informe de Impacto de la Capacitación.
 
 ## Módulos pendientes
 
-- Informe de Impacto de la Capacitación.
 - Detección de Necesidades de Capacitación.
 - Plan General de Capacitación Docente.
+- Base de datos local e integración final.
 
 ## Flujo
 
@@ -130,16 +144,24 @@ Seleccionar apartado
 → Generar Excel + JSON
 ```
 
-## Estructura del módulo de evaluación
+## Estructura de los módulos más recientes
 
 ```text
-src/document-types/instrumento-evaluacion/
-├─ definition.js
-├─ parser.js
-├─ parser-v2.js
-├─ tables.js
-├─ validator.js
-└─ index.js
+src/document-types/
+├─ instrumento-evaluacion/
+│  ├─ definition.js
+│  ├─ parser.js
+│  ├─ parser-v2.js
+│  ├─ tables.js
+│  ├─ validator.js
+│  └─ index.js
+└─ informe-impacto/
+   ├─ definition.js
+   ├─ parser.js
+   ├─ parser-v2.js
+   ├─ tables.js
+   ├─ validator.js
+   └─ index.js
 ```
 
 ## Instalación y ejecución
@@ -164,6 +186,7 @@ npm run test:planificacion-curso
 npm run test:acuerdo-patrocinio
 npm run test:informe-final
 npm run test:instrumento-evaluacion
+npm run test:informe-impacto
 ```
 
 ## OCR
@@ -172,4 +195,4 @@ Los PDF con texto suficiente se procesan directamente. Los PDF vacíos, escanead
 
 ## Próxima etapa
 
-Implementar el procesador especializado del Informe de Impacto de la Capacitación.
+Implementar el procesador especializado de Detección de Necesidades de Capacitación como documento único por periodo.
