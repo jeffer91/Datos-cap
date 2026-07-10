@@ -2,7 +2,7 @@
 Nombre completo: reporting-schema.registry.js
 Ruta o ubicación: /src/reporting/schema/reporting-schema.registry.js
 Función o funciones:
-- Declarar las colecciones que alimentarán reportes individuales y globales.
+- Declarar las 51 colecciones documentales que alimentarán los reportes.
 - Mapear campos equivalentes de persona, curso, periodo y carrera.
 - Identificar fuentes de documentos, participantes, resultados y análisis.
 - Exponer capacidades y limitaciones actuales de trazabilidad.
@@ -19,10 +19,11 @@ const SOURCES = Object.freeze({
   planIndividual: Object.freeze({
     documentType: "plan-individual",
     collections: Object.freeze({
+      files: "archivos_plan_individual",
       identification: "identificacion_docente",
+      capabilities: "capacidades_docente",
       trainings: "capacitaciones_propuestas",
-      education: "formacion_docente",
-      capabilities: "capacidades_docente"
+      education: "formacion_docente"
     }),
     personFields: Object.freeze(["nombre_docente"]),
     identityFields: Object.freeze([]),
@@ -34,6 +35,7 @@ const SOURCES = Object.freeze({
   sponsorshipAgreement: Object.freeze({
     documentType: "acuerdo-patrocinio",
     collections: Object.freeze({
+      files: "archivos_acuerdo_patrocinio",
       data: "datos_acuerdo_patrocinio",
       supports: "apoyos_acuerdo_patrocinio",
       responsible: "responsables_acuerdo_patrocinio"
@@ -48,6 +50,7 @@ const SOURCES = Object.freeze({
   coursePlanning: Object.freeze({
     documentType: "planificacion-curso",
     collections: Object.freeze({
+      files: "archivos_planificacion_curso",
       data: "datos_generales_capacitacion",
       units: "unidades_capacitacion",
       evaluations: "evaluaciones_capacitacion"
@@ -62,6 +65,7 @@ const SOURCES = Object.freeze({
   finalReport: Object.freeze({
     documentType: "informe-final",
     collections: Object.freeze({
+      files: "archivos_informe_final",
       data: "datos_informe_final",
       participants: "participantes_informe_final",
       results: "resultados_informe_final",
@@ -78,6 +82,7 @@ const SOURCES = Object.freeze({
   evaluationInstrument: Object.freeze({
     documentType: "instrumento-evaluacion",
     collections: Object.freeze({
+      files: "archivos_instrumento_evaluacion",
       data: "datos_instrumento_evaluacion",
       participants: "participantes_instrumento_evaluacion",
       indicators: "indicadores_instrumento_evaluacion",
@@ -96,6 +101,7 @@ const SOURCES = Object.freeze({
   impactReport: Object.freeze({
     documentType: "informe-impacto",
     collections: Object.freeze({
+      files: "archivos_informe_impacto",
       data: "datos_informe_impacto",
       indicators: "indicadores_informe_impacto",
       objectives: "objetivos_informe_impacto",
@@ -114,12 +120,15 @@ const SOURCES = Object.freeze({
   needsDetection: Object.freeze({
     documentType: "deteccion-necesidades",
     collections: Object.freeze({
+      files: "archivos_deteccion_necesidades",
       data: "datos_deteccion_necesidades",
+      sources: "fuentes_deteccion_necesidades",
       institutional: "necesidades_institucionales",
       careerNeeds: "necesidades_por_carrera",
       careerPriorities: "prioridades_por_carrera",
       consolidated: "consolidado_deteccion_necesidades",
-      analysis: "analisis_deteccion_necesidades"
+      analysis: "analisis_deteccion_necesidades",
+      responsible: "responsables_deteccion_necesidades"
     }),
     personFields: Object.freeze([]),
     identityFields: Object.freeze([]),
@@ -131,6 +140,7 @@ const SOURCES = Object.freeze({
   semesterPlan: Object.freeze({
     documentType: "plan-general-capacitacion",
     collections: Object.freeze({
+      files: "archivos_plan_general_capacitacion",
       data: "datos_plan_general_capacitacion",
       objectives: "objetivos_plan_general_capacitacion",
       trainings: "capacitaciones_planificadas",
@@ -194,13 +204,15 @@ function getSource(sourceKey) {
 
 function getSourceByDocumentType(documentType) {
   const type = String(documentType || "").trim();
-  return Object.entries(SOURCES).find(([, source]) => source.documentType === type) || null;
+  const entry = Object.entries(SOURCES).find(([, source]) => source.documentType === type);
+  return entry ? { sourceKey: entry[0], ...entry[1] } : null;
 }
 
 function getReportingCapabilities() {
   return {
     schemaVersion: REPORTING_SCHEMA_VERSION,
     canReadAllEightDocumentTypes: true,
+    mappedDocumentCollections: listCollections().length - 1,
     canBuildPersonIndex: true,
     canBuildCourseIndex: true,
     canResolvePeriodsFromDocumentMaster: true,
