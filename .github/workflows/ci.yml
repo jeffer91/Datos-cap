@@ -24,40 +24,12 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
-      - name: Generar diagnóstico de sintaxis
+      - name: Verificar sintaxis JavaScript
         shell: bash
         run: |
-          set +e
-          : > sintaxis-debug.txt
-          estado=0
           while IFS= read -r -d '' file; do
-            echo "Verificando: $file" >> sintaxis-debug.txt
-            node --check "$file" >> sintaxis-debug.txt 2>&1
-            codigo=$?
-            if [ $codigo -ne 0 ]; then
-              estado=$codigo
-              break
-            fi
+            node --check "$file"
           done < <(find . -path './node_modules' -prune -o -name '*.js' -print0)
-          echo "$estado" > sintaxis-exit-code.txt
-          exit 0
-
-      - name: Guardar diagnóstico de sintaxis
-        uses: actions/upload-artifact@v4
-        with:
-          name: sintaxis-debug
-          path: |
-            sintaxis-debug.txt
-            sintaxis-exit-code.txt
-
-      - name: Verificar resultado de sintaxis
-        shell: bash
-        run: |
-          codigo=$(cat sintaxis-exit-code.txt)
-          if [ "$codigo" != "0" ]; then
-            cat sintaxis-debug.txt
-            exit "$codigo"
-          fi
 
       - name: Diagnóstico general
         run: npm run selftest
@@ -80,28 +52,5 @@ jobs:
       - name: Probar Informe de Impacto
         run: npm run test:informe-impacto
 
-      - name: Generar diagnóstico de Detección de Necesidades
-        shell: bash
-        run: |
-          set +e
-          node src/diagnostics/deteccion-necesidades.debug.js > deteccion-necesidades-debug.txt 2>&1
-          npm run test:deteccion-necesidades >> deteccion-necesidades-debug.txt 2>&1
-          echo "$?" > deteccion-necesidades-exit-code.txt
-          exit 0
-
-      - name: Guardar diagnóstico de Detección de Necesidades
-        uses: actions/upload-artifact@v4
-        with:
-          name: deteccion-necesidades-debug
-          path: |
-            deteccion-necesidades-debug.txt
-            deteccion-necesidades-exit-code.txt
-
-      - name: Verificar Detección de Necesidades
-        shell: bash
-        run: |
-          codigo=$(cat deteccion-necesidades-exit-code.txt)
-          if [ "$codigo" != "0" ]; then
-            cat deteccion-necesidades-debug.txt
-            exit "$codigo"
-          fi
+      - name: Probar Detección de Necesidades
+        run: npm run test:deteccion-necesidades
