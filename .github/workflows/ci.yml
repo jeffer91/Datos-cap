@@ -43,14 +43,5 @@ jobs:
       - name: Probar Acuerdo de Patrocinio
         run: npm run test:acuerdo-patrocinio
 
-      - name: Generar diagnóstico del Informe Final
-        run: node src/diagnostics/informe-final.debug.js > informe-final-debug.json
-
-      - name: Guardar diagnóstico del Informe Final
-        uses: actions/upload-artifact@v4
-        with:
-          name: informe-final-debug
-          path: informe-final-debug.json
-
       - name: Probar Informe Final
         run: npm run test:informe-final
