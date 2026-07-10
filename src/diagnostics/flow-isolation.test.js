@@ -175,13 +175,15 @@ function verifyQueries(definitions, query) {
     assertCondition(result.pagination.total === 1, `${definition.id}: la consulta debía devolver un documento.`);
     assertCondition(result.items[0].tipo_documental === definition.id, `${definition.id}: la consulta devolvió otro tipo.`);
 
-    const detail = query.getDocumentDetail(result.items[0].id_documento, { rowLimit: 500 });
+    const detail = query.getDocumentDetail(result.items[0].id_documento, { maxRowsPerCollection: 500 });
     assertCondition(detail.ok, `${definition.id}: no se recuperó el detalle documental.`);
-    const detailCollections = Object.keys(detail.collections || detail.colecciones || {});
+    const detailCollections = (detail.collections || []).map((collection) => collection.name);
     assertCondition(
       sameValues(detailCollections, definition.tables.map((table) => table.name)),
       `${definition.id}: el detalle no contiene exactamente sus colecciones.`
     );
+    assertCondition(detail.summary.totalCollections === definition.tables.length, `${definition.id}: el resumen de detalle tiene otra cantidad de colecciones.`);
+    assertCondition(detail.summary.totalRows > 0, `${definition.id}: el detalle documental no contiene filas.`);
   });
 }
 
