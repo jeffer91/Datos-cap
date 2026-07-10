@@ -10,7 +10,7 @@
     ]
   },
   "name": "gestor-documental-capacitacion",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Aplicación Electron con apartados específicos para procesar documentos institucionales de formación y capacitación docente.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
@@ -19,7 +19,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "selftest": "node src/diagnostics/selftest.js"
+    "selftest": "node src/diagnostics/selftest.js",
+    "test:plan-individual": "node src/diagnostics/plan-individual.parser.test.js",
+    "test": "npm run selftest && npm run test:plan-individual"
   },
   "dependencies": {
     "electron": "^31.7.7",
