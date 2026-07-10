@@ -66,3 +66,38 @@ jobs:
 
       - name: Probar Respaldo y Restauración
         run: npm run test:backup-service
+
+  electron-integration:
+    name: Integración Electron y OCR
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Preparar pantalla virtual
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Procesar ocho PDF desde la interfaz real
+        env:
+          INTEGRATION_ARTIFACT_DIR: ${{ github.workspace }}/artifacts/electron-integration
+          ELECTRON_ENABLE_LOGGING: "1"
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1440x1000x24" npm run test:electron-integration
+
+      - name: Publicar reporte, PDF, Excel, JSON y capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-integration-artifacts
+          path: artifacts/electron-integration
+          if-no-files-found: warn
+          retention-days: 14
