@@ -46,5 +46,14 @@ jobs:
       - name: Probar Informe Final
         run: npm run test:informe-final
 
+      - name: Generar diagnóstico del Instrumento de Evaluación
+        run: node src/diagnostics/instrumento-evaluacion.debug.js > instrumento-evaluacion-debug.json
+
+      - name: Guardar diagnóstico del Instrumento de Evaluación
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumento-evaluacion-debug
+          path: instrumento-evaluacion-debug.json
+
       - name: Probar Instrumento de Evaluación
         run: npm run test:instrumento-evaluacion
