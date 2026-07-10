@@ -90,7 +90,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npm run test:report-data 2>&1 | tee artifacts/report-data.log
+          {
+            node src/diagnostics/report-data.inspect.js
+            npm run test:report-data
+          } 2>&1 | tee artifacts/report-data.log
 
       - name: Publicar log del modelo de reportes
         if: always()
