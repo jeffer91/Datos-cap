@@ -3,7 +3,7 @@ Nombre completo: selftest.js
 Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar un diagnóstico rápido sin abrir Electron.
-- Verificar ocho tipos documentales y cinco procesadores activos.
+- Verificar ocho tipos documentales y seis procesadores activos.
 - Comprobar contratos, cantidad de tablas, identificadores y códigos.
 - Validar una exportación mínima a Excel y JSON.
 ========================================================= */
@@ -47,7 +47,8 @@ function runSelfTest() {
     ["planificacion-curso", 4, true],
     ["acuerdo-patrocinio", 4, true],
     ["informe-final", 6, true],
-    ["instrumento-evaluacion", 8, true]
+    ["instrumento-evaluacion", 8, true],
+    ["informe-impacto", 7, true]
   ];
 
   assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
@@ -59,8 +60,8 @@ function runSelfTest() {
 
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
   assertCondition(ids.extractRegistroFromCodigo("CGC-RGI2-146-PRO-134-2025-03") === "146", "No se reconoce el registro de códigos CGC.");
-  assertCondition(ids.extractRegistroFromCodigo("UGPA-INF-07-PRO-134-2025-09") === "07", "No se reconoce el registro de códigos UGPA-INF.");
-  assertCondition(normalizer.parseCodigoDocumento("UGPA-RGI1-07-PRO￾135-2025-09", "135") === "UGPA-RGI1-07-PRO-135-2025-09", "No se normaliza correctamente un código PRO-135.");
+  assertCondition(ids.extractRegistroFromCodigo("UGPA-INF-07-PRO-135-2025-11") === "07", "No se reconoce el registro de códigos UGPA-INF de impacto.");
+  assertCondition(normalizer.parseCodigoDocumento("UGPA-INF-07-PRO￾135-2025-11", "135") === "UGPA-INF-07-PRO-135-2025-11", "No se normaliza correctamente un código de Informe de Impacto.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
   const exportResult = exporters.exportAll({
