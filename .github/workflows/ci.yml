@@ -43,5 +43,8 @@ jobs:
       - name: Probar Acuerdo de Patrocinio
         run: npm run test:acuerdo-patrocinio
 
+      - name: Diagnosticar Informe Final
+        run: node src/diagnostics/informe-final.debug.js
+
       - name: Probar Informe Final
         run: npm run test:informe-final
