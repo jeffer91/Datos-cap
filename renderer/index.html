@@ -2,8 +2,8 @@
 Nombre completo: index.html
 Ruta o ubicación: /renderer/index.html
 Función o funciones:
-- Mostrar el panel principal con ocho apartados específicos.
-- Mostrar base local, historial, consultas, filtros y detalle documental.
+- Mostrar ocho apartados documentales y la base local.
+- Mostrar consultas, filtros, respaldos y restauración segura.
 - Gestionar carga, validación, persistencia y exportación.
 ========================================================= -->
 
@@ -20,6 +20,7 @@ Función o funciones:
   <link rel="stylesheet" href="./styles/app.css" />
   <link rel="stylesheet" href="./styles/layout.css" />
   <link rel="stylesheet" href="./styles/database.css" />
+  <link rel="stylesheet" href="./styles/backup.css" />
   <link rel="stylesheet" href="./styles/query.css" />
 </head>
 <body>
@@ -92,6 +93,48 @@ Función o funciones:
         <div id="databaseHistory">
           <div class="empty">Todavía no existen procesamientos registrados.</div>
         </div>
+      </section>
+
+      <section class="card backup-card">
+        <div class="backup-heading">
+          <div>
+            <h3 class="card-title">Respaldo y restauración</h3>
+            <p class="card-description">
+              Protege toda la base en un archivo comprimido y restaura con validación de integridad antes de cambiar los datos.
+            </p>
+          </div>
+          <span class="badge badge-ready" id="backupCountBadge">0 respaldos</span>
+        </div>
+
+        <div class="backup-summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">Último respaldo</div>
+            <div class="backup-summary-value" id="backupLastDate">Sin respaldos</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Tamaño acumulado</div>
+            <div class="backup-summary-value" id="backupTotalSize">0 B</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Retención automática</div>
+            <div class="backup-summary-value">20 archivos</div>
+          </div>
+        </div>
+
+        <div class="actions backup-actions">
+          <button class="btn btn-primary" id="btnCreateBackup" type="button">Crear respaldo completo</button>
+          <button class="btn btn-danger" id="btnRestoreBackup" type="button">Restaurar respaldo</button>
+          <button class="btn btn-secondary" id="btnOpenBackups" type="button">Abrir carpeta de respaldos</button>
+          <button class="btn btn-secondary" id="btnRefreshBackups" type="button">Actualizar estado</button>
+        </div>
+
+        <div class="backup-rules">
+          <div><strong>Automático:</strong> se crea después de cada procesamiento y, cuando hay datos, al menos una vez por día.</div>
+          <div><strong>Restauración segura:</strong> valida checksum SHA-256 y crea un respaldo previo antes de reemplazar o combinar.</div>
+          <div><strong>Archivo:</strong> formato comprimido <code>.capbackup</code> con todas las colecciones y metadatos.</div>
+        </div>
+
+        <div class="status-box status-info" id="backupStatus">Consultando respaldos disponibles...</div>
       </section>
 
       <section class="card query-card">
@@ -244,6 +287,7 @@ Función o funciones:
 
   <script src="./app.js"></script>
   <script src="./database.js"></script>
+  <script src="./backup.js"></script>
   <script src="./query.js"></script>
 </body>
 </html>
