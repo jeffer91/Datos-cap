@@ -48,3 +48,6 @@ jobs:
 
       - name: Probar Instrumento de Evaluación
         run: npm run test:instrumento-evaluacion
+
+      - name: Probar Informe de Impacto
+        run: npm run test:informe-impacto
