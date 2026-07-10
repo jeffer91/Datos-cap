@@ -1,0 +1,80 @@
+/* =========================================================
+Nombre completo: backup.css
+Ruta o ubicación: /renderer/styles/backup.css
+Función o funciones:
+- Diseñar el panel de respaldo y restauración.
+- Diferenciar acciones de creación, restauración y apertura de carpeta.
+- Adaptar reglas y estadísticas a diferentes tamaños de ventana.
+========================================================= */
+
+.backup-card {
+  margin-bottom: 18px;
+}
+
+.backup-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.backup-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.backup-summary-value {
+  margin-top: 7px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.backup-actions {
+  margin-top: 16px;
+}
+
+.backup-rules {
+  display: grid;
+  gap: 7px;
+  margin-top: 15px;
+  padding: 13px 14px;
+  border: 1px solid #bfd5f5;
+  border-radius: 14px;
+  background: #f4f8ff;
+  color: #365272;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.backup-rules strong {
+  color: #163f72;
+}
+
+.backup-rules code {
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: #e4eefc;
+  color: #153d6c;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+@media (max-width: 1000px) {
+  .backup-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .backup-heading {
+    flex-direction: column;
+  }
+
+  .backup-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
