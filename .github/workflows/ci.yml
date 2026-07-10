@@ -84,7 +84,8 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm run test:deteccion-necesidades > deteccion-necesidades-debug.txt 2>&1
+          node src/diagnostics/deteccion-necesidades.debug.js > deteccion-necesidades-debug.txt 2>&1
+          npm run test:deteccion-necesidades >> deteccion-necesidades-debug.txt 2>&1
           echo "$?" > deteccion-necesidades-exit-code.txt
           exit 0
 
