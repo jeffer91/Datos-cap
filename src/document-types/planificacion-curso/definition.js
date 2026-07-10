@@ -4,7 +4,7 @@ Ruta o ubicación: /src/document-types/planificacion-curso/definition.js
 Función o funciones:
 - Definir el apartado de Planificación de Capacitación por curso.
 - Declarar sus cuatro tablas y reglas de carga múltiple.
-- Preparar el módulo para incorporar parser y OCR en la siguiente etapa.
+- Activar su procesador especializado con lectura digital y OCR.
 ========================================================= */
 
 "use strict";
@@ -13,12 +13,12 @@ module.exports = Object.freeze({
   id: "planificacion-curso",
   label: "Planificación de Capacitación por Curso",
   shortLabel: "Planificaciones por curso",
-  description: "Procesará planificaciones individuales de cursos y generará datos generales, unidades y evaluaciones.",
+  description: "Procesa planificaciones por curso y genera archivos, datos generales, unidades y evaluaciones.",
   mode: "repetitive",
   allowMultiple: true,
   uniquePerPeriod: false,
-  enabled: false,
-  status: "structure-ready",
+  enabled: true,
+  status: "active",
   processorId: "planificacion-curso",
   fileNameHints: ["RGI1", "PRO-134"],
   reportPrefix: "reporte_planificacion_curso",
