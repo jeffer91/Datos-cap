@@ -1,6 +1,6 @@
 # Gestor Documental de Capacitación
 
-Aplicación de escritorio en Electron para procesar, guardar y exportar documentos institucionales de formación y capacitación docente mediante apartados específicos.
+Aplicación de escritorio en Electron para procesar, guardar, consultar y exportar documentos institucionales de formación y capacitación docente mediante apartados específicos.
 
 ## Estado actual
 
@@ -12,8 +12,10 @@ La aplicación cuenta con:
 - Validación por tipo, tamaño, extensión y huella SHA-256.
 - Base local no relacional organizada por colecciones.
 - Control de duplicados y versiones por periodo.
+- Consultas y filtros sobre documentos y filas guardadas.
+- Visualización del detalle completo de cada documento.
 - Exportación Excel y JSON.
-- Pruebas automáticas para los ocho procesadores y la persistencia local.
+- Pruebas automáticas para procesadores, persistencia y consultas.
 
 ## Apartados activos
 
@@ -146,6 +148,40 @@ La base local se crea dentro de la carpeta de datos de usuario de Electron:
 - La versión anterior se conserva con estado `SUPERADO` y queda enlazada con la versión activa.
 - Cada procesamiento registra fecha, tipo, documentos nuevos, duplicados omitidos, filas y archivos exportados.
 
+## Consultas y filtros
+
+La interfaz permite consultar la información guardada por:
+
+- Tipo documental.
+- Periodo.
+- Carrera.
+- Docente, facilitador o responsable.
+- Curso, capacitación o necesidad formativa.
+- Estado activo, superado, con revisión o sin alertas.
+- Búsqueda general en códigos, nombres de archivo y contenido de todas las tablas relacionadas.
+
+Las opciones de carrera, docente y curso se generan dinámicamente desde la información real de la base. Las búsquedas no distinguen mayúsculas ni tildes.
+
+### Resultado de una consulta
+
+Cada fila de resultados muestra:
+
+- Tipo y nombre del archivo.
+- Código institucional.
+- Periodo.
+- Carreras relacionadas.
+- Docentes o responsables relacionados.
+- Cursos relacionados.
+- Estado y versión local.
+- Total de filas vinculadas.
+
+El botón **Ver detalle** recupera:
+
+- Metadatos completos del documento.
+- Número de colecciones y filas.
+- Todas las tablas relacionadas agrupadas por colección.
+- Hasta 200 filas por colección en la vista, con aviso cuando existen más.
+
 ## Flujo completo
 
 ```text
@@ -159,6 +195,7 @@ Seleccionar apartado
 → Guardar documentos y filas en la base local
 → Generar Excel y JSON
 → Registrar el procesamiento en el historial
+→ Consultar y filtrar la información guardada
 ```
 
 ## Interfaz
@@ -172,6 +209,8 @@ El panel principal muestra:
 - Cantidad de documentos registrados y activos.
 - Total de filas guardadas.
 - Historial de procesamientos recientes.
+- Consultas con filtros combinables.
+- Detalle de cada documento y sus colecciones.
 - Acceso directo a la carpeta física de la base local.
 
 ## Estructura principal
@@ -183,16 +222,19 @@ El panel principal muestra:
 │  ├─ index.html
 │  ├─ app.js
 │  ├─ database.js
+│  ├─ query.js
 │  └─ styles/
 │     ├─ app.css
 │     ├─ layout.css
-│     └─ database.css
+│     ├─ database.css
+│     └─ query.css
 └─ src/
    ├─ core/
    ├─ database/
    │  ├─ index.js
    │  ├─ local-database.js
-   │  └─ persistence.service.js
+   │  ├─ persistence.service.js
+   │  └─ query.service.js
    ├─ document-types/
    ├─ diagnostics/
    ├─ exporters/
@@ -232,6 +274,7 @@ npm run test:informe-impacto
 npm run test:deteccion-necesidades
 npm run test:plan-general-capacitacion
 npm run test:local-database
+npm run test:query-service
 ```
 
 ## Seguridad y trazabilidad
@@ -243,11 +286,11 @@ npm run test:local-database
 - Datos ambiguos conservados con advertencia en lugar de inventarse.
 - Documentos únicos versionados sin eliminación silenciosa.
 - Historial local de cada procesamiento.
+- Consultas de solo lectura sobre la información almacenada.
 
 ## Próximos bloques
 
-1. Consultas, filtros y visualización detallada de la información guardada.
-2. Respaldo y restauración completa de la base local.
-3. Pruebas integrales con lotes de PDF reales y OCR desde Electron.
-4. Limpieza de compatibilidad heredada y auditoría final.
-5. Integración definitiva de la rama con `main`.
+1. Respaldo y restauración completa de la base local.
+2. Pruebas integrales con lotes de PDF reales y OCR desde Electron.
+3. Limpieza de compatibilidad heredada y auditoría final.
+4. Integración definitiva de la rama con `main`.
