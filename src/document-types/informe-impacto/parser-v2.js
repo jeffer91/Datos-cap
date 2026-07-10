@@ -3,42 +3,32 @@ Nombre completo: parser-v2.js
 Ruta o ubicación: /src/document-types/informe-impacto/parser-v2.js
 Función o funciones:
 - Corregir la construcción de indicadores cualitativos y cuantitativos.
-- Reutilizar el parser base sin perder el resto de secciones del informe.
-- Recalcular resúmenes y advertencias después de incorporar los indicadores.
+- Separar varios indicadores aunque el PDF elimine los saltos de línea.
+- Recalcular resúmenes, responsables y advertencias del documento.
 ========================================================= */
 
 "use strict";
 
 const base = require("./parser");
 const {
-  normalizeLineBreaks,
+  normalizeSpaces,
   normalizeForSearch,
   cleanValue
 } = require("../../extractor/normalizer");
 const { createRowId } = require("../../utils/ids");
 
-function cleanBulletText(value) {
-  return cleanValue(String(value || "")
-    .replace(/^[•▪◦o\-–—]+\s*/i, "")
-    .replace(/\s+/g, " "));
-}
-
 function parseIndicatorSection(section, impactType, context, startIndex) {
-  const lines = normalizeLineBreaks(section).split("\n").map(cleanBulletText).filter(Boolean);
+  const compact = normalizeSpaces(section)
+    .replace(/^[•▪◦o\-–—]+\s*/i, "")
+    .trim();
   const rows = [];
-  let current = "";
+  const regex = /([A-ZÁÉÍÓÚÜÑa-záéíóúüñ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ\s\/\-]{2,70})\s*:\s*(.+?)(?=\s+[A-ZÁÉÍÓÚÜÑa-záéíóúüñ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ\s\/\-]{2,70}\s*:|$)/g;
+  let match;
 
-  function pushCurrent() {
-    if (!current || !current.includes(":")) {
-      current = "";
-      return;
-    }
-
-    const parts = current.split(":");
-    const indicator = cleanValue(parts.shift());
-    const result = cleanValue(parts.join(":"));
-    current = "";
-    if (!indicator || !result) return;
+  while ((match = regex.exec(compact)) !== null) {
+    const indicator = cleanValue(match[1]);
+    const result = cleanValue(match[2]);
+    if (!indicator || !result) continue;
 
     const percentage = result.match(/(\d+(?:[.,]\d+)?)\s*%/);
     rows.push({
@@ -58,17 +48,6 @@ function parseIndicatorSection(section, impactType, context, startIndex) {
       observacion_extraccion: ""
     });
   }
-
-  lines.forEach((line) => {
-    if (/^(impacto cualitativo|impacto cuantitativo|recomendaciones principales)/i.test(line)) return;
-    if (line.includes(":")) {
-      pushCurrent();
-      current = line;
-    } else if (current) {
-      current += ` ${line}`;
-    }
-  });
-  pushCurrent();
 
   return rows;
 }
@@ -96,9 +75,19 @@ function textWithoutSummaryIndicators(text) {
     .replace(/Impacto Cuantitativo/gi, "Resumen cuantitativo");
 }
 
+function cleanResponsibleRows(rows) {
+  return (rows || []).map((row) => ({
+    ...row,
+    cargo_responsable: cleanValue(String(row.cargo_responsable || "")
+      .replace(/\s+\d+\.\s*Datos Generales del Informe[\s\S]*$/i, "")
+      .replace(/\s+Nombre del Curso[\s\S]*$/i, ""))
+  }));
+}
+
 function recalculateDocument(document, indicators) {
   const percentages = indicators.filter((row) => row.porcentaje !== "");
   document.indicadores = indicators;
+  document.responsables = cleanResponsibleRows(document.responsables);
   document.datos_generales = {
     ...document.datos_generales,
     total_indicadores: indicators.length,
@@ -175,6 +164,7 @@ module.exports = {
   ...base,
   parseIndicatorSection,
   extractIndicators,
+  cleanResponsibleRows,
   recalculateDocument,
   parseDocument,
   parseDocuments
