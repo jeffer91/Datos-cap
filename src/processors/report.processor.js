@@ -3,9 +3,9 @@ Nombre completo: report.processor.js
 Ruta o ubicación: /src/processors/report.processor.js
 Función o funciones:
 - Ejecutar el proceso completo de generación de reportes.
-- Recibir definición, lector y procesador especializados.
-- Leer PDF, aplicar OCR cuando corresponda, parsear, validar y exportar.
-- Mantener un pipeline común sin depender de un documento concreto.
+- Leer PDF, aplicar OCR, parsear, validar y construir tablas.
+- Guardar documentos y filas en la base local antes de exportar.
+- Generar Excel y JSON y finalizar el historial de cada ejecución.
 ========================================================= */
 
 "use strict";
@@ -52,7 +52,6 @@ async function readDocuments(processor, filePaths) {
   if (processor && typeof processor.readDocuments === "function") {
     return processor.readDocuments(filePaths);
   }
-
   return readPdfFiles(filePaths);
 }
 
@@ -63,7 +62,6 @@ function createTableExportConfig(definition) {
     if (table && table.name) output[table.name] = table.sheet || table.name;
     return output;
   }, {});
-
   return { sheetOrder, sheetLabels };
 }
 
@@ -75,12 +73,8 @@ function normalizeModuleWarnings(parseValidation, tableValidation) {
     }))
     : [];
   const tableWarnings = tableValidation && Array.isArray(tableValidation.warnings)
-    ? tableValidation.warnings.map((warning) => ({
-      etapa: "tablas",
-      advertencia: String(warning || "")
-    }))
+    ? tableValidation.warnings.map((warning) => ({ etapa: "tablas", advertencia: String(warning || "") }))
     : [];
-
   return [...parseWarnings, ...tableWarnings];
 }
 
@@ -91,6 +85,7 @@ function createExportPayload(options) {
   const readResult = config.readResult || {};
   const parseResult = config.parseResult || {};
   const tableResult = config.tableResult || {};
+  const databaseResult = config.databaseResult || {};
   const tableWarnings = Array.isArray(config.tableWarnings) ? config.tableWarnings : [];
   const moduleWarnings = normalizeModuleWarnings(config.parseValidation, config.tableValidation);
   const tableConfig = createTableExportConfig(definition);
@@ -112,6 +107,7 @@ function createExportPayload(options) {
       pdf_validos: validation.validCount || 0,
       pdf_invalidos: validation.invalidCount || 0,
       pdf_duplicados: validation.duplicateCount || 0,
+      pdf_duplicados_base_local: validation.localDuplicateCount || 0,
       pdf_alertas_tipo: validation.typeWarningCount || 0,
       pdf_leidos: readResult.okCount || 0,
       pdf_con_error_lectura: readResult.errorCount || 0,
@@ -119,7 +115,12 @@ function createExportPayload(options) {
       pdf_procesados_ocr: readResult.ocrCount || 0,
       pdf_parseados: parseResult.parsedCount || 0,
       pdf_con_error_parseo: parseResult.errorCount || 0,
-      advertencias_modulo: moduleWarnings.length
+      advertencias_modulo: moduleWarnings.length,
+      base_local_documentos_guardados: databaseResult.documentsSaved || 0,
+      base_local_documentos_duplicados_omitidos: databaseResult.duplicateDocumentsSkipped || 0,
+      base_local_versiones_superadas: databaseResult.supersededVersions || 0,
+      base_local_filas_guardadas: databaseResult.rowsSaved || 0,
+      base_local_ejecucion_id: databaseResult.runId || ""
     },
     validations: {
       archivos: validation,
@@ -132,7 +133,8 @@ function createExportPayload(options) {
       },
       parseo: config.parseValidation || {},
       tablas: tableResult.validations || {},
-      estructura: config.tableValidation || {}
+      estructura: config.tableValidation || {},
+      base_local: databaseResult
     },
     warnings: [...tableWarnings, ...moduleWarnings],
     errors: [
@@ -142,32 +144,36 @@ function createExportPayload(options) {
   };
 }
 
+function createFailure(code, message, extra = {}) {
+  return {
+    ok: false,
+    code,
+    message,
+    files: {},
+    summary: {},
+    warnings: [],
+    errors: [],
+    ...extra
+  };
+}
+
 async function processReport(options) {
   const config = options || {};
   const definition = config.definition || {};
   const processor = assertProcessorContract(config.processor);
   const outputDir = ensureOutputDirectory(config.outputDir);
   const validation = config.validation;
+  const startedAt = new Date().toISOString();
 
   if (!validation || !validation.canContinue) {
-    return {
-      ok: false,
-      message: "No hay PDF válidos para procesar.",
-      files: {},
-      summary: {},
+    return createFailure("NO_VALID_FILES", "No hay PDF válidos para procesar.", {
       validation: validation || {}
-    };
+    });
   }
 
   const validPaths = normalizeValidFiles(validation.validFiles);
   if (!validPaths.length) {
-    return {
-      ok: false,
-      message: "La validación no contiene rutas PDF válidas.",
-      files: {},
-      summary: {},
-      validation
-    };
+    return createFailure("NO_VALID_PATHS", "La validación no contiene rutas PDF válidas.", { validation });
   }
 
   const readResult = await readDocuments(processor, validPaths);
@@ -177,12 +183,8 @@ async function processReport(options) {
     : {};
 
   if (!parseResult || !Array.isArray(parseResult.parsed) || parseResult.parsed.length === 0) {
-    return {
-      ok: false,
-      code: "NO_PARSED_DOCUMENTS",
-      message: "No se pudo extraer ningún documento válido.",
+    return createFailure("NO_PARSED_DOCUMENTS", "No se pudo extraer ningún documento válido.", {
       documentType: definition.id || config.documentType || "",
-      files: {},
       summary: {
         pdf_leidos: readResult.okCount || 0,
         pdf_con_error_lectura: readResult.errorCount || 0,
@@ -194,7 +196,7 @@ async function processReport(options) {
       parseResult,
       warnings: parseValidation.warnings || [],
       errors: parseResult ? (parseResult.errors || []) : []
-    };
+    });
   }
 
   const tableResult = processor.buildTables(parseResult);
@@ -206,19 +208,40 @@ async function processReport(options) {
     : [];
 
   if (tableValidation && tableValidation.ok === false) {
-    return {
-      ok: false,
-      code: "INVALID_TABLE_STRUCTURE",
-      message: "Las tablas generadas no cumplen la estructura esperada.",
+    return createFailure("INVALID_TABLE_STRUCTURE", "Las tablas generadas no cumplen la estructura esperada.", {
       documentType: definition.id || config.documentType || "",
-      files: {},
       summary: tableResult.summary || {},
       validation,
       parseResult,
       tableValidation,
-      warnings: tableValidation.warnings || [],
-      errors: []
-    };
+      warnings: tableValidation.warnings || []
+    });
+  }
+
+  let databaseResult = {};
+  if (config.persistenceService && typeof config.persistenceService.persistProcessingResult === "function") {
+    try {
+      databaseResult = config.persistenceService.persistProcessingResult({
+        definition,
+        documentType: config.documentType,
+        processorId: processor.id || definition.processorId || definition.id,
+        outputDir,
+        validation,
+        parseResult,
+        tableResult,
+        startedAt
+      });
+    } catch (error) {
+      return createFailure("LOCAL_DATABASE_ERROR", `No se pudo guardar en la base local: ${error.message}`, {
+        documentType: definition.id || config.documentType || "",
+        summary: tableResult.summary || {},
+        validation,
+        parseResult,
+        tableValidation,
+        warnings: tableWarnings,
+        errors: [{ message: error.message }]
+      });
+    }
   }
 
   const exportPayload = createExportPayload({
@@ -233,17 +256,45 @@ async function processReport(options) {
     parseValidation,
     tableResult,
     tableValidation,
-    tableWarnings
+    tableWarnings,
+    databaseResult
   });
-  const exportResult = exportAll(exportPayload);
+
+  let exportResult;
+  try {
+    exportResult = exportAll(exportPayload);
+  } catch (error) {
+    if (databaseResult.runId && config.persistenceService && typeof config.persistenceService.finalizeProcessingRun === "function") {
+      try {
+        config.persistenceService.finalizeProcessingRun(databaseResult.runId, {
+          ok: false,
+          outputDir,
+          errorMessage: error.message
+        });
+      } catch (_finalizeError) {
+        // El registro inicial permanece para diagnóstico.
+      }
+    }
+    throw error;
+  }
+
+  if (databaseResult.runId && config.persistenceService && typeof config.persistenceService.finalizeProcessingRun === "function") {
+    databaseResult.run = config.persistenceService.finalizeProcessingRun(databaseResult.runId, {
+      ok: true,
+      outputDir,
+      files: exportResult.files
+    });
+    databaseResult.summary = config.persistenceService.getSummary();
+  }
 
   return {
     ok: true,
-    message: "Reporte generado correctamente.",
+    message: "Documento procesado, guardado localmente y exportado correctamente.",
     documentType: definition.id || config.documentType || "",
     processorId: processor.id || definition.processorId || definition.id,
     outputDir,
     files: exportResult.files,
+    database: databaseResult,
     validation,
     readResult: {
       total: readResult.total,
@@ -287,6 +338,7 @@ module.exports = {
   createTableExportConfig,
   normalizeModuleWarnings,
   createExportPayload,
+  createFailure,
   processReport,
   validateProcessorInput
 };
