@@ -1,40 +1,16 @@
 # Gestor Documental de Capacitación
 
-Aplicación de escritorio en Electron para procesar, guardar, consultar, respaldar y exportar documentos institucionales de formación y capacitación docente mediante apartados específicos.
+Aplicación de escritorio en Electron para procesar documentos institucionales de formación y capacitación docente. La aplicación extrae información desde PDF digitales o escaneados, guarda los resultados en una base local y genera archivos Excel y JSON.
 
-## Estado actual
+## Estado
 
-La aplicación cuenta con:
+Los ocho módulos, la base local, las consultas y los respaldos están implementados y cubiertos por pruebas automáticas. Antes de considerarla lista para producción todavía deben ejecutarse pruebas manuales con PDF institucionales reales de los ocho tipos.
 
-- Ocho apartados documentales activos.
-- Un procesador especializado por tipo documental.
-- Lectura digital y OCR de respaldo.
-- Validación por tipo, tamaño, extensión y huella SHA-256.
-- Base local no relacional organizada por colecciones.
-- Control de duplicados y versiones por periodo.
-- Consultas y filtros sobre documentos y filas guardadas.
-- Visualización del detalle completo de cada documento.
-- Respaldo manual y automático de toda la base.
-- Restauración por reemplazo o combinación.
-- Exportación Excel y JSON.
-- Pruebas automáticas para procesadores, persistencia, consultas y respaldos.
+## Tipos documentales
 
-## Apartados activos
+### 1. Plan Individual de Formación y Capacitación Docente
 
-1. Plan Individual de Formación y Capacitación Docente.
-2. Planificación de Capacitación por Curso.
-3. Acuerdo de Patrocinio Institucional.
-4. Informe Final de Capacitación.
-5. Instrumento de Evaluación de la Capacitación.
-6. Informe de Impacto de la Capacitación.
-7. Detección de Necesidades de Capacitación.
-8. Plan Semestral de Capacitación Docente.
-
-Detección de Necesidades y Plan Semestral son documentos únicos por periodo. Los demás admiten varios PDF por operación.
-
-## Tablas por apartado
-
-### Plan Individual
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -44,7 +20,9 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 05_formacion
 ```
 
-### Planificación por Curso
+### 2. Planificación de Capacitación por Curso
+
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -53,7 +31,9 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 04_evaluaciones
 ```
 
-### Acuerdo de Patrocinio
+### 3. Acuerdo de Patrocinio Institucional
+
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -62,7 +42,9 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 04_responsables
 ```
 
-### Informe Final
+### 4. Informe Final de Capacitación
+
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -73,7 +55,9 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 06_responsables
 ```
 
-### Instrumento de Evaluación
+### 5. Instrumento de Evaluación de la Capacitación
+
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -86,7 +70,9 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 08_responsables
 ```
 
-### Informe de Impacto
+### 6. Informe de Impacto de la Capacitación
+
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -98,21 +84,25 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 07_responsables
 ```
 
-### Detección de Necesidades
+### 7. Detección de Necesidades de Capacitación
+
+Documento único por periodo. Solo admite un PDF por operación y conserva versiones anteriores.
 
 ```text
 01_archivos
 02_datos_generales
 03_fuentes
-04_necesidades_carrera
-05_prioridades_carrera
-06_necesidades_institucionales
-07_evidencias
+04_institucionales
+05_necesidades_carrera
+06_prioridades_carrera
+07_consolidado
 08_analisis
 09_responsables
 ```
 
-### Plan Semestral de Capacitación
+### 8. Plan Semestral de Capacitación Docente
+
+Documento único por periodo. Solo admite un PDF por operación y conserva versiones anteriores.
 
 ```text
 01_archivos
@@ -125,230 +115,98 @@ Detección de Necesidades y Plan Semestral son documentos únicos por periodo. L
 08_responsables
 ```
 
-## Base de datos local
+El identificador técnico `plan-general-capacitacion` se conserva por compatibilidad con la base local y las pruebas existentes. El nombre visible y oficial en la interfaz es **Plan Semestral de Capacitación Docente**.
 
-La base local se crea dentro de la carpeta de datos de usuario de Electron:
+## Flujo de procesamiento
+
+```text
+Seleccionar apartado
+→ Seleccionar PDF
+→ Validar extensión, existencia, tamaño, tipo y duplicados
+→ Leer texto digital
+→ Activar OCR cuando el texto digital sea insuficiente
+→ Ejecutar el parser especializado
+→ Validar tablas y campos esenciales
+→ Guardar documentos y filas en la base local
+→ Generar Excel y JSON
+→ Registrar el procesamiento
+→ Crear respaldo automático
+```
+
+Los flujos comparten únicamente los servicios comunes de lectura, validación, persistencia, consulta, exportación y respaldo. Cada tipo documental conserva su propia definición, parser, tablas y validaciones.
+
+## Base local
+
+La base se crea dentro de la carpeta de datos de usuario de Electron:
 
 ```text
 <userData>/local-database/
 ├─ database.meta.json
 ├─ backups/
-│  └─ datos-cap_...capbackup
 └─ collections/
    ├─ _documents.json
    ├─ _processing_runs.json
-   ├─ archivos_plan_individual.json
-   ├─ datos_informe_final.json
-   └─ ...una colección por cada tabla documental
+   └─ una colección JSON por cada tabla documental
 ```
 
-### Reglas de persistencia
+Reglas principales:
 
-- Cada tabla se guarda como una colección JSON independiente.
-- Las escrituras utilizan archivos temporales y respaldos para evitar archivos incompletos.
-- Las operaciones de varias colecciones aplican reversión básica cuando una escritura falla.
-- Un PDF repetitivo con la misma huella SHA-256 no duplica documentos ni filas.
-- Un documento único con el mismo periodo y contenido diferente crea una nueva versión.
-- La versión anterior se conserva con estado `SUPERADO` y queda enlazada con la versión activa.
-- Cada procesamiento registra fecha, tipo, documentos nuevos, duplicados omitidos, filas y archivos exportados.
+- Los duplicados se detectan por SHA-256, no solo por nombre.
+- Un PDF ya guardado no duplica documentos ni filas.
+- Los documentos únicos se versionan por tipo y periodo.
+- Una versión reemplazada se conserva con estado `SUPERADO`.
+- Las escrituras usan archivos temporales, respaldos y reversión básica.
 
-## Consultas y filtros
+## Consultas
 
-La interfaz permite consultar la información guardada por:
-
-- Tipo documental.
-- Periodo.
-- Carrera.
-- Docente, facilitador o responsable.
-- Curso, capacitación o necesidad formativa.
-- Estado activo, superado, con revisión o sin alertas.
-- Búsqueda general en códigos, nombres de archivo y contenido de todas las tablas relacionadas.
-
-Las opciones de carrera, docente y curso se generan dinámicamente desde la información real de la base. Las búsquedas no distinguen mayúsculas ni tildes.
-
-El detalle documental recupera metadatos, estado, versión y todas las filas agrupadas por colección. La interfaz muestra hasta 200 filas por colección y avisa cuando existen más.
+La interfaz permite filtrar por tipo documental, periodo, carrera, docente, responsable, curso y estado. También incluye búsqueda general sobre metadatos y filas guardadas, paginación y detalle por colección.
 
 ## Respaldo y restauración
 
-Los respaldos utilizan la extensión:
+Los respaldos usan la extensión `.capbackup`, compresión GZIP y checksum SHA-256. Se puede:
 
-```text
-.capbackup
-```
+- Crear un respaldo manual completo.
+- Crear respaldos automáticos después del procesamiento.
+- Mantener un respaldo diario cuando existen datos.
+- Restaurar reemplazando la base.
+- Restaurar combinando datos por identificador.
+- Crear un respaldo de seguridad antes de restaurar.
 
-El archivo está comprimido con GZIP y contiene:
+## Seguridad
 
-- Metadatos de la base.
-- Todas las colecciones.
-- Documentos y versiones.
-- Historial de procesamientos.
-- Filas de cada tabla documental.
-- Versión de la aplicación y de la base.
-- Checksum SHA-256 de integridad.
+- `contextIsolation` activado.
+- `nodeIntegration` desactivado.
+- `sandbox` activado.
+- Una sola API segura expuesta como `window.documentAppAPI`.
+- Lista cerrada de canales IPC.
+- Sin canales heredados del extractor anterior.
 
-### Respaldo manual
-
-El botón **Crear respaldo completo** permite escoger la carpeta y el nombre del archivo. El respaldo incluye la base completa, no solamente el apartado seleccionado.
-
-### Respaldos automáticos
-
-La aplicación crea un respaldo:
-
-- Después de cada procesamiento documental completado.
-- Al iniciar, cuando existen datos y todavía no hay un respaldo del día.
-- Antes de cada restauración.
-
-Se conservan los 20 respaldos automáticos más recientes. Los anteriores se eliminan mediante una política de retención, sin afectar los respaldos manuales guardados en otras carpetas.
-
-### Validación previa
-
-Antes de restaurar se verifica:
-
-- Formato de la aplicación.
-- Versión del respaldo.
-- Estructura de metadatos y colecciones.
-- Nombres permitidos de colecciones.
-- Compatibilidad de versión de base.
-- Checksum SHA-256.
-
-Un archivo alterado o dañado es rechazado antes de modificar la base local.
-
-### Modos de restauración
-
-**Reemplazar base**
-
-- Crea primero un respaldo automático de seguridad.
-- Sustituye documentos, historial y colecciones por el contenido respaldado.
-- Vacía las colecciones que no existían en el respaldo.
-
-**Combinar datos**
-
-- Conserva la información actual.
-- Agrega registros que no existen.
-- Actualiza registros que coinciden por ID.
-- Evita duplicar filas idénticas sin identificador.
-
-Cuando una restauración falla, la aplicación intenta volver automáticamente al estado anterior.
-
-## Flujo completo
-
-```text
-Seleccionar apartado
-→ Seleccionar PDF
-→ Validar archivos, tipo y duplicados
-→ Extraer texto digital
-→ Activar OCR cuando sea necesario
-→ Ejecutar parser especializado
-→ Validar estructura y tablas
-→ Guardar documentos y filas en la base local
-→ Generar Excel y JSON
-→ Registrar el procesamiento
-→ Crear respaldo automático
-→ Consultar y filtrar la información guardada
-```
-
-## Interfaz
-
-El panel principal muestra:
-
-- Los ocho apartados.
-- Reglas de documentos repetitivos o únicos.
-- Archivos seleccionados y su huella digital.
-- Tablas esperadas por módulo.
-- Cantidad de documentos registrados y activos.
-- Total de filas guardadas.
-- Historial de procesamientos recientes.
-- Estado, fecha y tamaño de los respaldos.
-- Creación y restauración de archivos `.capbackup`.
-- Consultas con filtros combinables.
-- Detalle de cada documento y sus colecciones.
-- Acceso a las carpetas físicas de la base y los respaldos.
-
-## Estructura principal
-
-```text
-├─ main.js
-├─ preload.js
-├─ renderer/
-│  ├─ index.html
-│  ├─ app.js
-│  ├─ database.js
-│  ├─ backup.js
-│  ├─ query.js
-│  └─ styles/
-│     ├─ app.css
-│     ├─ layout.css
-│     ├─ database.css
-│     ├─ backup.css
-│     └─ query.css
-└─ src/
-   ├─ core/
-   ├─ database/
-   │  ├─ index.js
-   │  ├─ local-database.js
-   │  ├─ persistence.service.js
-   │  ├─ query.service.js
-   │  └─ backup.service.js
-   ├─ document-types/
-   ├─ diagnostics/
-   ├─ exporters/
-   ├─ extractor/
-   ├─ processors/
-   ├─ readers/
-   ├─ tables/
-   ├─ utils/
-   └─ validators/
-```
-
-## Instalación y ejecución
+## Instalación
 
 ```powershell
 npm install
 npm start
 ```
 
-## Pruebas
+## Verificación
 
-Ejecutar todas las pruebas:
+Auditoría estructural:
+
+```powershell
+npm run audit
+```
+
+Suite completa:
 
 ```powershell
 npm test
 ```
 
-Pruebas individuales:
+La auditoría comprueba archivos vacíos o temporales, código duplicado exacto, referencias locales rotas, tipos y procesadores duplicados, colecciones compartidas, contratos incompletos, canales IPC inconsistentes, recursos de interfaz inexistentes y documentación desactualizada.
 
-```powershell
-npm run selftest
-npm run test:plan-individual
-npm run test:planificacion-curso
-npm run test:acuerdo-patrocinio
-npm run test:informe-final
-npm run test:instrumento-evaluacion
-npm run test:informe-impacto
-npm run test:deteccion-necesidades
-npm run test:plan-general-capacitacion
-npm run test:local-database
-npm run test:query-service
-npm run test:backup-service
-```
+## Pendiente antes de producción
 
-GitHub Actions verifica sintaxis, ocho procesadores, base local, deduplicación, versionado, consultas, filtros, paginación, respaldo, checksum y restauración.
-
-## Seguridad y trazabilidad
-
-- `contextIsolation` activado.
-- `nodeIntegration` desactivado.
-- Preload con lista cerrada de canales IPC.
-- Duplicados detectados por contenido, no solo por nombre.
-- Datos ambiguos conservados con advertencia en lugar de inventarse.
-- Documentos únicos versionados sin eliminación silenciosa.
-- Historial local de cada procesamiento.
-- Consultas de solo lectura sobre la información almacenada.
-- Respaldo de seguridad automático antes de restaurar.
-- Verificación SHA-256 antes de cambiar la base.
-
-## Próximos bloques
-
-1. Pruebas integrales con lotes de PDF reales y OCR desde Electron.
-2. Limpieza de compatibilidad heredada y auditoría final.
-3. Integración definitiva de la rama con `main`.
+1. Procesar PDF institucionales reales de los ocho tipos desde Electron.
+2. Comparar cada PDF con su Excel, JSON y registros locales.
+3. Corregir casos particulares de formato u OCR que aparezcan.
+4. Integrar la rama con `main` mediante una historia limpia o squash.
