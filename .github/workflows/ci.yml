@@ -59,7 +59,8 @@ jobs:
         shell: bash
         run: |
           set +e
-          npm run test:plan-general-capacitacion > plan-general-debug.txt 2>&1
+          node src/diagnostics/plan-general-capacitacion.debug.js > plan-general-debug.txt 2>&1
+          npm run test:plan-general-capacitacion >> plan-general-debug.txt 2>&1
           echo "$?" > plan-general-exit-code.txt
           exit 0
 
