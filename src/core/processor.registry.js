@@ -14,7 +14,8 @@ const processors = [
   require("../document-types/plan-individual"),
   require("../document-types/planificacion-curso"),
   require("../document-types/acuerdo-patrocinio"),
-  require("../document-types/informe-final")
+  require("../document-types/informe-final"),
+  require("../document-types/instrumento-evaluacion")
 ];
 
 const registry = new Map(processors.map((processor) => [processor.id, processor]));
@@ -29,11 +30,7 @@ function hasProcessor(documentTypeId) {
 
 function assertProcessor(documentTypeId) {
   const processor = getProcessor(documentTypeId);
-
-  if (!processor) {
-    throw new Error(`No existe un procesador implementado para ${documentTypeId || "el tipo solicitado"}.`);
-  }
-
+  if (!processor) throw new Error(`No existe un procesador implementado para ${documentTypeId || "el tipo solicitado"}.`);
   return processor;
 }
 
@@ -45,17 +42,9 @@ function listProcessors() {
   return Array.from(registry.values()).map((processor) => ({
     id: processor.id,
     version: processor.version || "sin-version",
-    tableCount: processor.definition && Array.isArray(processor.definition.tables)
-      ? processor.definition.tables.length
-      : 0,
+    tableCount: processor.definition && Array.isArray(processor.definition.tables) ? processor.definition.tables.length : 0,
     hasCustomReader: typeof processor.readDocuments === "function"
   }));
 }
 
-module.exports = {
-  getProcessor,
-  hasProcessor,
-  assertProcessor,
-  listProcessorIds,
-  listProcessors
-};
+module.exports = { getProcessor, hasProcessor, assertProcessor, listProcessorIds, listProcessors };
