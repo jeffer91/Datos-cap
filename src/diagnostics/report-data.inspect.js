@@ -8,7 +8,8 @@ const { LocalDatabase } = require("../database");
 const {
   DOCUMENTS_COLLECTION,
   createReportDataRepository,
-  normalizePeriod
+  normalizePeriod,
+  isActiveDocument
 } = require("../reporting");
 const { seed } = require("./report-data.repository.test");
 
@@ -18,18 +19,27 @@ database.initialize();
 seed(database);
 const repository = createReportDataRepository(database);
 const rawDocuments = database.readCollection(DOCUMENTS_COLLECTION);
+const requestedPeriod = normalizePeriod("Marzo 2026");
+const inlineFiltered = rawDocuments.filter((item) =>
+  isActiveDocument(item) && normalizePeriod(item.periodo) === requestedPeriod
+);
+const repositoryFiltered = repository.readDocuments({ period: "Marzo 2026" });
 const snapshot = repository.loadSnapshot({ period: "Marzo 2026" });
 console.log(JSON.stringify({
   documentsCollection: DOCUMENTS_COLLECTION,
-  requestedPeriod: normalizePeriod("Marzo 2026"),
+  requestedPeriod,
   rawDocumentCount: rawDocuments.length,
+  inlineFilteredCount: inlineFiltered.length,
+  repositoryFilteredCount: repositoryFiltered.length,
   rawDocuments: rawDocuments.map((item) => ({
     id: item.id_documento,
     type: item.tipo_documental,
     active: item.activo,
     state: item.estado_version,
+    activeCheck: isActiveDocument(item),
     period: item.periodo,
-    normalizedPeriod: normalizePeriod(item.periodo)
+    normalizedPeriod: normalizePeriod(item.periodo),
+    periodMatch: normalizePeriod(item.periodo) === requestedPeriod
   })),
   summary: snapshot.summary,
   periods: snapshot.periods,
