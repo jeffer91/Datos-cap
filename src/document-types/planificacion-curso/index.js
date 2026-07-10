@@ -10,7 +10,7 @@ Función o funciones:
 "use strict";
 
 const definition = require("./definition");
-const parser = require("./parser");
+const parser = require("./parser-v2");
 const tables = require("./tables");
 const validator = require("./validator");
 const { readPdfFilesHybrid } = require("../../readers/pdf-hybrid.reader");
