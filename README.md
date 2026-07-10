@@ -4,11 +4,9 @@ Aplicación de escritorio en Electron para procesar documentos institucionales d
 
 ## Arquitectura
 
-La aplicación utiliza:
-
 - Ocho apartados documentales independientes.
-- Un motor común de selección, validación, exportación y trazabilidad.
-- Un procesador especializado por tipo documental.
+- Motor común de selección, validación, exportación y trazabilidad.
+- Procesador especializado por tipo documental.
 - Lectura digital y OCR de respaldo.
 - Excel y JSON como salidas iniciales antes de conectar la base de datos local.
 
@@ -29,16 +27,9 @@ Detección de Necesidades y Plan General son documentos únicos por periodo. Los
 
 ### 1. Base modular
 
-- Menú con ocho apartados.
-- Registro central de tipos y procesadores.
-- Reglas para documentos repetitivos y únicos.
-- Hash SHA-256 para duplicados.
-- Identificadores estables.
-- Exportación dinámica Excel y JSON.
+Menú con ocho apartados, registro central, reglas de documentos únicos y repetitivos, hash SHA-256, identificadores estables y exportación Excel/JSON.
 
 ### 2. Plan Individual
-
-Genera cinco tablas:
 
 ```text
 01_archivos
@@ -50,8 +41,6 @@ Genera cinco tablas:
 
 ### 3. Planificación por Curso
 
-Genera cuatro tablas:
-
 ```text
 01_archivos
 02_datos_generales
@@ -59,11 +48,7 @@ Genera cuatro tablas:
 04_evaluaciones
 ```
 
-Extrae modalidad, carácter, certificado, objetivos, unidades, cargas horarias, logros e instrumentos de evaluación.
-
 ### 4. Acuerdo de Patrocinio Institucional
-
-Genera cuatro tablas:
 
 ```text
 01_archivos
@@ -72,11 +57,7 @@ Genera cuatro tablas:
 04_responsables
 ```
 
-Reconoce códigos UGPA y CGC, docente, cédula, carrera, capacitación, fecha, siete tipos de apoyo, porcentaje parcial y responsables.
-
 ### 5. Informe Final de Capacitación
-
-Genera seis tablas:
 
 ```text
 01_archivos
@@ -87,22 +68,40 @@ Genera seis tablas:
 06_responsables
 ```
 
-El módulo extrae:
+### 6. Instrumento de Evaluación de la Capacitación
 
-- Código `UGPA-INF-XX-PRO-134-AÑO-MES` y periodo.
-- Versión y fecha de elaboración.
-- Nombre de la capacitación y público objetivo.
-- Carrera o todas las carreras.
-- Facilitador, fechas de impartición y duración.
-- Objetivos y cumplimiento de objetivos.
+Procesa documentos `UGPA-RGI1-XX-PRO-135-AÑO-MES` y genera ocho tablas:
+
+```text
+01_archivos
+02_datos_generales
+03_participantes
+04_indicadores
+05_likert
+06_objetivos
+07_analisis
+08_responsables
+```
+
+Extrae:
+
+- Curso, periodo de capacitación, facilitador, fecha y carrera.
 - Participantes con identificación, discapacidad, carné y género.
-- Resultado de certificación por participante cuando la distribución puede determinarse con seguridad.
-- Totales de inscritos, aprobados, participantes, facilitadores, desertores y reprobados.
-- Totales por género.
+- Cumplimiento del cronograma.
+- Participación activa.
+- Uso de recursos tecnológicos.
+- Actividades metodológicas.
+- Ajustes del facilitador.
+- Promedio de aprendizaje, satisfacción, aprobación, aplicabilidad y seguimiento.
+- Escala Likert de cinco ítems.
+- Objetivos de aprendizaje y porcentaje de cumplimiento.
+- Resultados cualitativos, observaciones, conclusiones y recomendaciones.
 - Elaborado, revisado y aprobado.
-- Páginas reales, páginas declaradas e inconsistencias de paginación.
+- Páginas reales, páginas declaradas e inconsistencias.
 
-Cuando el texto del PDF no permite determinar con seguridad qué columna está marcada para cada participante, la fila se guarda con estado `REVISAR_DISTRIBUCION` en lugar de inventar un resultado.
+Cuando el PDF contiene una marca `X`, pero el texto extraído no conserva la columna Likert, el módulo guarda `MARCA_SIN_COLUMNA` y solicita revisión visual en lugar de inventar la respuesta.
+
+Las identificaciones pueden ser de 10 dígitos, más cortas o alfanuméricas. Las que no tengan 10 dígitos se conservan con advertencia, sin bloquear el procesamiento.
 
 ## Módulos activos
 
@@ -110,10 +109,10 @@ Cuando el texto del PDF no permite determinar con seguridad qué columna está m
 - Planificación por Curso.
 - Acuerdo de Patrocinio.
 - Informe Final de Capacitación.
+- Instrumento de Evaluación de la Capacitación.
 
 ## Módulos pendientes
 
-- Instrumento de Evaluación de la Capacitación.
 - Informe de Impacto de la Capacitación.
 - Detección de Necesidades de Capacitación.
 - Plan General de Capacitación Docente.
@@ -131,37 +130,16 @@ Seleccionar apartado
 → Generar Excel + JSON
 ```
 
-## Estructura principal
+## Estructura del módulo de evaluación
 
 ```text
-├─ package.json
-├─ main.js
-├─ preload.js
-├─ renderer/
-├─ src/
-│  ├─ core/
-│  ├─ document-types/
-│  │  ├─ plan-individual/
-│  │  ├─ planificacion-curso/
-│  │  ├─ acuerdo-patrocinio/
-│  │  ├─ informe-final/
-│  │  │  ├─ definition.js
-│  │  │  ├─ parser.js
-│  │  │  ├─ tables.js
-│  │  │  ├─ validator.js
-│  │  │  └─ index.js
-│  │  ├─ instrumento-evaluacion/
-│  │  ├─ informe-impacto/
-│  │  ├─ deteccion-necesidades/
-│  │  └─ plan-general-capacitacion/
-│  ├─ readers/
-│  ├─ diagnostics/
-│  ├─ exporters/
-│  ├─ extractor/
-│  ├─ processors/
-│  ├─ tables/
-│  ├─ utils/
-│  └─ validators/
+src/document-types/instrumento-evaluacion/
+├─ definition.js
+├─ parser.js
+├─ parser-v2.js
+├─ tables.js
+├─ validator.js
+└─ index.js
 ```
 
 ## Instalación y ejecución
@@ -185,6 +163,7 @@ npm run test:plan-individual
 npm run test:planificacion-curso
 npm run test:acuerdo-patrocinio
 npm run test:informe-final
+npm run test:instrumento-evaluacion
 ```
 
 ## OCR
@@ -193,4 +172,4 @@ Los PDF con texto suficiente se procesan directamente. Los PDF vacíos, escanead
 
 ## Próxima etapa
 
-Implementar el procesador especializado del Instrumento de Evaluación de la Capacitación.
+Implementar el procesador especializado del Informe de Impacto de la Capacitación.
