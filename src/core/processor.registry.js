@@ -5,12 +5,14 @@ Función o funciones:
 - Registrar los procesadores especializados disponibles.
 - Resolver un procesador por identificador de tipo documental.
 - Impedir que el núcleo dependa directamente de parsers concretos.
+- Informar versiones y cantidad de tablas de cada procesador.
 ========================================================= */
 
 "use strict";
 
 const processors = [
-  require("../document-types/plan-individual")
+  require("../document-types/plan-individual"),
+  require("../document-types/planificacion-curso")
 ];
 
 const registry = new Map(processors.map((processor) => [processor.id, processor]));
@@ -37,9 +39,21 @@ function listProcessorIds() {
   return Array.from(registry.keys());
 }
 
+function listProcessors() {
+  return Array.from(registry.values()).map((processor) => ({
+    id: processor.id,
+    version: processor.version || "sin-version",
+    tableCount: processor.definition && Array.isArray(processor.definition.tables)
+      ? processor.definition.tables.length
+      : 0,
+    hasCustomReader: typeof processor.readDocuments === "function"
+  }));
+}
+
 module.exports = {
   getProcessor,
   hasProcessor,
   assertProcessor,
-  listProcessorIds
+  listProcessorIds,
+  listProcessors
 };
