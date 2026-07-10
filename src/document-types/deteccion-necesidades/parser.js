@@ -474,7 +474,7 @@ function extractSignatories(text, context, fileName) {
   const cover = normalizeSpaces(introIndex > 0 ? source.slice(0, introIndex) : source.slice(0, 7000));
   const roles = [...cover.matchAll(/(ELABORADO POR|REVISADO POR|APROBADO POR)\s*:/gi)].map((match) => match[1].toUpperCase());
   const names = uniqueValues([...cover.matchAll(/NOMBRE\s*:\s*(.+?)(?=\s+NOMBRE\s*:|\s+CARGO\s*:|\s+P[ÁA]GINA|$)/gi)].map((match) => cleanValue(match[1])));
-  const cargos = [...cover.matchAll(/CARGO\s*:\s*(.+?)(?=\s+CARGO\s*:|\s+NOMBRE\s*:|\s+P[ÁA]GINA|$)/gi)].map((match) => cleanValue(match[1])));
+  const cargos = [...cover.matchAll(/CARGO\s*:\s*(.+?)(?=\s+CARGO\s*:|\s+NOMBRE\s*:|\s+P[ÁA]GINA|$)/gi)].map((match) => cleanValue(match[1]));
   const count = Math.max(roles.length, names.length, cargos.length);
   const rows = [];
 
