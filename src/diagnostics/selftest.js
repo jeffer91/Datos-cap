@@ -1,11 +1,11 @@
 /* =========================================================
 Nombre completo: selftest.js
-Ruta o ubicación: /plan-docente-extractor/src/diagnostics/selftest.js
+Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar una prueba rápida de módulos críticos sin abrir Electron.
-- Verificar que existan funciones principales de extractor, tablas y exportadores.
-- Crear tablas simuladas y validar exportación JSON/Excel en carpeta temporal.
-- Ayudar a detectar errores de instalación o rutas antes de usar la app.
+- Verificar el registro de los ocho tipos documentales.
+- Crear tablas simuladas y validar exportación dinámica Excel + JSON.
+- Confirmar que el módulo actual de Plan Individual continúa funcionando.
 ========================================================= */
 
 "use strict";
@@ -18,15 +18,20 @@ const ids = require("../utils/ids");
 const normalizer = require("../extractor/normalizer");
 const tables = require("../tables");
 const exporters = require("../exporters");
+const { listDocumentTypes, getDocumentType } = require("../core/document-type.registry");
 
 function assertCondition(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  if (!condition) throw new Error(message);
 }
 
 function createMockParsedDocument() {
-  const idDocumento = ids.createDocumentId("mock-plan.pdf", 0, "UGPA-RGI1-01-PRO-251-2026-03");
+  const idDocumento = ids.createDocumentId(
+    "mock-plan.pdf",
+    0,
+    "UGPA-RGI1-01-PRO-251-2026-03",
+    "hash-documento-demo",
+    "plan-individual"
+  );
 
   return {
     id_documento: idDocumento,
@@ -96,7 +101,7 @@ function createMockParsedDocument() {
     ],
     formacion: [
       {
-        id: ids.createRowId("formacion", idDocumento, 0, "Maestría Demo"),
+        id: ids.createRowId("formacion", idDocumento, 0, "Doctorado Demo"),
         id_documento: idDocumento,
         codigo_documento: "UGPA-RGI1-01-PRO-251-2026-03",
         nombre_docente: "Docente Demo",
@@ -119,9 +124,14 @@ function createMockParsedDocument() {
 
 function runSelfTest() {
   const startedAt = new Date();
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-docente-test-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gestor-documental-test-"));
   const mockDocument = createMockParsedDocument();
+  const documentTypes = listDocumentTypes();
+  const planDefinition = getDocumentType("plan-individual");
 
+  assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
+  assertCondition(Boolean(planDefinition && planDefinition.enabled), "El módulo Plan Individual no está activo.");
+  assertCondition(planDefinition.tables.length === 5, "El Plan Individual no declara sus 5 tablas.");
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
   assertCondition(typeof normalizer.normalizeSpaces === "function", "normalizer.normalizeSpaces no está disponible.");
   assertCondition(typeof tables.buildAllTables === "function", "tables.buildAllTables no está disponible.");
@@ -131,9 +141,18 @@ function runSelfTest() {
   assertCondition(tableResult.summary.total_tables === 5, "No se construyeron las 5 tablas esperadas.");
   assertCondition(tableResult.summary.total_rows >= 5, "Las tablas generadas no tienen filas suficientes.");
 
+  const sheetLabels = planDefinition.tables.reduce((output, table) => {
+    output[table.name] = table.sheet;
+    return output;
+  }, {});
+
   const exportResult = exporters.exportAll({
     outputDir: tempDir,
     baseName: "selftest_reporte_plan_individual",
+    documentType: planDefinition.id,
+    documentLabel: planDefinition.label,
+    sheetOrder: planDefinition.tables.map((table) => table.name),
+    sheetLabels,
     tables: tableResult.tables,
     summary: tableResult.summary,
     validations: tableResult.validations,
@@ -145,11 +164,15 @@ function runSelfTest() {
   assertCondition(fs.existsSync(exportResult.files.excel.filePath), "No se creó el archivo Excel de prueba.");
   assertCondition(fs.existsSync(exportResult.files.json.filePath), "No se creó el archivo JSON de prueba.");
 
+  const jsonPayload = JSON.parse(fs.readFileSync(exportResult.files.json.filePath, "utf8"));
+  assertCondition(jsonPayload.metadata.tipo_documental === "plan-individual", "El JSON no conserva el tipo documental.");
+
   return {
     ok: true,
     startedAt: startedAt.toISOString(),
     finishedAt: new Date().toISOString(),
     tempDir,
+    documentTypes: documentTypes.map((item) => item.id),
     files: exportResult.files,
     summary: tableResult.summary
   };
