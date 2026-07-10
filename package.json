@@ -6,7 +6,7 @@
       "Configurar la aplicación Electron.",
       "Definir scripts de ejecución, auditoría y diagnóstico.",
       "Declarar únicamente dependencias utilizadas por lectura, OCR y exportación.",
-      "Probar estructura, flujos, procesadores, base local, consultas y respaldos."
+      "Probar estructura, aislamiento de flujos, procesadores, base local, consultas y respaldos."
     ]
   },
   "name": "gestor-documental-capacitacion",
@@ -32,7 +32,8 @@
     "test:local-database": "node src/diagnostics/local-database.test.js",
     "test:query-service": "node src/diagnostics/query-service.test.js",
     "test:backup-service": "node src/diagnostics/backup-service.test.js",
-    "test": "npm run audit && npm run selftest && npm run test:plan-individual && npm run test:planificacion-curso && npm run test:acuerdo-patrocinio && npm run test:informe-final && npm run test:instrumento-evaluacion && npm run test:informe-impacto && npm run test:deteccion-necesidades && npm run test:plan-general-capacitacion && npm run test:local-database && npm run test:query-service && npm run test:backup-service"
+    "test:flow-isolation": "node src/diagnostics/flow-isolation.test.js",
+    "test": "npm run audit && npm run selftest && npm run test:plan-individual && npm run test:planificacion-curso && npm run test:acuerdo-patrocinio && npm run test:informe-final && npm run test:instrumento-evaluacion && npm run test:informe-impacto && npm run test:deteccion-necesidades && npm run test:plan-general-capacitacion && npm run test:local-database && npm run test:query-service && npm run test:backup-service && npm run test:flow-isolation"
   },
   "dependencies": {
     "electron": "^31.7.7",
