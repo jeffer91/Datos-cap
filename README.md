@@ -1,6 +1,6 @@
 # Gestor Documental de Capacitación
 
-Aplicación de escritorio en Electron para procesar, guardar, consultar y exportar documentos institucionales de formación y capacitación docente mediante apartados específicos.
+Aplicación de escritorio en Electron para procesar, guardar, consultar, respaldar y exportar documentos institucionales de formación y capacitación docente mediante apartados específicos.
 
 ## Estado actual
 
@@ -14,8 +14,10 @@ La aplicación cuenta con:
 - Control de duplicados y versiones por periodo.
 - Consultas y filtros sobre documentos y filas guardadas.
 - Visualización del detalle completo de cada documento.
+- Respaldo manual y automático de toda la base.
+- Restauración por reemplazo o combinación.
 - Exportación Excel y JSON.
-- Pruebas automáticas para procesadores, persistencia y consultas.
+- Pruebas automáticas para procesadores, persistencia, consultas y respaldos.
 
 ## Apartados activos
 
@@ -130,6 +132,8 @@ La base local se crea dentro de la carpeta de datos de usuario de Electron:
 ```text
 <userData>/local-database/
 ├─ database.meta.json
+├─ backups/
+│  └─ datos-cap_...capbackup
 └─ collections/
    ├─ _documents.json
    ├─ _processing_runs.json
@@ -162,25 +166,69 @@ La interfaz permite consultar la información guardada por:
 
 Las opciones de carrera, docente y curso se generan dinámicamente desde la información real de la base. Las búsquedas no distinguen mayúsculas ni tildes.
 
-### Resultado de una consulta
+El detalle documental recupera metadatos, estado, versión y todas las filas agrupadas por colección. La interfaz muestra hasta 200 filas por colección y avisa cuando existen más.
 
-Cada fila de resultados muestra:
+## Respaldo y restauración
 
-- Tipo y nombre del archivo.
-- Código institucional.
-- Periodo.
-- Carreras relacionadas.
-- Docentes o responsables relacionados.
-- Cursos relacionados.
-- Estado y versión local.
-- Total de filas vinculadas.
+Los respaldos utilizan la extensión:
 
-El botón **Ver detalle** recupera:
+```text
+.capbackup
+```
 
-- Metadatos completos del documento.
-- Número de colecciones y filas.
-- Todas las tablas relacionadas agrupadas por colección.
-- Hasta 200 filas por colección en la vista, con aviso cuando existen más.
+El archivo está comprimido con GZIP y contiene:
+
+- Metadatos de la base.
+- Todas las colecciones.
+- Documentos y versiones.
+- Historial de procesamientos.
+- Filas de cada tabla documental.
+- Versión de la aplicación y de la base.
+- Checksum SHA-256 de integridad.
+
+### Respaldo manual
+
+El botón **Crear respaldo completo** permite escoger la carpeta y el nombre del archivo. El respaldo incluye la base completa, no solamente el apartado seleccionado.
+
+### Respaldos automáticos
+
+La aplicación crea un respaldo:
+
+- Después de cada procesamiento documental completado.
+- Al iniciar, cuando existen datos y todavía no hay un respaldo del día.
+- Antes de cada restauración.
+
+Se conservan los 20 respaldos automáticos más recientes. Los anteriores se eliminan mediante una política de retención, sin afectar los respaldos manuales guardados en otras carpetas.
+
+### Validación previa
+
+Antes de restaurar se verifica:
+
+- Formato de la aplicación.
+- Versión del respaldo.
+- Estructura de metadatos y colecciones.
+- Nombres permitidos de colecciones.
+- Compatibilidad de versión de base.
+- Checksum SHA-256.
+
+Un archivo alterado o dañado es rechazado antes de modificar la base local.
+
+### Modos de restauración
+
+**Reemplazar base**
+
+- Crea primero un respaldo automático de seguridad.
+- Sustituye documentos, historial y colecciones por el contenido respaldado.
+- Vacía las colecciones que no existían en el respaldo.
+
+**Combinar datos**
+
+- Conserva la información actual.
+- Agrega registros que no existen.
+- Actualiza registros que coinciden por ID.
+- Evita duplicar filas idénticas sin identificador.
+
+Cuando una restauración falla, la aplicación intenta volver automáticamente al estado anterior.
 
 ## Flujo completo
 
@@ -194,7 +242,8 @@ Seleccionar apartado
 → Validar estructura y tablas
 → Guardar documentos y filas en la base local
 → Generar Excel y JSON
-→ Registrar el procesamiento en el historial
+→ Registrar el procesamiento
+→ Crear respaldo automático
 → Consultar y filtrar la información guardada
 ```
 
@@ -209,9 +258,11 @@ El panel principal muestra:
 - Cantidad de documentos registrados y activos.
 - Total de filas guardadas.
 - Historial de procesamientos recientes.
+- Estado, fecha y tamaño de los respaldos.
+- Creación y restauración de archivos `.capbackup`.
 - Consultas con filtros combinables.
 - Detalle de cada documento y sus colecciones.
-- Acceso directo a la carpeta física de la base local.
+- Acceso a las carpetas físicas de la base y los respaldos.
 
 ## Estructura principal
 
@@ -222,11 +273,13 @@ El panel principal muestra:
 │  ├─ index.html
 │  ├─ app.js
 │  ├─ database.js
+│  ├─ backup.js
 │  ├─ query.js
 │  └─ styles/
 │     ├─ app.css
 │     ├─ layout.css
 │     ├─ database.css
+│     ├─ backup.css
 │     └─ query.css
 └─ src/
    ├─ core/
@@ -234,7 +287,8 @@ El panel principal muestra:
    │  ├─ index.js
    │  ├─ local-database.js
    │  ├─ persistence.service.js
-   │  └─ query.service.js
+   │  ├─ query.service.js
+   │  └─ backup.service.js
    ├─ document-types/
    ├─ diagnostics/
    ├─ exporters/
@@ -275,9 +329,10 @@ npm run test:deteccion-necesidades
 npm run test:plan-general-capacitacion
 npm run test:local-database
 npm run test:query-service
+npm run test:backup-service
 ```
 
-GitHub Actions verifica sintaxis, ocho procesadores, base local, deduplicación, versionado, consultas, filtros, paginación y detalle documental.
+GitHub Actions verifica sintaxis, ocho procesadores, base local, deduplicación, versionado, consultas, filtros, paginación, respaldo, checksum y restauración.
 
 ## Seguridad y trazabilidad
 
@@ -289,10 +344,11 @@ GitHub Actions verifica sintaxis, ocho procesadores, base local, deduplicación,
 - Documentos únicos versionados sin eliminación silenciosa.
 - Historial local de cada procesamiento.
 - Consultas de solo lectura sobre la información almacenada.
+- Respaldo de seguridad automático antes de restaurar.
+- Verificación SHA-256 antes de cambiar la base.
 
 ## Próximos bloques
 
-1. Respaldo y restauración completa de la base local.
-2. Pruebas integrales con lotes de PDF reales y OCR desde Electron.
-3. Limpieza de compatibilidad heredada y auditoría final.
-4. Integración definitiva de la rama con `main`.
+1. Pruebas integrales con lotes de PDF reales y OCR desde Electron.
+2. Limpieza de compatibilidad heredada y auditoría final.
+3. Integración definitiva de la rama con `main`.
