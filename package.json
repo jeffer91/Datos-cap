@@ -4,13 +4,13 @@
     "ruta_o_ubicacion": "/package.json",
     "funcion_o_funciones": [
       "Configurar la aplicación Electron.",
-      "Definir scripts de ejecución y diagnóstico.",
+      "Definir scripts de ejecución, auditoría y diagnóstico.",
       "Declarar dependencias para lectura digital, OCR y generación de Excel.",
-      "Probar procesadores, base local, consultas, respaldos y restauración."
+      "Probar estructura, flujos, procesadores, base local, consultas y respaldos."
     ]
   },
   "name": "gestor-documental-capacitacion",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Aplicación Electron con ocho apartados, base local, consultas, respaldo, restauración y exportación Excel y JSON.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
@@ -19,6 +19,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
+    "audit": "node src/diagnostics/repository-audit.js",
     "selftest": "node src/diagnostics/selftest.js",
     "test:plan-individual": "node src/diagnostics/plan-individual.parser.test.js",
     "test:planificacion-curso": "node src/diagnostics/planificacion-curso.parser.test.js",
@@ -31,7 +32,7 @@
     "test:local-database": "node src/diagnostics/local-database.test.js",
     "test:query-service": "node src/diagnostics/query-service.test.js",
     "test:backup-service": "node src/diagnostics/backup-service.test.js",
-    "test": "npm run selftest && npm run test:plan-individual && npm run test:planificacion-curso && npm run test:acuerdo-patrocinio && npm run test:informe-final && npm run test:instrumento-evaluacion && npm run test:informe-impacto && npm run test:deteccion-necesidades && npm run test:plan-general-capacitacion && npm run test:local-database && npm run test:query-service && npm run test:backup-service"
+    "test": "npm run audit && npm run selftest && npm run test:plan-individual && npm run test:planificacion-curso && npm run test:acuerdo-patrocinio && npm run test:informe-final && npm run test:instrumento-evaluacion && npm run test:informe-impacto && npm run test:deteccion-necesidades && npm run test:plan-general-capacitacion && npm run test:local-database && npm run test:query-service && npm run test:backup-service"
   },
   "dependencies": {
     "electron": "^31.7.7",
