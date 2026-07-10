@@ -42,3 +42,6 @@ jobs:
 
       - name: Probar Acuerdo de Patrocinio
         run: npm run test:acuerdo-patrocinio
+
+      - name: Probar Informe Final
+        run: npm run test:informe-final
