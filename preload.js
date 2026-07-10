@@ -3,8 +3,8 @@ Nombre completo: preload.js
 Ruta o ubicación: /preload.js
 Función o funciones:
 - Exponer una API segura desde Electron hacia la interfaz.
-- Listar los apartados documentales registrados.
-- Seleccionar, validar y procesar PDF según el apartado elegido.
+- Listar, seleccionar, validar, procesar y exportar documentos.
+- Consultar resumen, historial y carpeta de la base local.
 - Mantener compatibilidad temporal con la API anterior.
 ========================================================= */
 
@@ -19,6 +19,9 @@ const ALLOWED_CHANNELS = new Set([
   "files:validate-document-pdfs",
   "dialog:choose-output-dir",
   "reports:generate-document-report",
+  "database:get-summary",
+  "database:list-recent-runs",
+  "database:open-folder",
   "dialog:select-pdfs",
   "files:validate-pdfs",
   "reports:generate-plan-report"
@@ -49,6 +52,15 @@ const documentAppAPI = {
   },
   generateDocumentReport(payload) {
     return invokeSafe("reports:generate-document-report", payload);
+  },
+  getDatabaseSummary() {
+    return invokeSafe("database:get-summary");
+  },
+  listRecentDatabaseRuns(options) {
+    return invokeSafe("database:list-recent-runs", options || {});
+  },
+  openDatabaseFolder() {
+    return invokeSafe("database:open-folder");
   }
 };
 
