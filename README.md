@@ -25,9 +25,9 @@ La aplicación utiliza:
 
 Los dos últimos se consideran **documentos únicos por periodo**. Los demás son documentos repetitivos que pueden cargarse en grupos del mismo tipo.
 
-## Estado de la etapa 1
+## Etapa 1 completada: base modular
 
-La primera etapa incorpora:
+La primera etapa incorporó:
 
 - Menú con los ocho apartados.
 - Registro central de tipos documentales.
@@ -37,13 +37,37 @@ La primera etapa incorpora:
 - Hash SHA-256 para detectar duplicados por contenido.
 - Identificadores documentales estables.
 - Exportadores dinámicos de Excel y JSON.
-- Compatibilidad con el extractor actual de Plan Individual.
+- Interfaz nueva en modo claro.
 
-### Módulo activo
+## Etapa 2 completada: migración del Plan Individual
 
-Actualmente el módulo funcional es:
+El Plan Individual dejó de estar conectado directamente al pipeline principal. Ahora funciona como un módulo especializado compuesto por:
 
-- **Plan Individual de Formación y Capacitación Docente**.
+```text
+src/document-types/plan-individual/
+├─ definition.js
+├─ parser.js
+├─ tables.js
+├─ validator.js
+└─ index.js
+```
+
+También se incorporó:
+
+- Registro central de procesadores en `src/core/processor.registry.js`.
+- Pipeline desacoplado de parsers y tablas concretas.
+- Validación de los datos obtenidos por documento.
+- Validación de que existan las cinco tablas esperadas.
+- Bloqueo de exportación cuando no se obtiene ningún documento válido.
+- Bloqueo de exportación cuando falta una tabla obligatoria.
+- Prueba de regresión del parser con un Plan Individual sintético.
+- Pruebas automáticas mediante `npm test` y GitHub Actions.
+
+Los archivos anteriores de extracción y tablas se conservan temporalmente como implementación interna. No se eliminarán hasta probar varios PDF reales y confirmar que la salida es equivalente.
+
+## Módulo activo
+
+### Plan Individual de Formación y Capacitación Docente
 
 Genera cinco tablas:
 
@@ -55,11 +79,11 @@ Genera cinco tablas:
 05_formacion
 ```
 
-### Módulo con estructura preparada
+## Módulo con estructura preparada
 
-- **Planificación de Capacitación por Curso**.
+### Planificación de Capacitación por Curso
 
-Ya tiene declaradas cuatro tablas, pero su parser y OCR se incorporarán en la siguiente etapa:
+Tiene declaradas cuatro tablas:
 
 ```text
 01_archivos
@@ -68,7 +92,9 @@ Ya tiene declaradas cuatro tablas, pero su parser y OCR se incorporarán en la s
 04_evaluaciones
 ```
 
-### Módulos pendientes de definición final de tablas
+Su parser, lector híbrido y OCR se incorporarán en la siguiente etapa.
+
+## Módulos pendientes de definición final de tablas
 
 - Acuerdos de patrocinio.
 - Informes finales.
@@ -83,8 +109,10 @@ Ya tiene declaradas cuatro tablas, pero su parser y OCR se incorporarán en la s
 Seleccionar apartado
 → Seleccionar PDF del tipo correcto
 → Validar archivos y duplicados
-→ Elegir carpeta de salida
-→ Ejecutar procesador especializado
+→ Resolver procesador especializado
+→ Leer y analizar los PDF
+→ Validar estructura obtenida
+→ Construir tablas
 → Generar Excel + JSON
 ```
 
@@ -100,6 +128,10 @@ La app verifica:
 - Duplicados reales por contenido.
 - Límite de un documento en apartados únicos.
 - Referencias esperadas en el nombre del archivo.
+- Procesador especializado disponible.
+- Documentos realmente parseados.
+- Tablas obligatorias construidas.
+- Filas vacías o que necesitan revisión.
 
 Una diferencia en el nombre esperado genera una advertencia, no bloquea automáticamente el documento.
 
@@ -118,9 +150,15 @@ Una diferencia en el nombre esperado genera una advertencia, no bloquea automát
 ├─ src/
 │  ├─ core/
 │  │  ├─ document.processor.js
-│  │  └─ document-type.registry.js
+│  │  ├─ document-type.registry.js
+│  │  └─ processor.registry.js
 │  ├─ document-types/
 │  │  ├─ plan-individual/
+│  │  │  ├─ definition.js
+│  │  │  ├─ parser.js
+│  │  │  ├─ tables.js
+│  │  │  ├─ validator.js
+│  │  │  └─ index.js
 │  │  ├─ planificacion-curso/
 │  │  ├─ acuerdo-patrocinio/
 │  │  ├─ informe-final/
@@ -129,15 +167,13 @@ Una diferencia en el nombre esperado genera una advertencia, no bloquea automát
 │  │  ├─ deteccion-necesidades/
 │  │  └─ plan-general-capacitacion/
 │  ├─ diagnostics/
+│  │  ├─ selftest.js
+│  │  └─ plan-individual.parser.test.js
 │  ├─ exporters/
 │  ├─ extractor/
 │  ├─ processors/
 │  ├─ tables/
 │  ├─ utils/
-│  │  ├─ date.utils.js
-│  │  ├─ file.utils.js
-│  │  ├─ hash.utils.js
-│  │  └─ ids.js
 │  └─ validators/
 ```
 
@@ -153,23 +189,29 @@ npm install
 npm start
 ```
 
-## Diagnóstico
+## Pruebas
+
+Ejecutar todas las pruebas:
+
+```powershell
+npm test
+```
+
+Ejecutar solamente el diagnóstico general:
 
 ```powershell
 npm run selftest
 ```
 
-El diagnóstico verifica:
+Ejecutar la prueba del parser del Plan Individual:
 
-- Registro de los ocho tipos documentales.
-- Cinco tablas del Plan Individual.
-- Exportación dinámica a Excel.
-- Metadatos del tipo documental en JSON.
-- Creación de archivos temporales de prueba.
+```powershell
+npm run test:plan-individual
+```
 
 ## Próxima etapa
 
-La siguiente etapa debe implementar el procesador específico de **Planificación de Capacitación por Curso**, incluyendo:
+Implementar el procesador específico de **Planificación de Capacitación por Curso**, incluyendo:
 
 - Lectura híbrida de PDF.
 - OCR para documentos escaneados.
