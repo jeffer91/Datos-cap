@@ -4,7 +4,7 @@ Ruta o ubicación: /renderer/index.html
 Función o funciones:
 - Mostrar el panel principal con ocho apartados específicos.
 - Reutilizar un mismo cargador controlado por el tipo documental seleccionado.
-- Mostrar validación, tablas esperadas y resultados de exportación.
+- Mostrar validación, tablas, base local, historial y resultados de exportación.
 ========================================================= -->
 
 <!DOCTYPE html>
@@ -19,6 +19,7 @@ Función o funciones:
   <title>Gestor Documental de Capacitación</title>
   <link rel="stylesheet" href="./styles/app.css" />
   <link rel="stylesheet" href="./styles/layout.css" />
+  <link rel="stylesheet" href="./styles/database.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -26,7 +27,7 @@ Función o funciones:
       <div class="brand">
         <h1 class="brand-title">Gestor Documental de Capacitación</h1>
         <p class="brand-subtitle">
-          Cada apartado valida y procesa únicamente el tipo de documento institucional que le corresponde.
+          Cada apartado valida, extrae y guarda únicamente el tipo de documento institucional que le corresponde.
         </p>
       </div>
 
@@ -53,7 +54,46 @@ Función o funciones:
         <span class="badge badge-ready" id="moduleStatusBadge">Preparando</span>
       </section>
 
-      <section class="grid grid-two">
+      <section class="card database-card">
+        <div class="database-heading">
+          <div>
+            <h3 class="card-title">Base de datos local</h3>
+            <p class="card-description">
+              Los documentos procesados se guardan automáticamente antes de generar Excel y JSON.
+            </p>
+          </div>
+          <div class="actions database-actions">
+            <button class="btn btn-secondary" id="btnRefreshDatabase" type="button">Actualizar</button>
+            <button class="btn btn-secondary" id="btnOpenDatabase" type="button">Abrir carpeta</button>
+          </div>
+        </div>
+
+        <div class="database-summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">Documentos registrados</div>
+            <div class="summary-value" id="dbDocuments">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Documentos activos</div>
+            <div class="summary-value" id="dbActiveDocuments">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Filas guardadas</div>
+            <div class="summary-value" id="dbRows">0</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Procesamientos</div>
+            <div class="summary-value" id="dbRuns">0</div>
+          </div>
+        </div>
+
+        <div class="status-box status-info" id="databaseStatus">Consultando la base local...</div>
+        <div id="databaseHistory">
+          <div class="empty">Todavía no existen procesamientos registrados.</div>
+        </div>
+      </section>
+
+      <section class="grid grid-two section-gap">
         <article class="card">
           <h3 class="card-title">Carga y validación</h3>
           <p class="card-description" id="uploadDescription">
@@ -95,7 +135,7 @@ Función o funciones:
         <article class="card">
           <h3 class="card-title">Documentos cargados</h3>
           <p class="card-description">
-            La aplicación calcula una huella digital para detectar duplicados aunque el archivo cambie de carpeta.
+            La aplicación calcula una huella digital para detectar duplicados en la selección y en la base local.
           </p>
           <div id="filesTableContainer">
             <div class="empty">Aquí aparecerán los PDF seleccionados.</div>
@@ -104,29 +144,30 @@ Función o funciones:
 
         <article class="card">
           <h3 class="card-title">Tablas esperadas</h3>
-          <p class="card-description">Cada apartado tiene su propia estructura de salida.</p>
+          <p class="card-description">Cada apartado tiene su propia estructura de salida y almacenamiento.</p>
           <div class="expected-tables" id="expectedTables"></div>
         </article>
       </section>
 
       <section class="card section-gap">
-        <h3 class="card-title">Exportación</h3>
+        <h3 class="card-title">Procesamiento y exportación</h3>
         <p class="card-description">
-          El módulo activo generará Excel y JSON con hojas y tablas específicas para ese documento.
+          El módulo guarda primero la información en la base local y después genera Excel y JSON.
         </p>
         <div class="actions">
           <button class="btn btn-secondary" id="btnChooseOutput">Seleccionar carpeta de salida</button>
-          <button class="btn btn-primary" id="btnGenerate" disabled>Generar Excel + JSON</button>
+          <button class="btn btn-primary" id="btnGenerate" disabled>Guardar y generar Excel + JSON</button>
         </div>
         <div class="status-box status-info" id="outputBox">Carpeta de salida no seleccionada.</div>
         <div id="resultsContainer"></div>
         <p class="footer-note">
-          Los módulos marcados como “estructura preparada” o “pendiente de tablas” ya tienen su apartado reservado, pero no procesarán información hasta incorporar su parser específico.
+          Los documentos únicos por periodo se versionan automáticamente. La versión anterior se conserva como superada y nunca se elimina de forma silenciosa.
         </p>
       </section>
     </main>
   </div>
 
   <script src="./app.js"></script>
+  <script src="./database.js"></script>
 </body>
 </html>
