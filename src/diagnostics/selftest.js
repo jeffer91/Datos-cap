@@ -3,9 +3,9 @@ Nombre completo: selftest.js
 Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar una prueba rápida de módulos críticos sin abrir Electron.
-- Verificar el registro de ocho tipos y dos procesadores activos.
+- Verificar el registro de ocho tipos y tres procesadores activos.
 - Validar el módulo especializado del Plan Individual.
-- Comprobar exportación Excel + JSON y disponibilidad del lector híbrido.
+- Comprobar exportación Excel + JSON y lectores híbridos.
 ========================================================= */
 
 "use strict";
@@ -131,21 +131,28 @@ function runSelfTest() {
   const processorDetails = listProcessors();
   const planDefinition = getDocumentType("plan-individual");
   const planningDefinition = getDocumentType("planificacion-curso");
+  const agreementDefinition = getDocumentType("acuerdo-patrocinio");
   const planProcessor = assertProcessor("plan-individual");
   const planningProcessor = assertProcessor("planificacion-curso");
+  const agreementProcessor = assertProcessor("acuerdo-patrocinio");
 
   assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
-  assertCondition(processorIds.length === 2, "Deben existir exactamente dos procesadores activos en esta etapa.");
+  assertCondition(processorIds.length === 3, "Deben existir exactamente tres procesadores activos en esta etapa.");
   assertCondition(processorIds.includes("plan-individual"), "El procesador del Plan Individual no está registrado.");
   assertCondition(processorIds.includes("planificacion-curso"), "El procesador de Planificación por Curso no está registrado.");
+  assertCondition(processorIds.includes("acuerdo-patrocinio"), "El procesador de Acuerdos de Patrocinio no está registrado.");
   assertCondition(Boolean(planDefinition && planDefinition.enabled), "El módulo Plan Individual no está activo.");
   assertCondition(Boolean(planningDefinition && planningDefinition.enabled), "El módulo Planificación por Curso no está activo.");
+  assertCondition(Boolean(agreementDefinition && agreementDefinition.enabled), "El módulo Acuerdo de Patrocinio no está activo.");
   assertCondition(planDefinition.tables.length === 5, "El Plan Individual no declara sus 5 tablas.");
   assertCondition(planningDefinition.tables.length === 4, "La Planificación por Curso no declara sus 4 tablas.");
+  assertCondition(agreementDefinition.tables.length === 4, "El Acuerdo de Patrocinio no declara sus 4 tablas.");
   assertCondition(typeof planningProcessor.readDocuments === "function", "El módulo de planificación no expone lector híbrido.");
-  assertCondition(typeof planningProcessor.parseDocuments === "function", "El módulo de planificación no expone parser.");
-  assertCondition(typeof planningProcessor.buildTables === "function", "El módulo de planificación no expone tablas.");
+  assertCondition(typeof agreementProcessor.readDocuments === "function", "El módulo de acuerdos no expone lector híbrido.");
+  assertCondition(typeof agreementProcessor.parseDocuments === "function", "El módulo de acuerdos no expone parser.");
+  assertCondition(typeof agreementProcessor.buildTables === "function", "El módulo de acuerdos no expone tablas.");
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
+  assertCondition(ids.extractRegistroFromCodigo("CGC-RGI2-146-PRO-134-2025-03") === "146", "No se reconoce el registro de códigos CGC.");
   assertCondition(typeof normalizer.normalizeSpaces === "function", "normalizer.normalizeSpaces no está disponible.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
