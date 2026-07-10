@@ -5,7 +5,7 @@
     "funcion_o_funciones": [
       "Configurar la aplicación Electron.",
       "Definir scripts de ejecución, auditoría y diagnóstico.",
-      "Declarar dependencias para lectura digital, OCR y generación de Excel.",
+      "Declarar únicamente dependencias utilizadas por lectura, OCR y exportación.",
       "Probar estructura, flujos, procesadores, base local, consultas y respaldos."
     ]
   },
@@ -36,7 +36,6 @@
   },
   "dependencies": {
     "electron": "^31.7.7",
-    "fs-extra": "^11.2.0",
     "pdf-parse": "^1.1.1",
     "pdf-to-img": "^4.2.0",
     "tesseract.js": "^7.0.0",
