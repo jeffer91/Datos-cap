@@ -19,7 +19,7 @@ module.exports = Object.freeze({
   uniquePerPeriod: false,
   enabled: true,
   status: "active",
-  processorId: "legacy-plan-individual",
+  processorId: "plan-individual",
   fileNameHints: ["PRO-251"],
   reportPrefix: "reporte_plan_individual",
   tables: [
