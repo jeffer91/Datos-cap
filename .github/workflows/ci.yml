@@ -51,3 +51,6 @@ jobs:
 
       - name: Probar Informe de Impacto
         run: npm run test:informe-impacto
+
+      - name: Probar Detección de Necesidades
+        run: npm run test:deteccion-necesidades
