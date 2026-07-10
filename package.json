@@ -6,12 +6,12 @@
       "Configurar la aplicación Electron.",
       "Definir scripts de ejecución, auditoría y diagnóstico.",
       "Declarar únicamente dependencias utilizadas por lectura, OCR y exportación.",
-      "Probar estructura, aislamiento de flujos, procesadores, base local, consultas y respaldos."
+      "Probar estructura, flujos y modelo consolidado para nuevos reportes."
     ]
   },
   "name": "gestor-documental-capacitacion",
-  "version": "2.2.1",
-  "description": "Aplicación Electron con ocho apartados, base local, consultas, respaldo, restauración y exportación Excel y JSON.",
+  "version": "2.3.0",
+  "description": "Aplicación Electron con ocho apartados, base local y modelo consolidado para reportes individuales y globales.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
@@ -33,7 +33,8 @@
     "test:query-service": "node src/diagnostics/query-service.test.js",
     "test:backup-service": "node src/diagnostics/backup-service.test.js",
     "test:flow-isolation": "node src/diagnostics/flow-isolation.test.js",
-    "test": "npm run audit && npm run selftest && npm run test:plan-individual && npm run test:planificacion-curso && npm run test:acuerdo-patrocinio && npm run test:informe-final && npm run test:instrumento-evaluacion && npm run test:informe-impacto && npm run test:deteccion-necesidades && npm run test:plan-general-capacitacion && npm run test:local-database && npm run test:query-service && npm run test:backup-service && npm run test:flow-isolation"
+    "test:report-data": "node src/diagnostics/report-data.repository.test.js",
+    "test": "npm run audit && npm run selftest && npm run test:plan-individual && npm run test:planificacion-curso && npm run test:acuerdo-patrocinio && npm run test:informe-final && npm run test:instrumento-evaluacion && npm run test:informe-impacto && npm run test:deteccion-necesidades && npm run test:plan-general-capacitacion && npm run test:local-database && npm run test:query-service && npm run test:backup-service && npm run test:flow-isolation && npm run test:report-data"
   },
   "dependencies": {
     "electron": "^31.7.7",
