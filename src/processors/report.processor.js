@@ -3,8 +3,8 @@ Nombre completo: report.processor.js
 Ruta o ubicación: /src/processors/report.processor.js
 Función o funciones:
 - Ejecutar el proceso completo de generación de reportes.
-- Recibir definición y procesador especializado del tipo documental.
-- Leer PDF, parsear, validar, construir tablas y exportar Excel + JSON.
+- Recibir definición, lector y procesador especializados.
+- Leer PDF, aplicar OCR cuando corresponda, parsear, validar y exportar.
 - Mantener un pipeline común sin depender de un documento concreto.
 ========================================================= */
 
@@ -46,6 +46,14 @@ function assertProcessorContract(processor) {
   }
 
   return moduleProcessor;
+}
+
+async function readDocuments(processor, filePaths) {
+  if (processor && typeof processor.readDocuments === "function") {
+    return processor.readDocuments(filePaths);
+  }
+
+  return readPdfFiles(filePaths);
 }
 
 function createTableExportConfig(definition) {
@@ -107,12 +115,21 @@ function createExportPayload(options) {
       pdf_alertas_tipo: validation.typeWarningCount || 0,
       pdf_leidos: readResult.okCount || 0,
       pdf_con_error_lectura: readResult.errorCount || 0,
+      pdf_texto_digital: readResult.digitalCount || 0,
+      pdf_procesados_ocr: readResult.ocrCount || 0,
       pdf_parseados: parseResult.parsedCount || 0,
       pdf_con_error_parseo: parseResult.errorCount || 0,
       advertencias_modulo: moduleWarnings.length
     },
     validations: {
       archivos: validation,
+      lectura: {
+        total: readResult.total || 0,
+        okCount: readResult.okCount || 0,
+        errorCount: readResult.errorCount || 0,
+        digitalCount: readResult.digitalCount || 0,
+        ocrCount: readResult.ocrCount || 0
+      },
       parseo: config.parseValidation || {},
       tablas: tableResult.validations || {},
       estructura: config.tableValidation || {}
@@ -153,7 +170,7 @@ async function processReport(options) {
     };
   }
 
-  const readResult = await readPdfFiles(validPaths);
+  const readResult = await readDocuments(processor, validPaths);
   const parseResult = processor.parseDocuments(readResult.documents);
   const parseValidation = typeof processor.validateParseResult === "function"
     ? processor.validateParseResult(parseResult)
@@ -169,6 +186,8 @@ async function processReport(options) {
       summary: {
         pdf_leidos: readResult.okCount || 0,
         pdf_con_error_lectura: readResult.errorCount || 0,
+        pdf_texto_digital: readResult.digitalCount || 0,
+        pdf_procesados_ocr: readResult.ocrCount || 0,
         pdf_parseados: 0
       },
       validation,
@@ -229,7 +248,9 @@ async function processReport(options) {
     readResult: {
       total: readResult.total,
       okCount: readResult.okCount,
-      errorCount: readResult.errorCount
+      errorCount: readResult.errorCount,
+      digitalCount: readResult.digitalCount || 0,
+      ocrCount: readResult.ocrCount || 0
     },
     parseResult: {
       total: parseResult.total,
@@ -262,6 +283,7 @@ module.exports = {
   ensureOutputDirectory,
   normalizeValidFiles,
   assertProcessorContract,
+  readDocuments,
   createTableExportConfig,
   normalizeModuleWarnings,
   createExportPayload,
