@@ -1,12 +1,10 @@
 <!-- =========================================================
 Nombre completo: index.html
-Ruta o ubicación: /plan-docente-extractor/renderer/index.html
+Ruta o ubicación: /renderer/index.html
 Función o funciones:
-- Mostrar la interfaz principal de la aplicación.
-- Permitir cargar varios PDF al mismo tiempo.
-- Mostrar resumen de documentos seleccionados.
-- Mostrar validación de archivos correctos, inválidos y duplicados.
-- Preparar los botones para extracción, Excel y JSON.
+- Mostrar el panel principal con ocho apartados específicos.
+- Reutilizar un mismo cargador controlado por el tipo documental seleccionado.
+- Mostrar validación, tablas esperadas y resultados de exportación.
 ========================================================= -->
 
 <!DOCTYPE html>
@@ -15,383 +13,63 @@ Función o funciones:
   <meta charset="UTF-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;"
   />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Plan Docente Extractor</title>
-
-  <style>
-    :root {
-      --bg: #f4f6f9;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #e5e7eb;
-      --primary: #1d4ed8;
-      --primary-dark: #1e40af;
-      --danger: #b91c1c;
-      --warning: #92400e;
-      --success: #166534;
-      --soft-blue: #eff6ff;
-      --soft-green: #ecfdf5;
-      --soft-red: #fef2f2;
-      --soft-yellow: #fffbeb;
-      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-
-    .app-shell {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      min-height: 100vh;
-    }
-
-    .sidebar {
-      background: #0f172a;
-      color: #ffffff;
-      padding: 24px 18px;
-    }
-
-    .brand {
-      margin-bottom: 28px;
-    }
-
-    .brand-title {
-      font-size: 20px;
-      font-weight: 800;
-      line-height: 1.2;
-    }
-
-    .brand-subtitle {
-      margin-top: 8px;
-      color: #cbd5e1;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .steps {
-      display: grid;
-      gap: 10px;
-      margin-top: 24px;
-    }
-
-    .step {
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 12px;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.04);
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .step strong {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 4px;
-    }
-
-    .content {
-      padding: 28px;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: flex-start;
-      margin-bottom: 20px;
-    }
-
-    .page-title {
-      margin: 0;
-      font-size: 28px;
-      line-height: 1.2;
-    }
-
-    .page-description {
-      margin: 8px 0 0;
-      color: var(--muted);
-      line-height: 1.5;
-      max-width: 850px;
-    }
-
-    .version-pill {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 8px 12px;
-      color: var(--muted);
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 18px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-    }
-
-    .card-title {
-      margin: 0 0 12px;
-      font-size: 18px;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 11px 14px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #ffffff;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: var(--primary-dark);
-    }
-
-    .btn-secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-
-    .btn-danger {
-      background: #fee2e2;
-      color: var(--danger);
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(120px, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .summary-item {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px;
-      background: #f9fafb;
-    }
-
-    .summary-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .summary-value {
-      font-size: 24px;
-      font-weight: 800;
-    }
-
-    .status-box {
-      border-radius: 14px;
-      padding: 12px 14px;
-      margin-top: 12px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .status-info {
-      background: var(--soft-blue);
-      color: #1e3a8a;
-    }
-
-    .status-success {
-      background: var(--soft-green);
-      color: var(--success);
-    }
-
-    .status-warning {
-      background: var(--soft-yellow);
-      color: var(--warning);
-    }
-
-    .status-danger {
-      background: var(--soft-red);
-      color: var(--danger);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 14px;
-      font-size: 13px;
-    }
-
-    th,
-    td {
-      border-bottom: 1px solid var(--line);
-      padding: 10px 8px;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      background: #f9fafb;
-      color: #374151;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-
-    .badge {
-      display: inline-block;
-      border-radius: 999px;
-      padding: 4px 8px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .badge-ok {
-      background: var(--soft-green);
-      color: var(--success);
-    }
-
-    .badge-error {
-      background: var(--soft-red);
-      color: var(--danger);
-    }
-
-    .empty {
-      border: 1px dashed #cbd5e1;
-      border-radius: 16px;
-      padding: 28px;
-      text-align: center;
-      color: var(--muted);
-      background: #f8fafc;
-    }
-
-    .footer-note {
-      margin-top: 18px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    @media (max-width: 980px) {
-      .app-shell {
-        grid-template-columns: 1fr;
-      }
-
-      .sidebar {
-        display: none;
-      }
-
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(120px, 1fr));
-      }
-
-      .topbar {
-        display: block;
-      }
-
-      .version-pill {
-        display: inline-block;
-        margin-top: 12px;
-      }
-    }
-  </style>
+  <title>Gestor Documental de Capacitación</title>
+  <link rel="stylesheet" href="./styles/app.css" />
+  <link rel="stylesheet" href="./styles/layout.css" />
 </head>
-
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-title">Plan Docente Extractor</div>
-        <div class="brand-subtitle">
-          Extrae campos variables de planes individuales y genera tablas listas para Excel, JSON y futura base de datos.
-        </div>
+        <h1 class="brand-title">Gestor Documental de Capacitación</h1>
+        <p class="brand-subtitle">
+          Cada apartado valida y procesa únicamente el tipo de documento institucional que le corresponde.
+        </p>
       </div>
 
-      <div class="steps">
-        <div class="step">
-          <strong>1. Cargar PDF</strong>
-          Selección múltiple de documentos.
-        </div>
-        <div class="step">
-          <strong>2. Validar</strong>
-          Revisa extensión, duplicados y archivos vacíos.
-        </div>
-        <div class="step">
-          <strong>3. Extraer</strong>
-          Detecta campos variables.
-        </div>
-        <div class="step">
-          <strong>4. Exportar</strong>
-          Genera Excel y JSON.
-        </div>
-      </div>
+      <div class="sidebar-label">Apartados documentales</div>
+      <nav class="section-list" id="sectionList" aria-label="Tipos documentales"></nav>
     </aside>
 
     <main class="content">
-      <section class="topbar">
+      <header class="topbar">
         <div>
-          <h1 class="page-title">Extractor de Planes Individuales</h1>
-          <p class="page-description">
-            Carga varios PDF del Plan Individual de Formación y Capacitación Docente. La app validará los documentos y quedará lista para generar las cinco tablas: archivos, identificación, capacidades, capacitaciones y formación.
+          <h2 class="page-title" id="pageTitle">Cargando apartados...</h2>
+          <p class="page-description" id="pageDescription">
+            Espera mientras se consulta la configuración documental de la aplicación.
           </p>
         </div>
+        <div class="version-pill" id="appVersion">Cargando versión...</div>
+      </header>
 
-        <div class="version-pill" id="appVersion">Cargando app...</div>
+      <section class="module-banner">
+        <div>
+          <h3 class="module-banner-title" id="moduleRule">Reglas del apartado</h3>
+          <p class="module-banner-text" id="moduleMode">Selecciona un apartado para consultar sus reglas.</p>
+        </div>
+        <span class="badge badge-ready" id="moduleStatusBadge">Preparando</span>
       </section>
 
-      <section class="grid">
-        <div class="card">
-          <h2 class="card-title">Carga de documentos</h2>
-          <div class="empty" id="emptyBox">
-            Todavía no hay documentos cargados. Selecciona varios PDF para iniciar.
-          </div>
-
+      <section class="grid grid-two">
+        <article class="card">
+          <h3 class="card-title">Carga y validación</h3>
+          <p class="card-description" id="uploadDescription">
+            Selecciona los PDF que correspondan al apartado activo.
+          </p>
           <div class="actions">
-            <button class="btn-primary" id="btnSelectPdf">Seleccionar PDF</button>
-            <button class="btn-secondary" id="btnValidate" disabled>Validar documentos</button>
-            <button class="btn-danger" id="btnClear" disabled>Limpiar selección</button>
+            <button class="btn btn-primary" id="btnSelectPdf">Seleccionar PDF</button>
+            <button class="btn btn-secondary" id="btnValidate" disabled>Validar documentos</button>
+            <button class="btn btn-danger" id="btnClear" disabled>Limpiar selección</button>
           </div>
+          <div class="status-box status-info" id="statusBox">Esperando selección de documentos.</div>
+        </article>
 
-          <div id="statusBox" class="status-box status-info">
-            Esperando selección de documentos.
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">Resumen de validación</h2>
-
+        <article class="card">
+          <h3 class="card-title">Resumen</h3>
+          <p class="card-description">Estado de la selección dentro del apartado actual.</p>
           <div class="summary-grid">
             <div class="summary-item">
               <div class="summary-label">Seleccionados</div>
@@ -402,43 +80,49 @@ Función o funciones:
               <div class="summary-value" id="validFiles">0</div>
             </div>
             <div class="summary-item">
-              <div class="summary-label">Con revisión</div>
+              <div class="summary-label">Con error</div>
               <div class="summary-value" id="invalidFiles">0</div>
             </div>
             <div class="summary-item">
-              <div class="summary-label">Listo para extraer</div>
-              <div class="summary-value" id="readyState">No</div>
+              <div class="summary-label">Duplicados</div>
+              <div class="summary-value" id="duplicateFiles">0</div>
             </div>
           </div>
-        </div>
+        </article>
+      </section>
 
-        <div class="card">
-          <h2 class="card-title">Documentos cargados</h2>
-          <div id="filesTableContainer">
-            <div class="empty">
-              Aquí aparecerá la lista de PDF seleccionados.
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">Salida esperada</h2>
-          <p class="footer-note">
-            Cuando conectemos el extractor, la app generará:
-            <strong>reporte_plan_individual.xlsx</strong> y
-            <strong>reporte_plan_individual.json</strong>.
-            El Excel tendrá cinco hojas independientes y el JSON tendrá cinco arreglos listos para enviar después a base de datos.
+      <section class="grid grid-two section-gap">
+        <article class="card">
+          <h3 class="card-title">Documentos cargados</h3>
+          <p class="card-description">
+            La aplicación calcula una huella digital para detectar duplicados aunque el archivo cambie de carpeta.
           </p>
-
-          <div class="actions">
-            <button class="btn-secondary" id="btnChooseOutput">Seleccionar carpeta de salida</button>
-            <button class="btn-primary" id="btnGenerate" disabled>Generar Excel + JSON</button>
+          <div id="filesTableContainer">
+            <div class="empty">Aquí aparecerán los PDF seleccionados.</div>
           </div>
+        </article>
 
-          <div id="outputBox" class="status-box status-info">
-            Carpeta de salida no seleccionada.
-          </div>
+        <article class="card">
+          <h3 class="card-title">Tablas esperadas</h3>
+          <p class="card-description">Cada apartado tiene su propia estructura de salida.</p>
+          <div class="expected-tables" id="expectedTables"></div>
+        </article>
+      </section>
+
+      <section class="card section-gap">
+        <h3 class="card-title">Exportación</h3>
+        <p class="card-description">
+          El módulo activo generará Excel y JSON con hojas y tablas específicas para ese documento.
+        </p>
+        <div class="actions">
+          <button class="btn btn-secondary" id="btnChooseOutput">Seleccionar carpeta de salida</button>
+          <button class="btn btn-primary" id="btnGenerate" disabled>Generar Excel + JSON</button>
         </div>
+        <div class="status-box status-info" id="outputBox">Carpeta de salida no seleccionada.</div>
+        <div id="resultsContainer"></div>
+        <p class="footer-note">
+          Los módulos marcados como “estructura preparada” o “pendiente de tablas” ya tienen su apartado reservado, pero no procesarán información hasta incorporar su parser específico.
+        </p>
       </section>
     </main>
   </div>
