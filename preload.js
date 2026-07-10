@@ -4,7 +4,7 @@ Ruta o ubicación: /preload.js
 Función o funciones:
 - Exponer una API segura desde Electron hacia la interfaz.
 - Listar, seleccionar, validar, procesar y exportar documentos.
-- Consultar resumen, historial y carpeta de la base local.
+- Consultar resumen, historial, filtros y detalle de la base local.
 - Mantener compatibilidad temporal con la API anterior.
 ========================================================= */
 
@@ -22,6 +22,9 @@ const ALLOWED_CHANNELS = new Set([
   "database:get-summary",
   "database:list-recent-runs",
   "database:open-folder",
+  "database:get-filter-options",
+  "database:query-documents",
+  "database:get-document-detail",
   "dialog:select-pdfs",
   "files:validate-pdfs",
   "reports:generate-plan-report"
@@ -61,6 +64,18 @@ const documentAppAPI = {
   },
   openDatabaseFolder() {
     return invokeSafe("database:open-folder");
+  },
+  getDatabaseFilterOptions() {
+    return invokeSafe("database:get-filter-options");
+  },
+  queryDatabaseDocuments(filters) {
+    return invokeSafe("database:query-documents", filters || {});
+  },
+  getDatabaseDocumentDetail(documentId, options) {
+    return invokeSafe("database:get-document-detail", {
+      documentId,
+      options: options || {}
+    });
   }
 };
 
