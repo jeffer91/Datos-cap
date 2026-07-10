@@ -27,49 +27,17 @@ Los dos últimos se consideran **documentos únicos por periodo**. Los demás so
 
 ## Etapa 1 completada: base modular
 
-La primera etapa incorporó:
-
 - Menú con los ocho apartados.
 - Registro central de tipos documentales.
-- Reglas de documento repetitivo o único por periodo.
-- Procesador documental genérico.
-- Validación específica según el apartado.
+- Reglas para documentos repetitivos y únicos por periodo.
 - Hash SHA-256 para detectar duplicados por contenido.
 - Identificadores documentales estables.
 - Exportadores dinámicos de Excel y JSON.
-- Interfaz nueva en modo claro.
+- Interfaz en modo claro.
 
-## Etapa 2 completada: migración del Plan Individual
+## Etapa 2 completada: Plan Individual modular
 
-El Plan Individual dejó de estar conectado directamente al pipeline principal. Ahora funciona como un módulo especializado compuesto por:
-
-```text
-src/document-types/plan-individual/
-├─ definition.js
-├─ parser.js
-├─ tables.js
-├─ validator.js
-└─ index.js
-```
-
-También se incorporó:
-
-- Registro central de procesadores en `src/core/processor.registry.js`.
-- Pipeline desacoplado de parsers y tablas concretas.
-- Validación de los datos obtenidos por documento.
-- Validación de que existan las cinco tablas esperadas.
-- Bloqueo de exportación cuando no se obtiene ningún documento válido.
-- Bloqueo de exportación cuando falta una tabla obligatoria.
-- Prueba de regresión del parser con un Plan Individual sintético.
-- Pruebas automáticas mediante `npm test` y GitHub Actions.
-
-Los archivos anteriores de extracción y tablas se conservan temporalmente como implementación interna. No se eliminarán hasta probar varios PDF reales y confirmar que la salida es equivalente.
-
-## Módulo activo
-
-### Plan Individual de Formación y Capacitación Docente
-
-Genera cinco tablas:
+El Plan Individual funciona mediante un procesador especializado con parser, tablas y validaciones propias. Conserva sus cinco tablas:
 
 ```text
 01_archivos
@@ -79,11 +47,25 @@ Genera cinco tablas:
 05_formacion
 ```
 
-## Módulo con estructura preparada
+Los constructores anteriores se conservan temporalmente como implementación interna hasta comprobar equivalencia con varios PDF reales.
 
-### Planificación de Capacitación por Curso
+## Etapa 3 completada: Planificación de Capacitación por Curso
 
-Tiene declaradas cuatro tablas:
+Este apartado ya está activo y admite varios PDF del mismo tipo.
+
+### Lectura híbrida
+
+El flujo intenta primero extraer texto digital. Cuando el texto está vacío, es demasiado corto o presenta baja calidad, activa automáticamente OCR en español e inglés.
+
+El resultado registra:
+
+- Método de extracción utilizado.
+- Cantidad de páginas procesadas por OCR.
+- Confianza promedio del OCR.
+- Huella SHA-256 del archivo.
+- Advertencias de lectura o revisión.
+
+### Cuatro tablas generadas
 
 ```text
 01_archivos
@@ -92,16 +74,34 @@ Tiene declaradas cuatro tablas:
 04_evaluaciones
 ```
 
-Su parser, lector híbrido y OCR se incorporarán en la siguiente etapa.
+La tabla de datos generales incluye nombre, descripción, público, carrera, forma de ejecución, tipo de capacitación, carácter, modalidad, certificado, objetivo, fechas, ambiente, facilitador, responsables y total de horas.
 
-## Módulos pendientes de definición final de tablas
+La tabla de unidades incluye número, nombre, contenidos, horas teóricas, prácticas, trabajo autónomo, total y logro de aprendizaje.
 
-- Acuerdos de patrocinio.
-- Informes finales.
-- Instrumentos de evaluación.
-- Informes de impacto.
-- Detección de necesidades.
-- Plan general de capacitación.
+La tabla de evaluaciones incluye parámetro, temática, cantidad de instrumentos y tipo de evaluación.
+
+### Validaciones propias
+
+- Código institucional correspondiente a `PRO-134`.
+- Nombre y descripción del curso.
+- Presencia de unidades y cargas horarias.
+- Presencia de evaluaciones.
+- Cuatro tablas obligatorias.
+- Trazabilidad del archivo origen.
+
+## Módulos activos
+
+- Plan Individual de Formación y Capacitación Docente.
+- Planificación de Capacitación por Curso.
+
+## Módulos pendientes
+
+- Acuerdo de Patrocinio Institucional.
+- Informe Final de Capacitación.
+- Instrumento de Evaluación de la Capacitación.
+- Informe de Impacto de la Capacitación.
+- Detección de Necesidades de Capacitación.
+- Plan General de Capacitación Docente.
 
 ## Flujo actual
 
@@ -110,43 +110,20 @@ Seleccionar apartado
 → Seleccionar PDF del tipo correcto
 → Validar archivos y duplicados
 → Resolver procesador especializado
-→ Leer y analizar los PDF
-→ Validar estructura obtenida
+→ Extraer texto digital
+→ Activar OCR cuando sea necesario
+→ Analizar y validar los datos
 → Construir tablas
 → Generar Excel + JSON
 ```
 
-## Validaciones incorporadas
-
-La app verifica:
-
-- Ruta válida.
-- Existencia del archivo.
-- Extensión PDF.
-- Archivo no vacío.
-- Hash SHA-256.
-- Duplicados reales por contenido.
-- Límite de un documento en apartados únicos.
-- Referencias esperadas en el nombre del archivo.
-- Procesador especializado disponible.
-- Documentos realmente parseados.
-- Tablas obligatorias construidas.
-- Filas vacías o que necesitan revisión.
-
-Una diferencia en el nombre esperado genera una advertencia, no bloquea automáticamente el documento.
-
-## Estructura modular
+## Estructura principal
 
 ```text
 ├─ package.json
 ├─ main.js
 ├─ preload.js
 ├─ renderer/
-│  ├─ index.html
-│  ├─ app.js
-│  └─ styles/
-│     ├─ app.css
-│     └─ layout.css
 ├─ src/
 │  ├─ core/
 │  │  ├─ document.processor.js
@@ -154,21 +131,26 @@ Una diferencia en el nombre esperado genera una advertencia, no bloquea automát
 │  │  └─ processor.registry.js
 │  ├─ document-types/
 │  │  ├─ plan-individual/
+│  │  ├─ planificacion-curso/
 │  │  │  ├─ definition.js
-│  │  │  ├─ parser.js
+│  │  │  ├─ parser-v2.js
 │  │  │  ├─ tables.js
 │  │  │  ├─ validator.js
 │  │  │  └─ index.js
-│  │  ├─ planificacion-curso/
 │  │  ├─ acuerdo-patrocinio/
 │  │  ├─ informe-final/
 │  │  ├─ instrumento-evaluacion/
 │  │  ├─ informe-impacto/
 │  │  ├─ deteccion-necesidades/
 │  │  └─ plan-general-capacitacion/
+│  ├─ readers/
+│  │  ├─ text-quality.js
+│  │  ├─ pdf-hybrid.reader.js
+│  │  └─ pdf-ocr.reader.js
 │  ├─ diagnostics/
 │  │  ├─ selftest.js
-│  │  └─ plan-individual.parser.test.js
+│  │  ├─ plan-individual.parser.test.js
+│  │  └─ planificacion-curso.parser.test.js
 │  ├─ exporters/
 │  ├─ extractor/
 │  ├─ processors/
@@ -191,31 +173,22 @@ npm start
 
 ## Pruebas
 
-Ejecutar todas las pruebas:
-
 ```powershell
 npm test
 ```
 
-Ejecutar solamente el diagnóstico general:
+Pruebas individuales:
 
 ```powershell
 npm run selftest
-```
-
-Ejecutar la prueba del parser del Plan Individual:
-
-```powershell
 npm run test:plan-individual
+npm run test:planificacion-curso
 ```
+
+## Consideración del OCR
+
+La primera ejecución del OCR puede tardar más porque el motor debe preparar los recursos de reconocimiento. Los PDF que ya contienen texto no pasan por OCR, lo que reduce el tiempo de procesamiento.
 
 ## Próxima etapa
 
-Implementar el procesador específico de **Planificación de Capacitación por Curso**, incluyendo:
-
-- Lectura híbrida de PDF.
-- OCR para documentos escaneados.
-- Parser de datos generales.
-- Parser de unidades y horas.
-- Parser de evaluaciones.
-- Validaciones propias del documento.
+Implementar el procesador especializado del **Acuerdo de Patrocinio Institucional**, definiendo sus tablas, campos variables y validaciones.
