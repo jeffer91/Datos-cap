@@ -4,8 +4,8 @@ Ruta o ubicación: /src/document-types/deteccion-necesidades/parser.adapter.js
 Función o funciones:
 - Reforzar la extracción de filas numeradas de necesidades por carrera.
 - Separar correctamente necesidad, tipo y nivel de recurrencia.
+- Limpiar encabezados residuales N.º en los nombres de carrera.
 - Vincular el porcentaje de recurrencia con la capacitación priorizada.
-- Mantener compatibilidad con el parser principal de PRO-70.
 ========================================================= */
 
 "use strict";
@@ -45,6 +45,13 @@ const TYPE_MODIFIER_PATTERN = [
   "metodológica"
 ].join("|");
 
+function cleanCareerName(value) {
+  return cleanValue(value)
+    .replace(/\s+N(?:\.?\s*[º°]|\.)\s*$/i, "")
+    .replace(/\s+N[.º°]+\s*$/i, "")
+    .trim();
+}
+
 function parseTypeAndNeed(value) {
   const compact = cleanValue(value);
   const typeRegex = new RegExp(
@@ -77,6 +84,7 @@ function parseRobustNeedRows(block, context, startIndex) {
     .replace(/Unidad de Gesti[óo]n[\s\S]*?P[áa]gina\s+\d+\s+de\s+\d+/gi, " ");
   const rowRegex = /(?:^|\s)(\d{1,2})\s+(.+?)(?=\s+\d{1,2}\s+|$)/g;
   const rows = [];
+  const career = cleanCareerName(block.carrera);
   let match;
 
   while ((match = rowRegex.exec(cleaned)) !== null) {
@@ -89,12 +97,12 @@ function parseRobustNeedRows(block, context, startIndex) {
         "necesidad-carrera",
         context.id_documento,
         startIndex + rows.length,
-        `${block.carrera}|${match[1]}|${parsed.necesidad}`
+        `${career}|${match[1]}|${parsed.necesidad}`
       ),
       id_documento: context.id_documento,
       codigo_documento: context.codigo_documento,
       periodo: context.periodo,
-      carrera: block.carrera,
+      carrera: career,
       numero_necesidad: Number(match[1]),
       necesidad_capacitacion: parsed.necesidad,
       tipo_necesidad: parsed.tipo,
@@ -130,8 +138,9 @@ function rebuildCareerNeeds(pdfDocument, parsedDocument) {
   const needs = [];
 
   blocks.forEach((block) => {
-    const blockNeeds = parseRobustNeedRows(block, context, needs.length);
-    baseParser.assignRecurrences(blockNeeds, baseParser.parseRecurrenceRows(block));
+    const normalizedBlock = { ...block, carrera: cleanCareerName(block.carrera) };
+    const blockNeeds = parseRobustNeedRows(normalizedBlock, context, needs.length);
+    baseParser.assignRecurrences(blockNeeds, baseParser.parseRecurrenceRows(normalizedBlock));
     needs.push(...blockNeeds);
   });
 
@@ -140,6 +149,7 @@ function rebuildCareerNeeds(pdfDocument, parsedDocument) {
     : [];
 
   priorities.forEach((priority) => {
+    priority.carrera = cleanCareerName(priority.carrera);
     const careerNeeds = needs.filter(
       (need) => normalizeForSearch(need.carrera) === normalizeForSearch(priority.carrera)
     );
@@ -175,6 +185,7 @@ function parseDocuments(pdfDocuments) {
 
 module.exports = {
   ...baseParser,
+  cleanCareerName,
   parseTypeAndNeed,
   parseRobustNeedRows,
   sameTraining,
