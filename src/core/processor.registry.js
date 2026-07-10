@@ -4,7 +4,7 @@ Ruta o ubicación: /src/core/processor.registry.js
 Función o funciones:
 - Registrar los procesadores especializados disponibles.
 - Resolver un procesador por identificador de tipo documental.
-- Impedir que el núcleo dependa directamente de parsers concretos.
+- Validar duplicados y contratos antes de iniciar la aplicación.
 - Informar versiones y cantidad de tablas de cada procesador.
 ========================================================= */
 
@@ -21,7 +21,38 @@ const processors = [
   require("../document-types/plan-general-capacitacion")
 ];
 
-const registry = new Map(processors.map((processor) => [processor.id, processor]));
+const REQUIRED_METHODS = Object.freeze([
+  "parseDocuments",
+  "buildTables",
+  "validateParseResult",
+  "validateTableResult"
+]);
+
+function validateProcessor(processor) {
+  const id = String(processor && processor.id || "").trim();
+  if (!id) throw new Error("Existe un procesador documental sin identificador.");
+  if (!processor.definition || processor.definition.id !== id) {
+    throw new Error(`El procesador ${id} no expone una definición coherente.`);
+  }
+  REQUIRED_METHODS.forEach((method) => {
+    if (typeof processor[method] !== "function") {
+      throw new Error(`El procesador ${id} no implementa ${method}().`);
+    }
+  });
+  return id;
+}
+
+function buildRegistry(items) {
+  const registry = new Map();
+  items.forEach((processor) => {
+    const id = validateProcessor(processor);
+    if (registry.has(id)) throw new Error(`Procesador documental duplicado: ${id}.`);
+    registry.set(id, processor);
+  });
+  return registry;
+}
+
+const registry = buildRegistry(processors);
 
 function getProcessor(documentTypeId) {
   return registry.get(String(documentTypeId || "").trim()) || null;
@@ -33,7 +64,9 @@ function hasProcessor(documentTypeId) {
 
 function assertProcessor(documentTypeId) {
   const processor = getProcessor(documentTypeId);
-  if (!processor) throw new Error(`No existe un procesador implementado para ${documentTypeId || "el tipo solicitado"}.`);
+  if (!processor) {
+    throw new Error(`No existe un procesador implementado para ${documentTypeId || "el tipo solicitado"}.`);
+  }
   return processor;
 }
 
@@ -45,9 +78,20 @@ function listProcessors() {
   return Array.from(registry.values()).map((processor) => ({
     id: processor.id,
     version: processor.version || "sin-version",
-    tableCount: processor.definition && Array.isArray(processor.definition.tables) ? processor.definition.tables.length : 0,
+    tableCount: processor.definition && Array.isArray(processor.definition.tables)
+      ? processor.definition.tables.length
+      : 0,
     hasCustomReader: typeof processor.readDocuments === "function"
   }));
 }
 
-module.exports = { getProcessor, hasProcessor, assertProcessor, listProcessorIds, listProcessors };
+module.exports = {
+  REQUIRED_METHODS,
+  validateProcessor,
+  buildRegistry,
+  getProcessor,
+  hasProcessor,
+  assertProcessor,
+  listProcessorIds,
+  listProcessors
+};
