@@ -374,7 +374,7 @@ function parseDocument(pdfDocument) {
     nombre_capacitacion: title.nombre_capacitacion,
     dirigido_a: title.dirigido_a,
     carrera_publico: title.carrera_publico,
-    facilitador,
+    facilitador: facilitator,
     fecha_inicio_texto: startDate.texto,
     fecha_inicio: startDate.iso,
     fecha_fin_texto: endDate.texto,
