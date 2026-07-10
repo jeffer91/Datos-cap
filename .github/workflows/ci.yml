@@ -28,6 +28,7 @@ jobs:
         shell: bash
         run: |
           while IFS= read -r -d '' file; do
+            echo "Verificando: $file"
             node --check "$file"
           done < <(find . -path './node_modules' -prune -o -name '*.js' -print0)
 
