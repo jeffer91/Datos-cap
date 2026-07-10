@@ -1,16 +1,21 @@
 # Gestor Documental de Capacitación
 
-Aplicación de escritorio en Electron para procesar documentos institucionales de formación y capacitación docente mediante apartados específicos por tipo documental.
+Aplicación de escritorio en Electron para procesar, guardar y exportar documentos institucionales de formación y capacitación docente mediante apartados específicos.
 
-## Arquitectura
+## Estado actual
 
-- Ocho apartados documentales independientes.
-- Motor común de selección, validación, exportación y trazabilidad.
-- Procesador especializado por tipo documental.
+La aplicación cuenta con:
+
+- Ocho apartados documentales activos.
+- Un procesador especializado por tipo documental.
 - Lectura digital y OCR de respaldo.
-- Excel y JSON como salidas iniciales antes de conectar la base de datos local.
+- Validación por tipo, tamaño, extensión y huella SHA-256.
+- Base local no relacional organizada por colecciones.
+- Control de duplicados y versiones por periodo.
+- Exportación Excel y JSON.
+- Pruebas automáticas para los ocho procesadores y la persistencia local.
 
-## Apartados registrados
+## Apartados activos
 
 1. Plan Individual de Formación y Capacitación Docente.
 2. Planificación de Capacitación por Curso.
@@ -19,17 +24,13 @@ Aplicación de escritorio en Electron para procesar documentos institucionales d
 5. Instrumento de Evaluación de la Capacitación.
 6. Informe de Impacto de la Capacitación.
 7. Detección de Necesidades de Capacitación.
-8. Plan General de Capacitación Docente.
+8. Plan Semestral de Capacitación Docente.
 
-Detección de Necesidades y Plan General son documentos únicos por periodo. Los demás admiten varios PDF.
+Detección de Necesidades y Plan Semestral son documentos únicos por periodo. Los demás admiten varios PDF por operación.
 
-## Bloques completados
+## Tablas por apartado
 
-### 1. Base modular
-
-Menú con ocho apartados, registro central, reglas de documentos únicos y repetitivos, hash SHA-256, identificadores estables y exportación Excel/JSON.
-
-### 2. Plan Individual
+### Plan Individual
 
 ```text
 01_archivos
@@ -39,7 +40,7 @@ Menú con ocho apartados, registro central, reglas de documentos únicos y repet
 05_formacion
 ```
 
-### 3. Planificación por Curso
+### Planificación por Curso
 
 ```text
 01_archivos
@@ -48,7 +49,7 @@ Menú con ocho apartados, registro central, reglas de documentos únicos y repet
 04_evaluaciones
 ```
 
-### 4. Acuerdo de Patrocinio Institucional
+### Acuerdo de Patrocinio
 
 ```text
 01_archivos
@@ -57,7 +58,7 @@ Menú con ocho apartados, registro central, reglas de documentos únicos y repet
 04_responsables
 ```
 
-### 5. Informe Final de Capacitación
+### Informe Final
 
 ```text
 01_archivos
@@ -68,7 +69,7 @@ Menú con ocho apartados, registro central, reglas de documentos únicos y repet
 06_responsables
 ```
 
-### 6. Instrumento de Evaluación de la Capacitación
+### Instrumento de Evaluación
 
 ```text
 01_archivos
@@ -81,11 +82,7 @@ Menú con ocho apartados, registro central, reglas de documentos únicos y repet
 08_responsables
 ```
 
-Extrae participantes, resultados cuantitativos, escala Likert, objetivos, conclusiones y recomendaciones. Cuando una marca no conserva su columna en el texto del PDF, solicita revisión en lugar de inventar el dato.
-
-### 7. Informe de Impacto de la Capacitación
-
-Procesa documentos `UGPA-INF-XX-PRO-135-AÑO-MES` y genera siete tablas:
+### Informe de Impacto
 
 ```text
 01_archivos
@@ -97,71 +94,114 @@ Procesa documentos `UGPA-INF-XX-PRO-135-AÑO-MES` y genera siete tablas:
 07_responsables
 ```
 
-Extrae:
+### Detección de Necesidades
 
-- Nombre del curso, carrera o público destinatario.
-- Periodo, fechas de inicio y finalización.
-- Facilitador y número de participantes.
-- Fecha de elaboración, versión y código institucional.
-- Indicadores cualitativos con sus porcentajes.
-- Indicadores cuantitativos de participación, cronograma y aplicabilidad.
-- Evaluación del cumplimiento de objetivos.
-- Métodos e instrumentos de medición.
-- Escalas de satisfacción, observación, pruebas y entrevistas.
-- Resultados cualitativos y cuantitativos.
-- Análisis de causalidad y variables moderadoras.
-- Conclusiones y recomendaciones.
-- Elaborado, revisado y aprobado.
-- Páginas reales, páginas declaradas e inconsistencias.
+```text
+01_archivos
+02_datos_generales
+03_fuentes
+04_necesidades_carrera
+05_prioridades_carrera
+06_necesidades_institucionales
+07_evidencias
+08_analisis
+09_responsables
+```
 
-Los indicadores se separan incluso cuando el PDF elimina los saltos de línea y junta varios resultados en un solo párrafo. Cada indicador conserva su texto completo, porcentaje, tipo de impacto y documento de origen.
+### Plan Semestral de Capacitación
 
-## Módulos activos
+```text
+01_archivos
+02_datos_generales
+03_objetivos
+04_capacitaciones
+05_cronograma
+06_seguimiento
+07_recursos
+08_responsables
+```
 
-- Plan Individual.
-- Planificación por Curso.
-- Acuerdo de Patrocinio.
-- Informe Final de Capacitación.
-- Instrumento de Evaluación de la Capacitación.
-- Informe de Impacto de la Capacitación.
+## Base de datos local
 
-## Módulos pendientes
+La base local se crea dentro de la carpeta de datos de usuario de Electron:
 
-- Detección de Necesidades de Capacitación.
-- Plan General de Capacitación Docente.
-- Base de datos local e integración final.
+```text
+<userData>/local-database/
+├─ database.meta.json
+└─ collections/
+   ├─ _documents.json
+   ├─ _processing_runs.json
+   ├─ archivos_plan_individual.json
+   ├─ datos_informe_final.json
+   └─ ...una colección por cada tabla documental
+```
 
-## Flujo
+### Reglas de persistencia
+
+- Cada tabla se guarda como una colección JSON independiente.
+- Las escrituras utilizan archivos temporales y respaldos para evitar archivos incompletos.
+- Las operaciones de varias colecciones aplican reversión básica cuando una escritura falla.
+- Un PDF repetitivo con la misma huella SHA-256 no duplica documentos ni filas.
+- Un documento único con el mismo periodo y contenido diferente crea una nueva versión.
+- La versión anterior se conserva con estado `SUPERADO` y queda enlazada con la versión activa.
+- Cada procesamiento registra fecha, tipo, documentos nuevos, duplicados omitidos, filas y archivos exportados.
+
+## Flujo completo
 
 ```text
 Seleccionar apartado
 → Seleccionar PDF
-→ Validar archivos y duplicados
+→ Validar archivos, tipo y duplicados
 → Extraer texto digital
-→ Activar OCR si es necesario
+→ Activar OCR cuando sea necesario
 → Ejecutar parser especializado
-→ Validar datos y tablas
-→ Generar Excel + JSON
+→ Validar estructura y tablas
+→ Guardar documentos y filas en la base local
+→ Generar Excel y JSON
+→ Registrar el procesamiento en el historial
 ```
 
-## Estructura de los módulos más recientes
+## Interfaz
+
+El panel principal muestra:
+
+- Los ocho apartados.
+- Reglas de documentos repetitivos o únicos.
+- Archivos seleccionados y su huella digital.
+- Tablas esperadas por módulo.
+- Cantidad de documentos registrados y activos.
+- Total de filas guardadas.
+- Historial de procesamientos recientes.
+- Acceso directo a la carpeta física de la base local.
+
+## Estructura principal
 
 ```text
-src/document-types/
-├─ instrumento-evaluacion/
-│  ├─ definition.js
-│  ├─ parser.js
-│  ├─ parser-v2.js
-│  ├─ tables.js
-│  ├─ validator.js
-│  └─ index.js
-└─ informe-impacto/
-   ├─ definition.js
-   ├─ parser.js
-   ├─ parser-v2.js
-   ├─ tables.js
-   ├─ validator.js
-   └─ index.js
+├─ main.js
+├─ preload.js
+├─ renderer/
+│  ├─ index.html
+│  ├─ app.js
+│  ├─ database.js
+│  └─ styles/
+│     ├─ app.css
+│     ├─ layout.css
+│     └─ database.css
+└─ src/
+   ├─ core/
+   ├─ database/
+   │  ├─ index.js
+   │  ├─ local-database.js
+   │  └─ persistence.service.js
+   ├─ document-types/
+   ├─ diagnostics/
+   ├─ exporters/
+   ├─ extractor/
+   ├─ processors/
+   ├─ readers/
+   ├─ tables/
+   ├─ utils/
+   └─ validators/
 ```
 
 ## Instalación y ejecución
@@ -172,6 +212,8 @@ npm start
 ```
 
 ## Pruebas
+
+Ejecutar todas las pruebas:
 
 ```powershell
 npm test
@@ -187,12 +229,25 @@ npm run test:acuerdo-patrocinio
 npm run test:informe-final
 npm run test:instrumento-evaluacion
 npm run test:informe-impacto
+npm run test:deteccion-necesidades
+npm run test:plan-general-capacitacion
+npm run test:local-database
 ```
 
-## OCR
+## Seguridad y trazabilidad
 
-Los PDF con texto suficiente se procesan directamente. Los PDF vacíos, escaneados o con texto defectuoso pasan por OCR en español e inglés.
+- `contextIsolation` activado.
+- `nodeIntegration` desactivado.
+- Preload con lista cerrada de canales IPC.
+- Duplicados detectados por contenido, no solo por nombre.
+- Datos ambiguos conservados con advertencia en lugar de inventarse.
+- Documentos únicos versionados sin eliminación silenciosa.
+- Historial local de cada procesamiento.
 
-## Próxima etapa
+## Próximos bloques
 
-Implementar el procesador especializado de Detección de Necesidades de Capacitación como documento único por periodo.
+1. Consultas, filtros y visualización detallada de la información guardada.
+2. Respaldo y restauración completa de la base local.
+3. Pruebas integrales con lotes de PDF reales y OCR desde Electron.
+4. Limpieza de compatibilidad heredada y auditoría final.
+5. Integración definitiva de la rama con `main`.
