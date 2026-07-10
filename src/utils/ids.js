@@ -4,7 +4,7 @@ Ruta o ubicación: /src/utils/ids.js
 Función o funciones:
 - Generar identificadores únicos y estables para documentos y filas.
 - Usar hash de contenido para que la ruta y el orden no cambien la identidad.
-- Extraer registro y periodo desde códigos documentales institucionales.
+- Extraer registro y periodo desde códigos institucionales UGPA o CGC.
 ========================================================= */
 
 "use strict";
@@ -34,7 +34,7 @@ function shortHash(value, length = 10) {
 
 function extractRegistroFromCodigo(codigoDocumento) {
   const text = safeText(codigoDocumento).replace(/\s+/g, "");
-  const match = text.match(/UGPA-(?:RGI1|RGI2|INF)-(\d{1,3})-PRO/i);
+  const match = text.match(/(?:UGPA|CGC)-(?:RGI1|RGI2|INF|RI\d+)-(\d{1,3})-PRO/i);
   return match ? match[1].padStart(2, "0") : "";
 }
 
