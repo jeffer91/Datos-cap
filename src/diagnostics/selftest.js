@@ -3,9 +3,9 @@ Nombre completo: selftest.js
 Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar una prueba rápida de módulos críticos sin abrir Electron.
-- Verificar el registro de ocho tipos y procesadores implementados.
+- Verificar el registro de ocho tipos y dos procesadores activos.
 - Validar el módulo especializado del Plan Individual.
-- Crear tablas simuladas y comprobar exportación Excel + JSON.
+- Comprobar exportación Excel + JSON y disponibilidad del lector híbrido.
 ========================================================= */
 
 "use strict";
@@ -18,7 +18,7 @@ const ids = require("../utils/ids");
 const normalizer = require("../extractor/normalizer");
 const exporters = require("../exporters");
 const { listDocumentTypes, getDocumentType } = require("../core/document-type.registry");
-const { assertProcessor, listProcessorIds } = require("../core/processor.registry");
+const { assertProcessor, listProcessorIds, listProcessors } = require("../core/processor.registry");
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -128,18 +128,25 @@ function runSelfTest() {
   const mockDocument = createMockParsedDocument();
   const documentTypes = listDocumentTypes();
   const processorIds = listProcessorIds();
+  const processorDetails = listProcessors();
   const planDefinition = getDocumentType("plan-individual");
+  const planningDefinition = getDocumentType("planificacion-curso");
   const planProcessor = assertProcessor("plan-individual");
+  const planningProcessor = assertProcessor("planificacion-curso");
 
   assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
-  assertCondition(processorIds.includes("plan-individual"), "El procesador modular del Plan Individual no está registrado.");
+  assertCondition(processorIds.length === 2, "Deben existir exactamente dos procesadores activos en esta etapa.");
+  assertCondition(processorIds.includes("plan-individual"), "El procesador del Plan Individual no está registrado.");
+  assertCondition(processorIds.includes("planificacion-curso"), "El procesador de Planificación por Curso no está registrado.");
   assertCondition(Boolean(planDefinition && planDefinition.enabled), "El módulo Plan Individual no está activo.");
-  assertCondition(planDefinition.processorId === "plan-individual", "El Plan Individual todavía apunta al procesador heredado.");
+  assertCondition(Boolean(planningDefinition && planningDefinition.enabled), "El módulo Planificación por Curso no está activo.");
   assertCondition(planDefinition.tables.length === 5, "El Plan Individual no declara sus 5 tablas.");
+  assertCondition(planningDefinition.tables.length === 4, "La Planificación por Curso no declara sus 4 tablas.");
+  assertCondition(typeof planningProcessor.readDocuments === "function", "El módulo de planificación no expone lector híbrido.");
+  assertCondition(typeof planningProcessor.parseDocuments === "function", "El módulo de planificación no expone parser.");
+  assertCondition(typeof planningProcessor.buildTables === "function", "El módulo de planificación no expone tablas.");
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
   assertCondition(typeof normalizer.normalizeSpaces === "function", "normalizer.normalizeSpaces no está disponible.");
-  assertCondition(typeof planProcessor.parseDocuments === "function", "El módulo no expone parseDocuments.");
-  assertCondition(typeof planProcessor.buildTables === "function", "El módulo no expone buildTables.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
   const parseResult = {
@@ -197,7 +204,7 @@ function runSelfTest() {
     finishedAt: new Date().toISOString(),
     tempDir,
     documentTypes: documentTypes.map((item) => item.id),
-    processors: processorIds,
+    processors: processorDetails,
     files: exportResult.files,
     summary: tableResult.summary
   };
