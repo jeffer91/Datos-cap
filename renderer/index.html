@@ -3,8 +3,8 @@ Nombre completo: index.html
 Ruta o ubicación: /renderer/index.html
 Función o funciones:
 - Mostrar el panel principal con ocho apartados específicos.
-- Reutilizar un mismo cargador controlado por el tipo documental seleccionado.
-- Mostrar validación, tablas, base local, historial y resultados de exportación.
+- Mostrar base local, historial, consultas, filtros y detalle documental.
+- Gestionar carga, validación, persistencia y exportación.
 ========================================================= -->
 
 <!DOCTYPE html>
@@ -20,6 +20,7 @@ Función o funciones:
   <link rel="stylesheet" href="./styles/app.css" />
   <link rel="stylesheet" href="./styles/layout.css" />
   <link rel="stylesheet" href="./styles/database.css" />
+  <link rel="stylesheet" href="./styles/query.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -91,6 +92,80 @@ Función o funciones:
         <div id="databaseHistory">
           <div class="empty">Todavía no existen procesamientos registrados.</div>
         </div>
+      </section>
+
+      <section class="card query-card">
+        <div class="query-heading">
+          <div>
+            <h3 class="card-title">Consultas de información guardada</h3>
+            <p class="card-description">
+              Filtra documentos por tipo, periodo, carrera, docente, curso, estado o cualquier palabra contenida en sus tablas.
+            </p>
+          </div>
+          <span class="badge badge-active" id="queryTotalBadge">0 documentos</span>
+        </div>
+
+        <div class="query-filters">
+          <label class="field-group">
+            <span>Tipo documental</span>
+            <select id="queryDocumentType">
+              <option value="">Todos los tipos</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Periodo</span>
+            <select id="queryPeriod">
+              <option value="">Todos los periodos</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Estado</span>
+            <select id="queryState">
+              <option value="">Todos los estados</option>
+              <option value="ACTIVO">Activo</option>
+              <option value="SUPERADO">Versión superada</option>
+              <option value="REVISAR">Requiere revisión</option>
+              <option value="OK">Sin alertas</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Carrera</span>
+            <input id="queryCareer" list="queryCareerOptions" placeholder="Ej.: Administración" />
+            <datalist id="queryCareerOptions"></datalist>
+          </label>
+
+          <label class="field-group">
+            <span>Docente o responsable</span>
+            <input id="queryTeacher" list="queryTeacherOptions" placeholder="Nombre o parte del nombre" />
+            <datalist id="queryTeacherOptions"></datalist>
+          </label>
+
+          <label class="field-group">
+            <span>Curso o capacitación</span>
+            <input id="queryCourse" list="queryCourseOptions" placeholder="Nombre del curso" />
+            <datalist id="queryCourseOptions"></datalist>
+          </label>
+
+          <label class="field-group query-search-field">
+            <span>Búsqueda general</span>
+            <input id="querySearch" placeholder="Código, archivo, indicador, conclusión, necesidad..." />
+          </label>
+        </div>
+
+        <div class="actions query-actions">
+          <button class="btn btn-primary" id="btnRunQuery" type="button">Buscar en la base</button>
+          <button class="btn btn-secondary" id="btnClearQuery" type="button">Limpiar filtros</button>
+        </div>
+
+        <div class="status-box status-info" id="queryStatus">Preparando opciones de consulta...</div>
+        <div id="queryResults">
+          <div class="empty">Ejecuta una consulta para visualizar los documentos guardados.</div>
+        </div>
+        <div class="query-pagination" id="queryPagination"></div>
+        <div class="query-detail" id="queryDetail"></div>
       </section>
 
       <section class="grid grid-two section-gap">
@@ -169,5 +244,6 @@ Función o funciones:
 
   <script src="./app.js"></script>
   <script src="./database.js"></script>
+  <script src="./query.js"></script>
 </body>
 </html>
