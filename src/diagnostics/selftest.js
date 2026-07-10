@@ -3,7 +3,7 @@ Nombre completo: selftest.js
 Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar un diagnóstico rápido sin abrir Electron.
-- Verificar ocho tipos documentales y cuatro procesadores activos.
+- Verificar ocho tipos documentales y cinco procesadores activos.
 - Comprobar contratos, cantidad de tablas, identificadores y códigos.
 - Validar una exportación mínima a Excel y JSON.
 ========================================================= */
@@ -27,17 +27,13 @@ function assertCondition(condition, message) {
 function assertProcessorContract(processorId, expectedTableCount, requiresHybridReader) {
   const definition = getDocumentType(processorId);
   const processor = assertProcessor(processorId);
-
   assertCondition(Boolean(definition && definition.enabled), `El módulo ${processorId} no está activo.`);
   assertCondition(definition.tables.length === expectedTableCount, `El módulo ${processorId} no declara ${expectedTableCount} tablas.`);
   assertCondition(typeof processor.parseDocuments === "function", `El módulo ${processorId} no expone parseDocuments.`);
   assertCondition(typeof processor.buildTables === "function", `El módulo ${processorId} no expone buildTables.`);
   assertCondition(typeof processor.validateParseResult === "function", `El módulo ${processorId} no expone validateParseResult.`);
   assertCondition(typeof processor.validateTableResult === "function", `El módulo ${processorId} no expone validateTableResult.`);
-
-  if (requiresHybridReader) {
-    assertCondition(typeof processor.readDocuments === "function", `El módulo ${processorId} no expone lector híbrido.`);
-  }
+  if (requiresHybridReader) assertCondition(typeof processor.readDocuments === "function", `El módulo ${processorId} no expone lector híbrido.`);
 }
 
 function runSelfTest() {
@@ -50,12 +46,12 @@ function runSelfTest() {
     ["plan-individual", 5, false],
     ["planificacion-curso", 4, true],
     ["acuerdo-patrocinio", 4, true],
-    ["informe-final", 6, true]
+    ["informe-final", 6, true],
+    ["instrumento-evaluacion", 8, true]
   ];
 
   assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
   assertCondition(processorIds.length === expectedProcessors.length, "La cantidad de procesadores activos no coincide con la etapa actual.");
-
   expectedProcessors.forEach(([processorId, tableCount, requiresHybridReader]) => {
     assertCondition(processorIds.includes(processorId), `El procesador ${processorId} no está registrado.`);
     assertProcessorContract(processorId, tableCount, requiresHybridReader);
@@ -64,7 +60,7 @@ function runSelfTest() {
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
   assertCondition(ids.extractRegistroFromCodigo("CGC-RGI2-146-PRO-134-2025-03") === "146", "No se reconoce el registro de códigos CGC.");
   assertCondition(ids.extractRegistroFromCodigo("UGPA-INF-07-PRO-134-2025-09") === "07", "No se reconoce el registro de códigos UGPA-INF.");
-  assertCondition(normalizer.parseCodigoDocumento("UGPA-INF-07-PRO￾134-2025-09", "134") === "UGPA-INF-07-PRO-134-2025-09", "No se normaliza correctamente un código UGPA-INF.");
+  assertCondition(normalizer.parseCodigoDocumento("UGPA-RGI1-07-PRO￾135-2025-09", "135") === "UGPA-RGI1-07-PRO-135-2025-09", "No se normaliza correctamente un código PRO-135.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
   const exportResult = exporters.exportAll({
@@ -74,43 +70,22 @@ function runSelfTest() {
     documentLabel: "Diagnóstico",
     sheetOrder: ["diagnostico"],
     sheetLabels: { diagnostico: "01_diagnostico" },
-    tables: {
-      diagnostico: [{
-        estado: "OK",
-        tipos_documentales: documentTypes.length,
-        procesadores_activos: processorIds.length
-      }]
-    },
-    summary: {
-      total_tables: 1,
-      total_rows: 1,
-      estado_general: "OK"
-    },
-    validations: {},
-    warnings: [],
-    errors: []
+    tables: { diagnostico: [{ estado: "OK", tipos_documentales: documentTypes.length, procesadores_activos: processorIds.length }] },
+    summary: { total_tables: 1, total_rows: 1, estado_general: "OK" },
+    validations: {}, warnings: [], errors: []
   });
 
   assertCondition(exportResult.ok, "La exportación mínima no devolvió ok=true.");
   assertCondition(fs.existsSync(exportResult.files.excel.filePath), "No se creó el Excel de diagnóstico.");
   assertCondition(fs.existsSync(exportResult.files.json.filePath), "No se creó el JSON de diagnóstico.");
 
-  return {
-    ok: true,
-    startedAt: startedAt.toISOString(),
-    finishedAt: new Date().toISOString(),
-    tempDir,
-    documentTypes: documentTypes.map((item) => item.id),
-    processors: processorDetails,
-    files: exportResult.files
-  };
+  return { ok: true, startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(), tempDir, documentTypes: documentTypes.map((item) => item.id), processors: processorDetails, files: exportResult.files };
 }
 
 if (require.main === module) {
   try {
-    const result = runSelfTest();
     console.log("SELFTEST_OK");
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(runSelfTest(), null, 2));
   } catch (error) {
     console.error("SELFTEST_ERROR");
     console.error(error.stack || error.message);
@@ -118,7 +93,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = {
-  assertProcessorContract,
-  runSelfTest
-};
+module.exports = { assertProcessorContract, runSelfTest };
