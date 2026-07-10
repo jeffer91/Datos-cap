@@ -5,6 +5,7 @@ Función o funciones:
 - Exponer el parser especializado del Plan Individual.
 - Mantener compatibilidad temporal con el extractor existente.
 - Normalizar la respuesta para el procesador documental genérico.
+- Conservar metadatos de huella y tipo documental.
 ========================================================= */
 
 "use strict";
@@ -13,11 +14,28 @@ const legacyParser = require("../../extractor/fields.parser");
 
 const DOCUMENT_TYPE = "plan-individual";
 
+function enrichParsedDocument(parsedDocument, pdfDocument) {
+  const parsed = parsedDocument || {};
+  const source = pdfDocument || {};
+
+  return {
+    ...parsed,
+    document_type: DOCUMENT_TYPE,
+    source: {
+      file_hash: source.fileHash || "",
+      page_count: source.pageCount || 0,
+      text_length: source.text ? source.text.length : 0
+    }
+  };
+}
+
 function parseDocument(pdfDocument) {
-  return legacyParser.parsePdfDocument({
+  const source = {
     ...(pdfDocument || {}),
     documentType: DOCUMENT_TYPE
-  });
+  };
+  const parsed = legacyParser.parsePdfDocument(source);
+  return enrichParsedDocument(parsed, source);
 }
 
 function parseDocuments(pdfDocuments) {
@@ -58,6 +76,7 @@ function parseDocuments(pdfDocuments) {
 
 module.exports = {
   DOCUMENT_TYPE,
+  enrichParsedDocument,
   parseDocument,
   parseDocuments,
   inferNivelAcademico: legacyParser.inferNivelAcademico,
