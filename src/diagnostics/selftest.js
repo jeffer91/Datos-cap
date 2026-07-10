@@ -3,9 +3,9 @@ Nombre completo: selftest.js
 Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
 - Ejecutar una prueba rápida de módulos críticos sin abrir Electron.
-- Verificar el registro de los ocho tipos documentales.
-- Crear tablas simuladas y validar exportación dinámica Excel + JSON.
-- Confirmar que el módulo actual de Plan Individual continúa funcionando.
+- Verificar el registro de ocho tipos y procesadores implementados.
+- Validar el módulo especializado del Plan Individual.
+- Crear tablas simuladas y comprobar exportación Excel + JSON.
 ========================================================= */
 
 "use strict";
@@ -16,9 +16,9 @@ const path = require("path");
 
 const ids = require("../utils/ids");
 const normalizer = require("../extractor/normalizer");
-const tables = require("../tables");
 const exporters = require("../exporters");
 const { listDocumentTypes, getDocumentType } = require("../core/document-type.registry");
+const { assertProcessor, listProcessorIds } = require("../core/processor.registry");
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -127,17 +127,35 @@ function runSelfTest() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gestor-documental-test-"));
   const mockDocument = createMockParsedDocument();
   const documentTypes = listDocumentTypes();
+  const processorIds = listProcessorIds();
   const planDefinition = getDocumentType("plan-individual");
+  const planProcessor = assertProcessor("plan-individual");
 
   assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
+  assertCondition(processorIds.includes("plan-individual"), "El procesador modular del Plan Individual no está registrado.");
   assertCondition(Boolean(planDefinition && planDefinition.enabled), "El módulo Plan Individual no está activo.");
+  assertCondition(planDefinition.processorId === "plan-individual", "El Plan Individual todavía apunta al procesador heredado.");
   assertCondition(planDefinition.tables.length === 5, "El Plan Individual no declara sus 5 tablas.");
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
   assertCondition(typeof normalizer.normalizeSpaces === "function", "normalizer.normalizeSpaces no está disponible.");
-  assertCondition(typeof tables.buildAllTables === "function", "tables.buildAllTables no está disponible.");
+  assertCondition(typeof planProcessor.parseDocuments === "function", "El módulo no expone parseDocuments.");
+  assertCondition(typeof planProcessor.buildTables === "function", "El módulo no expone buildTables.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
-  const tableResult = tables.buildAllTables([mockDocument]);
+  const parseResult = {
+    documentType: "plan-individual",
+    total: 1,
+    parsedCount: 1,
+    errorCount: 0,
+    parsed: [mockDocument],
+    errors: []
+  };
+  const parseValidation = planProcessor.validateParseResult(parseResult);
+  assertCondition(parseValidation.warningCount === 0, "El documento simulado produjo advertencias inesperadas.");
+
+  const tableResult = planProcessor.buildTables(parseResult);
+  const structureValidation = planProcessor.validateTableResult(tableResult);
+  assertCondition(structureValidation.ok, "La estructura modular de tablas no es válida.");
   assertCondition(tableResult.summary.total_tables === 5, "No se construyeron las 5 tablas esperadas.");
   assertCondition(tableResult.summary.total_rows >= 5, "Las tablas generadas no tienen filas suficientes.");
 
@@ -155,17 +173,23 @@ function runSelfTest() {
     sheetLabels,
     tables: tableResult.tables,
     summary: tableResult.summary,
-    validations: tableResult.validations,
-    warnings: tables.flattenValidationWarnings(tableResult.validations),
+    validations: {
+      parseo: parseValidation,
+      tablas: tableResult.validations,
+      estructura: structureValidation
+    },
+    warnings: planProcessor.flattenWarnings(tableResult.validations),
     errors: []
   });
 
   assertCondition(exportResult.ok, "La exportación general no devolvió ok=true.");
+  assertCondition(exportResult.documentType === "plan-individual", "El exportador no conserva el tipo documental.");
   assertCondition(fs.existsSync(exportResult.files.excel.filePath), "No se creó el archivo Excel de prueba.");
   assertCondition(fs.existsSync(exportResult.files.json.filePath), "No se creó el archivo JSON de prueba.");
 
   const jsonPayload = JSON.parse(fs.readFileSync(exportResult.files.json.filePath, "utf8"));
   assertCondition(jsonPayload.metadata.tipo_documental === "plan-individual", "El JSON no conserva el tipo documental.");
+  assertCondition(Object.keys(jsonPayload.tablas || {}).length === 5, "El JSON no contiene las cinco tablas.");
 
   return {
     ok: true,
@@ -173,6 +197,7 @@ function runSelfTest() {
     finishedAt: new Date().toISOString(),
     tempDir,
     documentTypes: documentTypes.map((item) => item.id),
+    processors: processorIds,
     files: exportResult.files,
     summary: tableResult.summary
   };
