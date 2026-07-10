@@ -80,5 +80,27 @@ jobs:
       - name: Probar Informe de Impacto
         run: npm run test:informe-impacto
 
-      - name: Probar Detección de Necesidades
-        run: npm run test:deteccion-necesidades
+      - name: Generar diagnóstico de Detección de Necesidades
+        shell: bash
+        run: |
+          set +e
+          npm run test:deteccion-necesidades > deteccion-necesidades-debug.txt 2>&1
+          echo "$?" > deteccion-necesidades-exit-code.txt
+          exit 0
+
+      - name: Guardar diagnóstico de Detección de Necesidades
+        uses: actions/upload-artifact@v4
+        with:
+          name: deteccion-necesidades-debug
+          path: |
+            deteccion-necesidades-debug.txt
+            deteccion-necesidades-exit-code.txt
+
+      - name: Verificar Detección de Necesidades
+        shell: bash
+        run: |
+          codigo=$(cat deteccion-necesidades-exit-code.txt)
+          if [ "$codigo" != "0" ]; then
+            cat deteccion-necesidades-debug.txt
+            exit "$codigo"
+          fi
