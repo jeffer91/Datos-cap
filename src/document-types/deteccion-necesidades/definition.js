@@ -4,7 +4,7 @@ Ruta o ubicación: /src/document-types/deteccion-necesidades/definition.js
 Función o funciones:
 - Definir el documento único Detección de Necesidades de Capacitación.
 - Limitar su carga a un archivo por operación y periodo.
-- Establecer nueve tablas para diagnóstico, evidencias y prioridades.
+- Establecer nueve tablas para diagnóstico, consolidación y prioridades.
 ========================================================= */
 
 "use strict";
@@ -13,14 +13,14 @@ module.exports = Object.freeze({
   id: "deteccion-necesidades",
   label: "Detección de Necesidades de Capacitación",
   shortLabel: "Detección de necesidades",
-  description: "Documento institucional único por periodo que consolida metodología, evidencias, necesidades institucionales, recurrencias y prioridades por carrera.",
+  description: "Documento institucional único por periodo que consolida metodología, necesidades institucionales, recurrencias y prioridades por carrera.",
   mode: "unique-period",
   allowMultiple: false,
   uniquePerPeriod: true,
   enabled: true,
   status: "active",
   processorId: "deteccion-necesidades",
-  fileNameHints: ["UGPA-RGI1", "CGC-RGI1", "PRO-70"],
+  fileNameHints: ["RGI1", "PRO-70"],
   reportPrefix: "reporte_deteccion_necesidades",
   tables: [
     { name: "archivos_deteccion_necesidades", sheet: "01_archivos" },
