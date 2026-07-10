@@ -35,9 +35,9 @@ Los dos últimos se consideran **documentos únicos por periodo**. Los demás so
 - Exportadores dinámicos de Excel y JSON.
 - Interfaz en modo claro.
 
-## Etapa 2 completada: Plan Individual modular
+## Etapa 2 completada: Plan Individual
 
-El Plan Individual funciona mediante un procesador especializado con parser, tablas y validaciones propias. Conserva sus cinco tablas:
+Genera cinco tablas:
 
 ```text
 01_archivos
@@ -47,25 +47,9 @@ El Plan Individual funciona mediante un procesador especializado con parser, tab
 05_formacion
 ```
 
-Los constructores anteriores se conservan temporalmente como implementación interna hasta comprobar equivalencia con varios PDF reales.
+## Etapa 3 completada: Planificación por Curso
 
-## Etapa 3 completada: Planificación de Capacitación por Curso
-
-Este apartado ya está activo y admite varios PDF del mismo tipo.
-
-### Lectura híbrida
-
-El flujo intenta primero extraer texto digital. Cuando el texto está vacío, es demasiado corto o presenta baja calidad, activa automáticamente OCR en español e inglés.
-
-El resultado registra:
-
-- Método de extracción utilizado.
-- Cantidad de páginas procesadas por OCR.
-- Confianza promedio del OCR.
-- Huella SHA-256 del archivo.
-- Advertencias de lectura o revisión.
-
-### Cuatro tablas generadas
+Incluye lectura digital, OCR automático y cuatro tablas:
 
 ```text
 01_archivos
@@ -74,29 +58,66 @@ El resultado registra:
 04_evaluaciones
 ```
 
-La tabla de datos generales incluye nombre, descripción, público, carrera, forma de ejecución, tipo de capacitación, carácter, modalidad, certificado, objetivo, fechas, ambiente, facilitador, responsables y total de horas.
+Extrae datos generales, modalidad, carácter, certificado, objetivos, unidades, horas, logros e instrumentos de evaluación.
 
-La tabla de unidades incluye número, nombre, contenidos, horas teóricas, prácticas, trabajo autónomo, total y logro de aprendizaje.
+## Etapa 4 completada: Acuerdo de Patrocinio Institucional
 
-La tabla de evaluaciones incluye parámetro, temática, cantidad de instrumentos y tipo de evaluación.
+Este apartado ya está activo, admite varios PDF y utiliza el lector híbrido con OCR cuando sea necesario.
+
+### Cuatro tablas generadas
+
+```text
+01_archivos
+02_datos_acuerdo
+03_apoyos
+04_responsables
+```
+
+La tabla de datos del acuerdo incluye:
+
+- Código y periodo.
+- Ciudad y fecha normalizada.
+- Docente y cédula.
+- Carrera y vínculo institucional.
+- Capacitación patrocinada.
+- Cantidad de apoyos marcados.
+- Apoyo principal y porcentaje parcial.
+
+La tabla de apoyos registra las siete opciones institucionales, indicando si cada una fue seleccionada:
+
+- Financiamiento total.
+- Financiamiento parcial.
+- Anticipo de sueldos u honorarios.
+- Cambio temporal de modalidad de trabajo.
+- Licencia con remuneración.
+- Licencia sin remuneración.
+- Ajuste de horario laboral.
+
+La tabla de responsables registra rol, nombre, cargo y estado de firma inferido.
+
+### Compatibilidad documental
+
+El módulo reconoce códigos con prefijo `UGPA` y versiones antiguas con prefijo `CGC`, siempre que correspondan a `RGI2` y `PRO-134`.
 
 ### Validaciones propias
 
-- Código institucional correspondiente a `PRO-134`.
-- Nombre y descripción del curso.
-- Presencia de unidades y cargas horarias.
-- Presencia de evaluaciones.
+- Código institucional válido.
+- Docente y cédula.
+- Capacitación.
+- Fecha completa del acuerdo.
+- Al menos un apoyo marcado.
+- Responsables identificados.
 - Cuatro tablas obligatorias.
-- Trazabilidad del archivo origen.
+- Huella del archivo origen.
 
 ## Módulos activos
 
 - Plan Individual de Formación y Capacitación Docente.
 - Planificación de Capacitación por Curso.
+- Acuerdo de Patrocinio Institucional.
 
 ## Módulos pendientes
 
-- Acuerdo de Patrocinio Institucional.
 - Informe Final de Capacitación.
 - Instrumento de Evaluación de la Capacitación.
 - Informe de Impacto de la Capacitación.
@@ -126,31 +147,26 @@ Seleccionar apartado
 ├─ renderer/
 ├─ src/
 │  ├─ core/
-│  │  ├─ document.processor.js
-│  │  ├─ document-type.registry.js
-│  │  └─ processor.registry.js
 │  ├─ document-types/
 │  │  ├─ plan-individual/
 │  │  ├─ planificacion-curso/
+│  │  ├─ acuerdo-patrocinio/
 │  │  │  ├─ definition.js
-│  │  │  ├─ parser-v2.js
+│  │  │  ├─ parser.js
 │  │  │  ├─ tables.js
 │  │  │  ├─ validator.js
 │  │  │  └─ index.js
-│  │  ├─ acuerdo-patrocinio/
 │  │  ├─ informe-final/
 │  │  ├─ instrumento-evaluacion/
 │  │  ├─ informe-impacto/
 │  │  ├─ deteccion-necesidades/
 │  │  └─ plan-general-capacitacion/
 │  ├─ readers/
-│  │  ├─ text-quality.js
-│  │  ├─ pdf-hybrid.reader.js
-│  │  └─ pdf-ocr.reader.js
 │  ├─ diagnostics/
 │  │  ├─ selftest.js
 │  │  ├─ plan-individual.parser.test.js
-│  │  └─ planificacion-curso.parser.test.js
+│  │  ├─ planificacion-curso.parser.test.js
+│  │  └─ acuerdo-patrocinio.parser.test.js
 │  ├─ exporters/
 │  ├─ extractor/
 │  ├─ processors/
@@ -183,12 +199,13 @@ Pruebas individuales:
 npm run selftest
 npm run test:plan-individual
 npm run test:planificacion-curso
+npm run test:acuerdo-patrocinio
 ```
 
 ## Consideración del OCR
 
-La primera ejecución del OCR puede tardar más porque el motor debe preparar los recursos de reconocimiento. Los PDF que ya contienen texto no pasan por OCR, lo que reduce el tiempo de procesamiento.
+La primera ejecución del OCR puede tardar más porque el motor debe preparar los recursos de reconocimiento. Los PDF que ya contienen texto no pasan por OCR.
 
 ## Próxima etapa
 
-Implementar el procesador especializado del **Acuerdo de Patrocinio Institucional**, definiendo sus tablas, campos variables y validaciones.
+Implementar el procesador especializado del **Informe Final de Capacitación**, con sus participantes, resultados, totales, responsables y validaciones.
