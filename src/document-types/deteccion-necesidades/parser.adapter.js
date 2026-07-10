@@ -4,7 +4,7 @@ Ruta o ubicación: /src/document-types/deteccion-necesidades/parser.adapter.js
 Función o funciones:
 - Reforzar la extracción de filas numeradas de necesidades por carrera.
 - Separar correctamente necesidad, tipo y nivel de recurrencia.
-- Evitar que palabras como gestión o clínica se confundan con el tipo.
+- Vincular el porcentaje de recurrencia con la capacitación priorizada.
 - Mantener compatibilidad con el parser principal de PRO-70.
 ========================================================= */
 
@@ -110,6 +110,15 @@ function parseRobustNeedRows(block, context, startIndex) {
   return rows;
 }
 
+function sameTraining(first, second) {
+  const normalizedFirst = normalizeForSearch(first);
+  const normalizedSecond = normalizeForSearch(second);
+  if (!normalizedFirst || !normalizedSecond) return false;
+  const firstKey = normalizedFirst.slice(0, Math.min(24, normalizedFirst.length));
+  const secondKey = normalizedSecond.slice(0, Math.min(24, normalizedSecond.length));
+  return normalizedFirst.includes(secondKey) || normalizedSecond.includes(firstKey);
+}
+
 function rebuildCareerNeeds(pdfDocument, parsedDocument) {
   const text = pdfDocument && pdfDocument.text ? pdfDocument.text : "";
   const blocks = baseParser.findCareerBlocks(text);
@@ -130,19 +139,18 @@ function rebuildCareerNeeds(pdfDocument, parsedDocument) {
     ? parsedDocument.prioridades_carrera
     : [];
 
-  needs.forEach((need) => {
-    const priority = priorities.find((row) => normalizeForSearch(row.carrera) === normalizeForSearch(need.carrera));
-    if (!priority) return;
-    const normalizedPriority = normalizeForSearch(priority.capacitacion_priorizada);
-    const normalizedNeed = normalizeForSearch(need.necesidad_capacitacion);
-    if (
-      normalizedPriority.includes(normalizedNeed.slice(0, 18)) ||
-      normalizedNeed.includes(normalizedPriority.slice(0, 18))
-    ) {
-      need.es_priorizada = "SI";
-      if (priority.porcentaje_recurrencia === "" && need.porcentaje_recurrencia !== "") {
-        priority.porcentaje_recurrencia = need.porcentaje_recurrencia;
-      }
+  priorities.forEach((priority) => {
+    const careerNeeds = needs.filter(
+      (need) => normalizeForSearch(need.carrera) === normalizeForSearch(priority.carrera)
+    );
+    const prioritizedNeed = careerNeeds.find((need) =>
+      sameTraining(priority.capacitacion_priorizada, need.necesidad_capacitacion)
+    );
+
+    if (!prioritizedNeed) return;
+    prioritizedNeed.es_priorizada = "SI";
+    if (prioritizedNeed.porcentaje_recurrencia !== "") {
+      priority.porcentaje_recurrencia = prioritizedNeed.porcentaje_recurrencia;
     }
   });
 
@@ -169,6 +177,7 @@ module.exports = {
   ...baseParser,
   parseTypeAndNeed,
   parseRobustNeedRows,
+  sameTraining,
   rebuildCareerNeeds,
   parseDocuments
 };
