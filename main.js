@@ -5,7 +5,7 @@ Función o funciones:
 - Crear la ventana principal de la aplicación Electron.
 - Seleccionar, validar, procesar, guardar y exportar documentos.
 - Administrar base local, historial, consultas, respaldos y restauración.
-- Exponer operaciones seguras mediante canales IPC cerrados.
+- Exponer una única familia de canales IPC modulares y seguros.
 ========================================================= */
 
 "use strict";
@@ -197,7 +197,10 @@ async function generateDocumentReport(payload) {
     } catch (error) {
       result.backup = { ok: false, message: error.message };
       result.warnings = Array.isArray(result.warnings) ? result.warnings : [];
-      result.warnings.push({ etapa: "respaldo", advertencia: `El procesamiento terminó, pero el respaldo automático falló: ${error.message}` });
+      result.warnings.push({
+        etapa: "respaldo",
+        advertencia: `El procesamiento terminó, pero el respaldo automático falló: ${error.message}`
+      });
     }
   }
 
@@ -383,20 +386,6 @@ function registerIpcHandlers() {
       return await openBackupFolder();
     } catch (error) {
       return createErrorResponse(error, "No se pudo abrir la carpeta de respaldos.");
-    }
-  });
-
-  // Compatibilidad temporal con la interfaz anterior.
-  ipcMain.handle("dialog:select-pdfs", async () => selectPdfFiles(DEFAULT_DOCUMENT_TYPE));
-  ipcMain.handle("files:validate-pdfs", async (_event, filePaths) => {
-    return validateDocumentFiles({ documentType: DEFAULT_DOCUMENT_TYPE, filePaths });
-  });
-  ipcMain.handle("reports:generate-plan-report", async (_event, payload) => {
-    try {
-      return await generateDocumentReport({ ...(payload || {}), documentType: DEFAULT_DOCUMENT_TYPE });
-    } catch (error) {
-      console.error("Error al generar reporte de Plan Individual:", error);
-      return createErrorResponse(error, "Error desconocido al generar el reporte.");
     }
   });
 }
