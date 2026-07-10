@@ -1,0 +1,67 @@
+/* =========================================================
+Nombre completo: database.css
+Ruta o ubicación: /renderer/styles/database.css
+Función o funciones:
+- Diseñar el panel de resumen e historial de la base local.
+- Mantener coherencia visual con el modo claro de la aplicación.
+- Adaptar estadísticas y acciones a diferentes tamaños de pantalla.
+========================================================= */
+
+.database-card {
+  margin-bottom: 18px;
+}
+
+.database-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.database-actions {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.database-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.database-history-title {
+  margin-top: 18px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.database-history-table {
+  max-height: 290px;
+  overflow-y: auto;
+}
+
+.database-history-table table {
+  min-width: 860px;
+}
+
+@media (max-width: 1120px) {
+  .database-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .database-heading {
+    flex-direction: column;
+  }
+
+  .database-actions {
+    width: 100%;
+  }
+
+  .database-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

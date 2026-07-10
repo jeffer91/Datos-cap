@@ -1,13 +1,11 @@
 /* =========================================================
 Nombre completo: preload.js
-Ruta o ubicación: /plan-docente-extractor/preload.js
+Ruta o ubicación: /preload.js
 Función o funciones:
 - Exponer una API segura desde Electron hacia la interfaz.
-- Permitir seleccionar múltiples archivos PDF.
-- Permitir validar archivos PDF antes de procesarlos.
-- Permitir seleccionar carpeta de salida para Excel y JSON.
-- Permitir generar el reporte completo Excel + JSON desde el renderer.
-- Evitar que renderer acceda directamente a Node.js.
+- Listar, seleccionar, validar, procesar y exportar documentos.
+- Consultar base local, filtros, detalle, respaldos y restauración.
+- Mantener una única API modular sin canales heredados.
 ========================================================= */
 
 "use strict";
@@ -16,38 +14,82 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const ALLOWED_CHANNELS = new Set([
   "app:get-info",
-  "dialog:select-pdfs",
-  "files:validate-pdfs",
+  "document-types:list",
+  "dialog:select-document-pdfs",
+  "files:validate-document-pdfs",
   "dialog:choose-output-dir",
-  "reports:generate-plan-report"
+  "reports:generate-document-report",
+  "database:get-summary",
+  "database:list-recent-runs",
+  "database:open-folder",
+  "database:get-filter-options",
+  "database:query-documents",
+  "database:get-document-detail",
+  "backup:get-summary",
+  "backup:create-manual",
+  "backup:restore",
+  "backup:open-folder"
 ]);
 
 function invokeSafe(channel, payload) {
   if (!ALLOWED_CHANNELS.has(channel)) {
     return Promise.reject(new Error(`Canal no permitido: ${channel}`));
   }
-
   return ipcRenderer.invoke(channel, payload);
 }
 
-contextBridge.exposeInMainWorld("planDocenteAPI", {
+const documentAppAPI = Object.freeze({
   getAppInfo() {
     return invokeSafe("app:get-info");
   },
-
-  selectPdfFiles() {
-    return invokeSafe("dialog:select-pdfs");
+  listDocumentTypes() {
+    return invokeSafe("document-types:list");
   },
-
-  validatePdfFiles(filePaths) {
-    return invokeSafe("files:validate-pdfs", filePaths);
+  selectPdfFiles(documentType) {
+    return invokeSafe("dialog:select-document-pdfs", documentType);
   },
-
+  validatePdfFiles(payload) {
+    return invokeSafe("files:validate-document-pdfs", payload);
+  },
   chooseOutputDirectory() {
     return invokeSafe("dialog:choose-output-dir");
   },
-
-  generatePlanReport(payload) {
-    return invokeSafe("reports:generate-plan-report", payload);
+  generateDocumentReport(payload) {
+    return invokeSafe("reports:generate-document-report", payload);
+  },
+  getDatabaseSummary() {
+    return invokeSafe("database:get-summary");
+  },
+  listRecentDatabaseRuns(options) {
+    return invokeSafe("database:list-recent-runs", options || {});
+  },
+  openDatabaseFolder() {
+    return invokeSafe("database:open-folder");
+  },
+  getDatabaseFilterOptions() {
+    return invokeSafe("database:get-filter-options");
+  },
+  queryDatabaseDocuments(filters) {
+    return invokeSafe("database:query-documents", filters || {});
+  },
+  getDatabaseDocumentDetail(documentId, options) {
+    return invokeSafe("database:get-document-detail", {
+      documentId,
+      options: options || {}
+    });
+  },
+  getBackupSummary() {
+    return invokeSafe("backup:get-summary");
+  },
+  createManualBackup() {
+    return invokeSafe("backup:create-manual");
+  },
+  restoreBackup() {
+    return invokeSafe("backup:restore");
+  },
+  openBackupFolder() {
+    return invokeSafe("backup:open-folder");
   }
 });
+
+contextBridge.exposeInMainWorld("documentAppAPI", documentAppAPI);

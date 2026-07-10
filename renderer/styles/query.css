@@ -1,0 +1,261 @@
+/* =========================================================
+Nombre completo: query.css
+Ruta o ubicación: /renderer/styles/query.css
+Función o funciones:
+- Diseñar filtros, resultados, paginación y detalle documental.
+- Mantener legibilidad en tablas con información heterogénea.
+- Adaptar la pantalla de consultas a ventanas pequeñas.
+========================================================= */
+
+.query-card {
+  margin-bottom: 18px;
+}
+
+.query-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.query-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.field-group {
+  display: grid;
+  gap: 7px;
+}
+
+.field-group > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field-group input,
+.field-group select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+.field-group input:focus,
+.field-group select:focus {
+  border-color: #7fa9e4;
+  box-shadow: 0 0 0 3px rgba(31, 95, 191, 0.12);
+}
+
+.query-search-field {
+  grid-column: span 3;
+}
+
+.query-actions {
+  margin-top: 14px;
+}
+
+.query-results-table table {
+  min-width: 1450px;
+}
+
+.query-results-table td {
+  max-width: 230px;
+  overflow-wrap: anywhere;
+}
+
+.query-muted {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.query-detail-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.query-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 15px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.query-detail {
+  scroll-margin-top: 18px;
+}
+
+.query-detail:not(:empty) {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.query-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.query-detail-header h4 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.query-detail-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.query-detail-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.query-detail-summary span {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.query-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.query-metadata-item {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface-soft);
+}
+
+.query-metadata-item span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.query-metadata-item strong {
+  display: block;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.query-collections {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.query-collection {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.query-collection summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.query-collection summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.query-detail-table {
+  margin: 0;
+  padding: 0 12px 12px;
+}
+
+.query-detail-table table {
+  min-width: 900px;
+}
+
+.query-detail-table td {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.query-notice {
+  margin: 10px 12px 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 11px;
+}
+
+@media (max-width: 1120px) {
+  .query-filters,
+  .query-metadata-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .query-search-field {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 700px) {
+  .query-heading,
+  .query-detail-header {
+    flex-direction: column;
+  }
+
+  .query-filters,
+  .query-metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .query-search-field {
+    grid-column: auto;
+  }
+
+  .query-pagination {
+    flex-wrap: wrap;
+  }
+}

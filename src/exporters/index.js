@@ -1,11 +1,11 @@
 /* =========================================================
 Nombre completo: index.js
-Ruta o ubicación: /plan-docente-extractor/src/exporters/index.js
+Ruta o ubicación: /src/exporters/index.js
 Función o funciones:
 - Centralizar los exportadores disponibles de la aplicación.
 - Exportar Excel y JSON desde un solo punto de entrada.
 - Validar que existan tablas antes de generar archivos.
-- Devolver un resumen uniforme de archivos generados.
+- Devolver un resumen uniforme para cualquier tipo documental.
 ========================================================= */
 
 "use strict";
@@ -18,9 +18,7 @@ function hasTables(tables) {
     return false;
   }
 
-  return Object.keys(tables).some((tableName) => {
-    return Array.isArray(tables[tableName]);
-  });
+  return Object.keys(tables).some((tableName) => Array.isArray(tables[tableName]));
 }
 
 function assertExportOptions(options) {
@@ -44,8 +42,9 @@ function exportAll(options) {
 
   return {
     ok: Boolean(excel.ok && json.ok),
+    documentType: config.documentType || "",
     outputDir: config.outputDir,
-    baseName: config.baseName || "reporte_plan_individual",
+    baseName: config.baseName || "reporte_documental",
     files: {
       excel,
       json

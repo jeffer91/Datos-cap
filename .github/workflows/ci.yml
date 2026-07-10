@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - etapa-1-base-modular
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Verificar sintaxis JavaScript
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find . -path './node_modules' -prune -o -name '*.js' -print0)
+
+      - name: Auditar estructura, duplicados y flujos
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run audit | tee artifacts/repository-audit.log
+
+      - name: Publicar reporte de auditoría
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-audit
+          path: artifacts/repository-audit.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Diagnóstico general
+        run: npm run selftest
+
+      - name: Probar Plan Individual
+        run: npm run test:plan-individual
+
+      - name: Probar Planificación por Curso
+        run: npm run test:planificacion-curso
+
+      - name: Probar Acuerdo de Patrocinio
+        run: npm run test:acuerdo-patrocinio
+
+      - name: Probar Informe Final
+        run: npm run test:informe-final
+
+      - name: Probar Instrumento de Evaluación
+        run: npm run test:instrumento-evaluacion
+
+      - name: Probar Informe de Impacto
+        run: npm run test:informe-impacto
+
+      - name: Probar Detección de Necesidades
+        run: npm run test:deteccion-necesidades
+
+      - name: Probar Plan General de Capacitación
+        run: npm run test:plan-general-capacitacion
+
+      - name: Probar Base de Datos Local
+        run: npm run test:local-database
+
+      - name: Probar Consultas y Filtros
+        run: npm run test:query-service
+
+      - name: Probar Respaldo y Restauración
+        run: npm run test:backup-service
+
+      - name: Probar aislamiento de los ocho flujos
+        run: npm run test:flow-isolation
+
+      - name: Probar modelo de datos para nuevos reportes
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            node src/diagnostics/report-data.inspect.js
+            npm run test:report-data
+          } 2>&1 | tee artifacts/report-data.log
+
+      - name: Publicar log del modelo de reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-data-test
+          path: artifacts/report-data.log
+          if-no-files-found: warn
+          retention-days: 14

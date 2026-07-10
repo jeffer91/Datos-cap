@@ -1,11 +1,11 @@
 /* =========================================================
 Nombre completo: selftest.js
-Ruta o ubicación: /plan-docente-extractor/src/diagnostics/selftest.js
+Ruta o ubicación: /src/diagnostics/selftest.js
 Función o funciones:
-- Ejecutar una prueba rápida de módulos críticos sin abrir Electron.
-- Verificar que existan funciones principales de extractor, tablas y exportadores.
-- Crear tablas simuladas y validar exportación JSON/Excel en carpeta temporal.
-- Ayudar a detectar errores de instalación o rutas antes de usar la app.
+- Ejecutar un diagnóstico rápido sin abrir Electron.
+- Verificar ocho tipos documentales y ocho procesadores activos.
+- Comprobar contratos, identificadores, exportadores y base local.
+- Validar una exportación mínima a Excel y JSON.
 ========================================================= */
 
 "use strict";
@@ -16,150 +16,95 @@ const path = require("path");
 
 const ids = require("../utils/ids");
 const normalizer = require("../extractor/normalizer");
-const tables = require("../tables");
 const exporters = require("../exporters");
+const { createPersistenceService } = require("../database");
+const { listDocumentTypes, getDocumentType } = require("../core/document-type.registry");
+const { assertProcessor, listProcessorIds, listProcessors } = require("../core/processor.registry");
 
 function assertCondition(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  if (!condition) throw new Error(message);
 }
 
-function createMockParsedDocument() {
-  const idDocumento = ids.createDocumentId("mock-plan.pdf", 0, "UGPA-RGI1-01-PRO-251-2026-03");
-
-  return {
-    id_documento: idDocumento,
-    archivo: {
-      id: ids.createRowId("archivo", idDocumento, 0, "mock-plan.pdf"),
-      id_documento: idDocumento,
-      nombre_archivo: "mock-plan.pdf",
-      ruta_archivo: "mock-plan.pdf",
-      codigo_documento: "UGPA-RGI1-01-PRO-251-2026-03",
-      numero_registro: "01",
-      periodo: "2026-03",
-      anio_periodo: "2026",
-      mes_periodo: "03",
-      total_paginas: 5,
-      estado_extraccion: "OK",
-      requiere_revision: "NO",
-      observacion_extraccion: ""
-    },
-    identificacion: {
-      id: ids.createRowId("identificacion", idDocumento, 0, "Docente Demo"),
-      id_documento: idDocumento,
-      codigo_documento: "UGPA-RGI1-01-PRO-251-2026-03",
-      nombre_docente: "Docente Demo",
-      tiempo_dedicacion: "Tiempo Completo",
-      carrera: "Desarrollo de Software",
-      funcion_sustantiva: "Docencia",
-      nombre_firma_docente: "Docente Demo",
-      nombre_aprobador: "Gestor Demo",
-      cargo_aprobador: "Gestor de Procesos Académicos",
-      requiere_revision: "NO",
-      observacion_extraccion: ""
-    },
-    capacidades: {
-      id: ids.createRowId("capacidades", idDocumento, 0, "Docente Demo"),
-      id_documento: idDocumento,
-      codigo_documento: "UGPA-RGI1-01-PRO-251-2026-03",
-      nombre_docente: "Docente Demo",
-      carrera: "Desarrollo de Software",
-      curso_actualizacion_ultimos_12_meses: "Innovación educativa",
-      avances_disciplinares_aplicados: "Inteligencia artificial aplicada",
-      comodidad_metodologias_nuevas: "Alta",
-      estrategias_pedagogicas: "Aprendizaje basado en proyectos",
-      herramientas_tecnologicas: "Moodle, Teams, Canva",
-      formacion_adicional_necesaria: "Analítica educativa",
-      nivel_academico_actual: "Maestría",
-      tipo_formacion_propuesta: "Específica",
-      requiere_revision: "NO",
-      observacion_extraccion: ""
-    },
-    capacitaciones: [
-      {
-        id: ids.createRowId("capacitacion", idDocumento, 0, "Curso Demo"),
-        id_documento: idDocumento,
-        codigo_documento: "UGPA-RGI1-01-PRO-251-2026-03",
-        nombre_docente: "Docente Demo",
-        carrera: "Desarrollo de Software",
-        numero_capacitacion: 1,
-        nombre_capacitacion: "Curso Demo de Innovación Educativa",
-        horas_capacitacion: "40",
-        fecha_inicio_capacitacion: "01/03/2026",
-        fecha_fin_capacitacion: "31/03/2026",
-        fecha_texto_original: "01/03/2026 al 31/03/2026",
-        tipo_capacitacion: "Aprobación",
-        requiere_revision: "NO",
-        observacion_extraccion: ""
-      }
-    ],
-    formacion: [
-      {
-        id: ids.createRowId("formacion", idDocumento, 0, "Maestría Demo"),
-        id_documento: idDocumento,
-        codigo_documento: "UGPA-RGI1-01-PRO-251-2026-03",
-        nombre_docente: "Docente Demo",
-        carrera: "Desarrollo de Software",
-        numero_formacion: 1,
-        situacion_actual_formacion: "Maestría",
-        situacion_propuesta_formacion: "Doctorado",
-        tiempo_esperado_cumplimiento: "24 meses",
-        nombre_formacion: "Doctorado en Educación e Innovación",
-        nivel_academico_formacion: "Doctorado",
-        tipo_formacion: "Específica",
-        fecha_inicio_formacion: "",
-        fecha_fin_formacion: "",
-        requiere_revision: "NO",
-        observacion_extraccion: ""
-      }
-    ]
-  };
+function assertProcessorContract(processorId, expectedTableCount, requiresHybridReader) {
+  const definition = getDocumentType(processorId);
+  const processor = assertProcessor(processorId);
+  assertCondition(Boolean(definition && definition.enabled), `El módulo ${processorId} no está activo.`);
+  assertCondition(definition.tables.length === expectedTableCount, `El módulo ${processorId} no declara ${expectedTableCount} tablas.`);
+  assertCondition(typeof processor.parseDocuments === "function", `El módulo ${processorId} no expone parseDocuments.`);
+  assertCondition(typeof processor.buildTables === "function", `El módulo ${processorId} no expone buildTables.`);
+  assertCondition(typeof processor.validateParseResult === "function", `El módulo ${processorId} no expone validateParseResult.`);
+  assertCondition(typeof processor.validateTableResult === "function", `El módulo ${processorId} no expone validateTableResult.`);
+  if (requiresHybridReader) assertCondition(typeof processor.readDocuments === "function", `El módulo ${processorId} no expone lector híbrido.`);
 }
 
 function runSelfTest() {
   const startedAt = new Date();
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-docente-test-"));
-  const mockDocument = createMockParsedDocument();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gestor-documental-test-"));
+  const documentTypes = listDocumentTypes();
+  const processorIds = listProcessorIds();
+  const processorDetails = listProcessors();
+  const expectedProcessors = [
+    ["plan-individual", 5, false],
+    ["planificacion-curso", 4, true],
+    ["acuerdo-patrocinio", 4, true],
+    ["informe-final", 6, true],
+    ["instrumento-evaluacion", 8, true],
+    ["informe-impacto", 7, true],
+    ["deteccion-necesidades", 9, true],
+    ["plan-general-capacitacion", 8, true]
+  ];
+
+  assertCondition(documentTypes.length === 8, "No están registrados los 8 tipos documentales.");
+  assertCondition(processorIds.length === expectedProcessors.length, "La cantidad de procesadores activos no coincide con la etapa actual.");
+  expectedProcessors.forEach(([processorId, tableCount, requiresHybridReader]) => {
+    assertCondition(processorIds.includes(processorId), `El procesador ${processorId} no está registrado.`);
+    assertProcessorContract(processorId, tableCount, requiresHybridReader);
+  });
 
   assertCondition(typeof ids.createDocumentId === "function", "ids.createDocumentId no está disponible.");
-  assertCondition(typeof normalizer.normalizeSpaces === "function", "normalizer.normalizeSpaces no está disponible.");
-  assertCondition(typeof tables.buildAllTables === "function", "tables.buildAllTables no está disponible.");
+  assertCondition(ids.extractRegistroFromCodigo("CGC-RGI2-146-PRO-134-2025-03") === "146", "No se reconoce el registro de códigos CGC.");
+  assertCondition(ids.extractRegistroFromCodigo("UGPA-RGI2-01-PRO-70-2025-10") === "01", "No se reconoce el registro del Plan de Capacitación PRO-70.");
+  assertCondition(normalizer.parseCodigoDocumento("UGPA-RGI2-01-PRO￾70-2025-10", "70") === "UGPA-RGI2-01-PRO-70-2025-10", "No se normaliza correctamente un código del Plan de Capacitación.");
   assertCondition(typeof exporters.exportAll === "function", "exporters.exportAll no está disponible.");
 
-  const tableResult = tables.buildAllTables([mockDocument]);
-  assertCondition(tableResult.summary.total_tables === 5, "No se construyeron las 5 tablas esperadas.");
-  assertCondition(tableResult.summary.total_rows >= 5, "Las tablas generadas no tienen filas suficientes.");
+  const persistenceService = createPersistenceService(path.join(tempDir, "local-database"));
+  const databaseSummary = persistenceService.getSummary();
+  assertCondition(databaseSummary.ok, "La base local no pudo inicializarse.");
+  assertCondition(databaseSummary.databaseVersion === 1, "La versión de la base local no es la esperada.");
+  assertCondition(fs.existsSync(databaseSummary.databasePath), "No se creó la carpeta de la base local.");
 
   const exportResult = exporters.exportAll({
     outputDir: tempDir,
-    baseName: "selftest_reporte_plan_individual",
-    tables: tableResult.tables,
-    summary: tableResult.summary,
-    validations: tableResult.validations,
-    warnings: tables.flattenValidationWarnings(tableResult.validations),
-    errors: []
+    baseName: "selftest_reporte_minimo",
+    documentType: "diagnostico",
+    documentLabel: "Diagnóstico",
+    sheetOrder: ["diagnostico"],
+    sheetLabels: { diagnostico: "01_diagnostico" },
+    tables: { diagnostico: [{ estado: "OK", tipos_documentales: documentTypes.length, procesadores_activos: processorIds.length }] },
+    summary: { total_tables: 1, total_rows: 1, estado_general: "OK" },
+    validations: {}, warnings: [], errors: []
   });
 
-  assertCondition(exportResult.ok, "La exportación general no devolvió ok=true.");
-  assertCondition(fs.existsSync(exportResult.files.excel.filePath), "No se creó el archivo Excel de prueba.");
-  assertCondition(fs.existsSync(exportResult.files.json.filePath), "No se creó el archivo JSON de prueba.");
+  assertCondition(exportResult.ok, "La exportación mínima no devolvió ok=true.");
+  assertCondition(fs.existsSync(exportResult.files.excel.filePath), "No se creó el Excel de diagnóstico.");
+  assertCondition(fs.existsSync(exportResult.files.json.filePath), "No se creó el JSON de diagnóstico.");
 
   return {
     ok: true,
     startedAt: startedAt.toISOString(),
     finishedAt: new Date().toISOString(),
     tempDir,
-    files: exportResult.files,
-    summary: tableResult.summary
+    documentTypes: documentTypes.map((item) => item.id),
+    processors: processorDetails,
+    database: databaseSummary,
+    files: exportResult.files
   };
 }
 
 if (require.main === module) {
   try {
-    const result = runSelfTest();
     console.log("SELFTEST_OK");
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(runSelfTest(), null, 2));
   } catch (error) {
     console.error("SELFTEST_ERROR");
     console.error(error.stack || error.message);
@@ -167,7 +112,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = {
-  createMockParsedDocument,
-  runSelfTest
-};
+module.exports = { assertProcessorContract, runSelfTest };

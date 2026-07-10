@@ -1,11 +1,10 @@
 /* =========================================================
 Nombre completo: json.exporter.js
-Ruta o ubicación: /plan-docente-extractor/src/exporters/json.exporter.js
+Ruta o ubicación: /src/exporters/json.exporter.js
 Función o funciones:
-- Generar archivo JSON con las cinco tablas no relacionales.
-- Incluir metadatos de generación, resumen y validaciones.
-- Guardar una estructura lista para futura base de datos.
-- Mantener formato legible para revisión manual.
+- Generar archivos JSON con tablas variables por apartado.
+- Incluir tipo documental, versión de estructura y metadatos de generación.
+- Mantener una estructura lista para revisión y futura base de datos.
 ========================================================= */
 
 "use strict";
@@ -15,31 +14,21 @@ const path = require("path");
 
 function ensureDirectory(directoryPath) {
   const cleanPath = String(directoryPath || "").trim();
-
-  if (!cleanPath) {
-    throw new Error("No se recibió carpeta de salida para generar el JSON.");
-  }
-
-  if (!fs.existsSync(cleanPath)) {
-    fs.mkdirSync(cleanPath, { recursive: true });
-  }
-
+  if (!cleanPath) throw new Error("No se recibió carpeta de salida para generar el JSON.");
+  if (!fs.existsSync(cleanPath)) fs.mkdirSync(cleanPath, { recursive: true });
   const stat = fs.statSync(cleanPath);
-
-  if (!stat.isDirectory()) {
-    throw new Error("La ruta de salida no corresponde a una carpeta válida.");
-  }
+  if (!stat.isDirectory()) throw new Error("La ruta de salida no corresponde a una carpeta válida.");
 }
 
 function sanitizeFileName(value) {
-  return String(value || "reporte_plan_individual")
+  return String(value || "reporte_documental")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[<>:"/\\|?*]+/g, " ")
     .replace(/\s+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "")
-    .slice(0, 120) || "reporte_plan_individual";
+    .slice(0, 120) || "reporte_documental";
 }
 
 function createJsonPayload(options) {
@@ -49,8 +38,10 @@ function createJsonPayload(options) {
   return {
     metadata: {
       generado_en: now.toISOString(),
-      generado_por: "Plan Docente Extractor",
-      version_estructura: "1.0.0",
+      generado_por: "Gestor Documental de Capacitación",
+      version_estructura: "2.0.0",
+      tipo_documental: config.documentType || "",
+      nombre_tipo_documental: config.documentLabel || "",
       tipo_salida: "excel_json",
       observacion: "Estructura no relacional lista para revisión y futura carga a base de datos."
     },
@@ -65,7 +56,7 @@ function createJsonPayload(options) {
 function exportTablesToJson(options) {
   const config = options || {};
   const outputDir = config.outputDir;
-  const baseName = sanitizeFileName(config.baseName || "reporte_plan_individual");
+  const baseName = sanitizeFileName(config.baseName || "reporte_documental");
   const filePath = path.join(outputDir, `${baseName}.json`);
   const payload = createJsonPayload(config);
 
@@ -77,7 +68,8 @@ function exportTablesToJson(options) {
     filePath,
     fileName: path.basename(filePath),
     tableCount: payload.tablas ? Object.keys(payload.tablas).length : 0,
-    generatedAt: payload.metadata.generado_en
+    generatedAt: payload.metadata.generado_en,
+    documentType: payload.metadata.tipo_documental
   };
 }
 

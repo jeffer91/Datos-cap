@@ -1,11 +1,11 @@
 /* =========================================================
 Nombre completo: normalizer.js
-Ruta o ubicación: /plan-docente-extractor/src/extractor/normalizer.js
+Ruta o ubicación: /src/extractor/normalizer.js
 Función o funciones:
-- Normalizar texto extraído desde PDF.
+- Normalizar texto extraído desde PDF u OCR.
 - Limpiar saltos de línea, espacios, guiones rotos y caracteres extraños.
-- Extraer valores por etiquetas frecuentes del plan individual.
-- Preparar textos para búsquedas robustas sin alterar el contenido original.
+- Extraer valores por etiquetas frecuentes en documentos institucionales.
+- Reconocer códigos UGPA de distintos procesos documentales.
 ========================================================= */
 
 "use strict";
@@ -125,7 +125,7 @@ function findValueByLabel(text, labels, options = {}) {
 
 function extractBetween(text, startLabels, endLabels) {
   const source = normalizeLineBreaks(text);
-  const search = normalizeForSearch(source);
+  const sourceSearch = removeAccents(source).toLowerCase();
   const starts = Array.isArray(startLabels) ? startLabels : [startLabels];
   const ends = Array.isArray(endLabels) ? endLabels : [endLabels];
 
@@ -133,8 +133,8 @@ function extractBetween(text, startLabels, endLabels) {
   let startLabelLength = 0;
 
   for (const label of starts) {
-    const cleanLabel = normalizeForSearch(label);
-    const found = search.indexOf(cleanLabel);
+    const cleanLabel = removeAccents(asText(label)).toLowerCase().trim();
+    const found = sourceSearch.indexOf(cleanLabel);
 
     if (found >= 0 && (startIndex === -1 || found < startIndex)) {
       startIndex = found;
@@ -146,35 +146,50 @@ function extractBetween(text, startLabels, endLabels) {
     return "";
   }
 
-  let endIndex = search.length;
+  let endIndex = source.length;
   const from = startIndex + startLabelLength;
 
   for (const label of ends) {
-    const cleanLabel = normalizeForSearch(label);
-    const found = search.indexOf(cleanLabel, from);
+    const cleanLabel = removeAccents(asText(label)).toLowerCase().trim();
+    const found = sourceSearch.indexOf(cleanLabel, from);
 
     if (found >= 0 && found < endIndex) {
       endIndex = found;
     }
   }
 
-  const compactBefore = search.slice(0, from);
-  const originalStart = compactBefore.length;
-  const originalEnd = Math.max(originalStart, endIndex);
-
-  return cleanValue(source.slice(originalStart, originalEnd));
+  return cleanValue(source.slice(from, endIndex));
 }
 
-function parseCodigoDocumento(text) {
-  const compact = normalizeSpaces(text)
+function normalizeCodigoDocumento(value) {
+  return normalizeSpaces(value)
+    .replace(/[￾\uFFFE]/g, "-")
     .replace(/\s*[-–—]\s*/g, "-")
     .replace(/UGPA\s*-\s*/gi, "UGPA-")
-    .replace(/RGI1\s*-\s*/gi, "RGI1-")
-    .replace(/PRO\s*-\s*/gi, "PRO-");
+    .replace(/(RGI1|RGI2|INF|RI\d+)\s*-\s*/gi, "$1-")
+    .replace(/PRO\s*-?\s*/gi, "PRO-")
+    .replace(/-+/g, "-")
+    .toUpperCase();
+}
 
-  const match = compact.match(/UGPA-RGI1-\d{1,3}-PRO-?251-\d{4}-\d{2}/i);
+function parseCodigoDocumento(text, expectedProcess = "") {
+  const compact = normalizeCodigoDocumento(text);
+  const processFilter = String(expectedProcess || "").replace(/\D/g, "");
+  const regex = /UGPA-(?:RGI1|RGI2|INF|RI\d+)-\d{1,3}-PRO-\d{1,3}-\d{4}-\d{2}/gi;
+  const matches = compact.match(regex) || [];
 
-  return match ? match[0].toUpperCase().replace(/PRO251/i, "PRO-251") : "";
+  if (!matches.length) {
+    return "";
+  }
+
+  if (processFilter) {
+    const expected = matches.find((code) => new RegExp(`-PRO-${processFilter}-`, "i").test(code));
+    if (expected) {
+      return expected;
+    }
+  }
+
+  return matches[0];
 }
 
 function normalizeDateText(value) {
@@ -214,6 +229,7 @@ module.exports = {
   firstMatch,
   findValueByLabel,
   extractBetween,
+  normalizeCodigoDocumento,
   parseCodigoDocumento,
   normalizeDateText,
   uniqueValues

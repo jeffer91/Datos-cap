@@ -1,0 +1,11 @@
+/* =========================================================
+Nombre completo: layout.css
+Ruta o ubicación: /renderer/styles/layout.css
+Función o funciones:
+- Añadir utilidades mínimas de separación entre bloques.
+- Evitar estilos inline y respetar la política CSP de la interfaz.
+========================================================= */
+
+.section-gap {
+  margin-top: 18px;
+}

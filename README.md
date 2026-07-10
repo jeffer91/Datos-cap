@@ -1,23 +1,16 @@
-# Plan Docente Extractor
+# Gestor Documental de Capacitación
 
-Aplicación de escritorio en Electron para cargar varios PDF del **Plan Individual de Formación y Capacitación Docente**, extraer los campos variables y generar un reporte en **Excel + JSON**.
+Aplicación de escritorio en Electron para procesar documentos institucionales de formación y capacitación docente. La aplicación extrae información desde PDF digitales o escaneados, guarda los resultados en una base local y genera archivos Excel y JSON.
 
-## Objetivo
+## Estado
 
-La app permite convertir varios documentos PDF institucionales en cinco tablas no relacionales listas para revisión y futura carga a una base de datos.
+Los ocho módulos, la base local, las consultas y los respaldos están implementados y cubiertos por pruebas automáticas. Antes de considerarla lista para producción todavía deben ejecutarse pruebas manuales con PDF institucionales reales de los ocho tipos.
 
-## Flujo principal
+## Tipos documentales
 
-```text
-Seleccionar PDF
-→ Validar documentos
-→ Seleccionar carpeta de salida
-→ Generar Excel + JSON
-```
+### 1. Plan Individual de Formación y Capacitación Docente
 
-## Tablas generadas
-
-El Excel contiene cinco hojas:
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
 01_archivos
@@ -27,102 +20,193 @@ El Excel contiene cinco hojas:
 05_formacion
 ```
 
-El JSON contiene la misma información dentro de:
+### 2. Planificación de Capacitación por Curso
 
-```json
-{
-  "metadata": {},
-  "resumen": {},
-  "validaciones": {},
-  "advertencias": [],
-  "errores": [],
-  "tablas": {
-    "archivos_plan_individual": [],
-    "identificacion_docente": [],
-    "capacidades_docente": [],
-    "capacitaciones_propuestas": [],
-    "formacion_docente": []
-  }
-}
-```
-
-## Estructura del proyecto
+Documento repetitivo. Admite varios PDF por operación.
 
 ```text
-plan-docente-extractor/
-├─ package.json
-├─ main.js
-├─ preload.js
-├─ renderer/
-│  ├─ index.html
-│  └─ app.js
-├─ src/
-│  ├─ diagnostics/
-│  │  └─ selftest.js
-│  ├─ exporters/
-│  │  ├─ excel.exporter.js
-│  │  ├─ json.exporter.js
-│  │  └─ index.js
-│  ├─ extractor/
-│  │  ├─ fields.parser.js
-│  │  ├─ normalizer.js
-│  │  └─ pdf.reader.js
-│  ├─ processors/
-│  │  └─ report.processor.js
-│  ├─ tables/
-│  │  ├─ archivos.table.js
-│  │  ├─ capacidades.table.js
-│  │  ├─ capacitaciones.table.js
-│  │  ├─ formacion.table.js
-│  │  ├─ identificacion.table.js
-│  │  └─ index.js
-│  └─ utils/
-│     └─ ids.js
+01_archivos
+02_datos_generales
+03_unidades
+04_evaluaciones
 ```
+
+### 3. Acuerdo de Patrocinio Institucional
+
+Documento repetitivo. Admite varios PDF por operación.
+
+```text
+01_archivos
+02_datos_acuerdo
+03_apoyos
+04_responsables
+```
+
+### 4. Informe Final de Capacitación
+
+Documento repetitivo. Admite varios PDF por operación.
+
+```text
+01_archivos
+02_datos_generales
+03_participantes
+04_resultados
+05_resumen
+06_responsables
+```
+
+### 5. Instrumento de Evaluación de la Capacitación
+
+Documento repetitivo. Admite varios PDF por operación.
+
+```text
+01_archivos
+02_datos_generales
+03_participantes
+04_indicadores
+05_likert
+06_objetivos
+07_analisis
+08_responsables
+```
+
+### 6. Informe de Impacto de la Capacitación
+
+Documento repetitivo. Admite varios PDF por operación.
+
+```text
+01_archivos
+02_datos_generales
+03_indicadores
+04_objetivos
+05_metodologia
+06_analisis
+07_responsables
+```
+
+### 7. Detección de Necesidades de Capacitación
+
+Documento único por periodo. Solo admite un PDF por operación y conserva versiones anteriores.
+
+```text
+01_archivos
+02_datos_generales
+03_fuentes
+04_institucionales
+05_necesidades_carrera
+06_prioridades_carrera
+07_consolidado
+08_analisis
+09_responsables
+```
+
+### 8. Plan Semestral de Capacitación Docente
+
+Documento único por periodo. Solo admite un PDF por operación y conserva versiones anteriores.
+
+```text
+01_archivos
+02_datos_generales
+03_objetivos
+04_capacitaciones
+05_cronograma
+06_seguimiento
+07_recursos
+08_responsables
+```
+
+El identificador técnico `plan-general-capacitacion` se conserva por compatibilidad con la base local y las pruebas existentes. El nombre visible y oficial en la interfaz es **Plan Semestral de Capacitación Docente**.
+
+## Flujo de procesamiento
+
+```text
+Seleccionar apartado
+→ Seleccionar PDF
+→ Validar extensión, existencia, tamaño, tipo y duplicados
+→ Leer texto digital
+→ Activar OCR cuando el texto digital sea insuficiente
+→ Ejecutar el parser especializado
+→ Validar tablas y campos esenciales
+→ Guardar documentos y filas en la base local
+→ Generar Excel y JSON
+→ Registrar el procesamiento
+→ Crear respaldo automático
+```
+
+Los flujos comparten únicamente los servicios comunes de lectura, validación, persistencia, consulta, exportación y respaldo. Cada tipo documental conserva su propia definición, parser, tablas y validaciones.
+
+## Base local
+
+La base se crea dentro de la carpeta de datos de usuario de Electron:
+
+```text
+<userData>/local-database/
+├─ database.meta.json
+├─ backups/
+└─ collections/
+   ├─ _documents.json
+   ├─ _processing_runs.json
+   └─ una colección JSON por cada tabla documental
+```
+
+Reglas principales:
+
+- Los duplicados se detectan por SHA-256, no solo por nombre.
+- Un PDF ya guardado no duplica documentos ni filas.
+- Los documentos únicos se versionan por tipo y periodo.
+- Una versión reemplazada se conserva con estado `SUPERADO`.
+- Las escrituras usan archivos temporales, respaldos y reversión básica.
+
+## Consultas
+
+La interfaz permite filtrar por tipo documental, periodo, carrera, docente, responsable, curso y estado. También incluye búsqueda general sobre metadatos y filas guardadas, paginación y detalle por colección.
+
+## Respaldo y restauración
+
+Los respaldos usan la extensión `.capbackup`, compresión GZIP y checksum SHA-256. Se puede:
+
+- Crear un respaldo manual completo.
+- Crear respaldos automáticos después del procesamiento.
+- Mantener un respaldo diario cuando existen datos.
+- Restaurar reemplazando la base.
+- Restaurar combinando datos por identificador.
+- Crear un respaldo de seguridad antes de restaurar.
+
+## Seguridad
+
+- `contextIsolation` activado.
+- `nodeIntegration` desactivado.
+- `sandbox` activado.
+- Una sola API segura expuesta como `window.documentAppAPI`.
+- Lista cerrada de canales IPC.
+- Sin canales heredados del extractor anterior.
 
 ## Instalación
 
-Desde PowerShell, dentro de la carpeta del proyecto:
-
 ```powershell
 npm install
-```
-
-## Ejecutar la app
-
-```powershell
 npm start
 ```
 
-También puedes usar:
+## Verificación
+
+Auditoría estructural:
 
 ```powershell
-npm run dev
+npm run audit
 ```
 
-## Probar módulos sin abrir Electron
+Suite completa:
 
 ```powershell
-npm run selftest
+npm test
 ```
 
-Esta prueba crea datos simulados, genera tablas y exporta archivos temporales Excel + JSON para verificar que los módulos principales estén funcionando.
+La auditoría comprueba archivos vacíos o temporales, código duplicado exacto, referencias locales rotas, tipos y procesadores duplicados, colecciones compartidas, contratos incompletos, canales IPC inconsistentes, recursos de interfaz inexistentes y documentación desactualizada.
 
-## Salida esperada
+## Pendiente antes de producción
 
-Cuando se genera el reporte, la aplicación crea archivos con nombre similar a:
-
-```text
-reporte_plan_individual_20260709_163000.xlsx
-reporte_plan_individual_20260709_163000.json
-```
-
-## Criterio de revisión
-
-Si un PDF tiene datos incompletos, el sistema no bloquea la exportación. Marca el registro con:
-
-```text
-requiere_revision = SI
-```
-
-Esto permite revisar manualmente los casos con campos faltantes, fechas sospechosas o información no detectada.
+1. Procesar PDF institucionales reales de los ocho tipos desde Electron.
+2. Comparar cada PDF con su Excel, JSON y registros locales.
+3. Corregir casos particulares de formato u OCR que aparezcan.
+4. Integrar la rama con `main` mediante una historia limpia o squash.
