@@ -55,5 +55,27 @@ jobs:
       - name: Probar Detección de Necesidades
         run: npm run test:deteccion-necesidades
 
-      - name: Probar Plan General de Capacitación
-        run: npm run test:plan-general-capacitacion
+      - name: Generar diagnóstico del Plan General de Capacitación
+        shell: bash
+        run: |
+          set +e
+          npm run test:plan-general-capacitacion > plan-general-debug.txt 2>&1
+          echo "$?" > plan-general-exit-code.txt
+          exit 0
+
+      - name: Guardar diagnóstico del Plan General
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-general-debug
+          path: |
+            plan-general-debug.txt
+            plan-general-exit-code.txt
+
+      - name: Verificar Plan General de Capacitación
+        shell: bash
+        run: |
+          codigo=$(cat plan-general-exit-code.txt)
+          if [ "$codigo" != "0" ]; then
+            cat plan-general-debug.txt
+            exit "$codigo"
+          fi
