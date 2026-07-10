@@ -45,3 +45,6 @@ jobs:
 
       - name: Probar Informe Final
         run: npm run test:informe-final
+
+      - name: Probar Instrumento de Evaluación
+        run: npm run test:instrumento-evaluacion
