@@ -60,3 +60,6 @@ jobs:
 
       - name: Probar Base de Datos Local
         run: npm run test:local-database
+
+      - name: Probar Consultas y Filtros
+        run: npm run test:query-service
