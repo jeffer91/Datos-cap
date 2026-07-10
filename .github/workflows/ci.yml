@@ -82,3 +82,6 @@ jobs:
 
       - name: Probar Respaldo y Restauración
         run: npm run test:backup-service
+
+      - name: Probar aislamiento de los ocho flujos
+        run: npm run test:flow-isolation
