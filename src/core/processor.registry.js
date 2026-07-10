@@ -15,7 +15,8 @@ const processors = [
   require("../document-types/planificacion-curso"),
   require("../document-types/acuerdo-patrocinio"),
   require("../document-types/informe-final"),
-  require("../document-types/instrumento-evaluacion")
+  require("../document-types/instrumento-evaluacion"),
+  require("../document-types/informe-impacto")
 ];
 
 const registry = new Map(processors.map((processor) => [processor.id, processor]));
