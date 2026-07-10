@@ -3,9 +3,9 @@ Nombre completo: main.js
 Ruta o ubicación: /main.js
 Función o funciones:
 - Crear la ventana principal de la aplicación Electron.
-- Exponer operaciones seguras para los ocho apartados documentales.
 - Seleccionar, validar, procesar, guardar y exportar documentos.
 - Administrar resumen, historial y carpeta física de la base local.
+- Exponer consultas por tipo, periodo, carrera, docente, curso y estado.
 ========================================================= */
 
 "use strict";
@@ -16,10 +16,11 @@ const path = require("path");
 const { validatePdfFiles, validateOutputRequest } = require("./src/validators/document.validator");
 const { processDocument } = require("./src/core/document.processor");
 const { listDocumentTypes, assertDocumentType } = require("./src/core/document-type.registry");
-const { createPersistenceService } = require("./src/database");
+const { createPersistenceService, createQueryService } = require("./src/database");
 
 let mainWindow = null;
 let persistenceService = null;
+let queryService = null;
 
 const APP_NAME = "Gestor Documental de Capacitación";
 const DEFAULT_DOCUMENT_TYPE = "plan-individual";
@@ -61,6 +62,7 @@ function createErrorResponse(error, fallbackMessage) {
 function initializeLocalDatabase() {
   const databaseDirectory = path.join(app.getPath("userData"), "local-database");
   persistenceService = createPersistenceService(databaseDirectory);
+  queryService = createQueryService(persistenceService.database);
   return persistenceService.getSummary();
 }
 
@@ -69,6 +71,13 @@ function requirePersistenceService() {
     throw new Error("La base local no está disponible. Reinicia la aplicación y revisa los permisos de la carpeta de usuario.");
   }
   return persistenceService;
+}
+
+function requireQueryService() {
+  if (!queryService) {
+    throw new Error("El servicio de consultas no está disponible porque la base local no pudo iniciarse.");
+  }
+  return queryService;
 }
 
 async function selectPdfFiles(documentType = DEFAULT_DOCUMENT_TYPE) {
@@ -171,7 +180,8 @@ function registerIpcHandlers() {
     appName: APP_NAME,
     version: app.getVersion(),
     platform: process.platform,
-    databaseAvailable: Boolean(persistenceService)
+    databaseAvailable: Boolean(persistenceService),
+    queryServiceAvailable: Boolean(queryService)
   }));
 
   ipcMain.handle("document-types:list", async () => listDocumentTypes());
@@ -198,10 +208,7 @@ function registerIpcHandlers() {
   });
   ipcMain.handle("database:list-recent-runs", async (_event, options) => {
     try {
-      return {
-        ok: true,
-        runs: requirePersistenceService().listRecentRuns(options || {})
-      };
+      return { ok: true, runs: requirePersistenceService().listRecentRuns(options || {}) };
     } catch (error) {
       return createErrorResponse(error, "No se pudo consultar el historial local.");
     }
@@ -211,6 +218,28 @@ function registerIpcHandlers() {
       return await openDatabaseFolder();
     } catch (error) {
       return createErrorResponse(error, "No se pudo abrir la carpeta de la base local.");
+    }
+  });
+  ipcMain.handle("database:get-filter-options", async () => {
+    try {
+      return requireQueryService().getFilterOptions();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudieron cargar las opciones de consulta.");
+    }
+  });
+  ipcMain.handle("database:query-documents", async (_event, filters) => {
+    try {
+      return requireQueryService().queryDocuments(filters || {});
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo ejecutar la consulta documental.");
+    }
+  });
+  ipcMain.handle("database:get-document-detail", async (_event, payload) => {
+    try {
+      const config = payload || {};
+      return requireQueryService().getDocumentDetail(config.documentId, config.options || {});
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo recuperar el detalle del documento.");
     }
   });
 
@@ -234,6 +263,7 @@ app.whenReady().then(() => {
     initializeLocalDatabase();
   } catch (error) {
     persistenceService = null;
+    queryService = null;
     console.error("No se pudo iniciar la base local:", error);
   }
 
