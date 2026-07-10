@@ -1,23 +1,51 @@
-# Plan Docente Extractor
+# Gestor Documental de Capacitación
 
-Aplicación de escritorio en Electron para cargar varios PDF del **Plan Individual de Formación y Capacitación Docente**, extraer los campos variables y generar un reporte en **Excel + JSON**.
+Aplicación de escritorio en Electron para procesar documentos institucionales de formación y capacitación docente mediante **apartados específicos por tipo documental**.
 
-## Objetivo
+## Arquitectura aprobada
 
-La app permite convertir varios documentos PDF institucionales en cinco tablas no relacionales listas para revisión y futura carga a una base de datos.
+La aplicación utiliza:
 
-## Flujo principal
+- Una sola aplicación Electron.
+- Ocho apartados visibles e independientes.
+- Un motor común de selección, validación, exportación y trazabilidad.
+- Un procesador especializado para cada tipo documental.
+- Excel y JSON como salidas iniciales antes de conectar una base de datos.
 
-```text
-Seleccionar PDF
-→ Validar documentos
-→ Seleccionar carpeta de salida
-→ Generar Excel + JSON
-```
+## Apartados registrados
 
-## Tablas generadas
+1. Plan Individual de Formación y Capacitación Docente.
+2. Planificación de Capacitación por Curso.
+3. Acuerdo de Patrocinio Institucional.
+4. Informe Final de Capacitación.
+5. Instrumento de Evaluación de la Capacitación.
+6. Informe de Impacto de la Capacitación.
+7. Detección de Necesidades de Capacitación.
+8. Plan General de Capacitación Docente.
 
-El Excel contiene cinco hojas:
+Los dos últimos se consideran **documentos únicos por periodo**. Los demás son documentos repetitivos que pueden cargarse en grupos del mismo tipo.
+
+## Estado de la etapa 1
+
+La primera etapa incorpora:
+
+- Menú con los ocho apartados.
+- Registro central de tipos documentales.
+- Reglas de documento repetitivo o único por periodo.
+- Procesador documental genérico.
+- Validación específica según el apartado.
+- Hash SHA-256 para detectar duplicados por contenido.
+- Identificadores documentales estables.
+- Exportadores dinámicos de Excel y JSON.
+- Compatibilidad con el extractor actual de Plan Individual.
+
+### Módulo activo
+
+Actualmente el módulo funcional es:
+
+- **Plan Individual de Formación y Capacitación Docente**.
+
+Genera cinco tablas:
 
 ```text
 01_archivos
@@ -27,102 +55,125 @@ El Excel contiene cinco hojas:
 05_formacion
 ```
 
-El JSON contiene la misma información dentro de:
+### Módulo con estructura preparada
 
-```json
-{
-  "metadata": {},
-  "resumen": {},
-  "validaciones": {},
-  "advertencias": [],
-  "errores": [],
-  "tablas": {
-    "archivos_plan_individual": [],
-    "identificacion_docente": [],
-    "capacidades_docente": [],
-    "capacitaciones_propuestas": [],
-    "formacion_docente": []
-  }
-}
-```
+- **Planificación de Capacitación por Curso**.
 
-## Estructura del proyecto
+Ya tiene declaradas cuatro tablas, pero su parser y OCR se incorporarán en la siguiente etapa:
 
 ```text
-plan-docente-extractor/
+01_archivos
+02_datos_generales
+03_unidades
+04_evaluaciones
+```
+
+### Módulos pendientes de definición final de tablas
+
+- Acuerdos de patrocinio.
+- Informes finales.
+- Instrumentos de evaluación.
+- Informes de impacto.
+- Detección de necesidades.
+- Plan general de capacitación.
+
+## Flujo actual
+
+```text
+Seleccionar apartado
+→ Seleccionar PDF del tipo correcto
+→ Validar archivos y duplicados
+→ Elegir carpeta de salida
+→ Ejecutar procesador especializado
+→ Generar Excel + JSON
+```
+
+## Validaciones incorporadas
+
+La app verifica:
+
+- Ruta válida.
+- Existencia del archivo.
+- Extensión PDF.
+- Archivo no vacío.
+- Hash SHA-256.
+- Duplicados reales por contenido.
+- Límite de un documento en apartados únicos.
+- Referencias esperadas en el nombre del archivo.
+
+Una diferencia en el nombre esperado genera una advertencia, no bloquea automáticamente el documento.
+
+## Estructura modular
+
+```text
 ├─ package.json
 ├─ main.js
 ├─ preload.js
 ├─ renderer/
 │  ├─ index.html
-│  └─ app.js
+│  ├─ app.js
+│  └─ styles/
+│     ├─ app.css
+│     └─ layout.css
 ├─ src/
+│  ├─ core/
+│  │  ├─ document.processor.js
+│  │  └─ document-type.registry.js
+│  ├─ document-types/
+│  │  ├─ plan-individual/
+│  │  ├─ planificacion-curso/
+│  │  ├─ acuerdo-patrocinio/
+│  │  ├─ informe-final/
+│  │  ├─ instrumento-evaluacion/
+│  │  ├─ informe-impacto/
+│  │  ├─ deteccion-necesidades/
+│  │  └─ plan-general-capacitacion/
 │  ├─ diagnostics/
-│  │  └─ selftest.js
 │  ├─ exporters/
-│  │  ├─ excel.exporter.js
-│  │  ├─ json.exporter.js
-│  │  └─ index.js
 │  ├─ extractor/
-│  │  ├─ fields.parser.js
-│  │  ├─ normalizer.js
-│  │  └─ pdf.reader.js
 │  ├─ processors/
-│  │  └─ report.processor.js
 │  ├─ tables/
-│  │  ├─ archivos.table.js
-│  │  ├─ capacidades.table.js
-│  │  ├─ capacitaciones.table.js
-│  │  ├─ formacion.table.js
-│  │  ├─ identificacion.table.js
-│  │  └─ index.js
-│  └─ utils/
-│     └─ ids.js
+│  ├─ utils/
+│  │  ├─ date.utils.js
+│  │  ├─ file.utils.js
+│  │  ├─ hash.utils.js
+│  │  └─ ids.js
+│  └─ validators/
 ```
 
 ## Instalación
-
-Desde PowerShell, dentro de la carpeta del proyecto:
 
 ```powershell
 npm install
 ```
 
-## Ejecutar la app
+## Ejecutar
 
 ```powershell
 npm start
 ```
 
-También puedes usar:
-
-```powershell
-npm run dev
-```
-
-## Probar módulos sin abrir Electron
+## Diagnóstico
 
 ```powershell
 npm run selftest
 ```
 
-Esta prueba crea datos simulados, genera tablas y exporta archivos temporales Excel + JSON para verificar que los módulos principales estén funcionando.
+El diagnóstico verifica:
 
-## Salida esperada
+- Registro de los ocho tipos documentales.
+- Cinco tablas del Plan Individual.
+- Exportación dinámica a Excel.
+- Metadatos del tipo documental en JSON.
+- Creación de archivos temporales de prueba.
 
-Cuando se genera el reporte, la aplicación crea archivos con nombre similar a:
+## Próxima etapa
 
-```text
-reporte_plan_individual_20260709_163000.xlsx
-reporte_plan_individual_20260709_163000.json
-```
+La siguiente etapa debe implementar el procesador específico de **Planificación de Capacitación por Curso**, incluyendo:
 
-## Criterio de revisión
-
-Si un PDF tiene datos incompletos, el sistema no bloquea la exportación. Marca el registro con:
-
-```text
-requiere_revision = SI
-```
-
-Esto permite revisar manualmente los casos con campos faltantes, fechas sospechosas o información no detectada.
+- Lectura híbrida de PDF.
+- OCR para documentos escaneados.
+- Parser de datos generales.
+- Parser de unidades y horas.
+- Parser de evaluaciones.
+- Validaciones propias del documento.
