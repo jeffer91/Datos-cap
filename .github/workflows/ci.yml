@@ -49,5 +49,14 @@ jobs:
       - name: Probar Instrumento de Evaluación
         run: npm run test:instrumento-evaluacion
 
+      - name: Generar diagnóstico del Informe de Impacto
+        run: node src/diagnostics/informe-impacto.debug.js > informe-impacto-debug.json
+
+      - name: Guardar diagnóstico del Informe de Impacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-impacto-debug
+          path: informe-impacto-debug.json
+
       - name: Probar Informe de Impacto
         run: npm run test:informe-impacto
