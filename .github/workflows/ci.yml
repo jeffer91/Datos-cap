@@ -54,3 +54,6 @@ jobs:
 
       - name: Probar Detección de Necesidades
         run: npm run test:deteccion-necesidades
+
+      - name: Probar Plan General de Capacitación
+        run: npm run test:plan-general-capacitacion
