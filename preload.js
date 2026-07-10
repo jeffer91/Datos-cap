@@ -5,7 +5,7 @@ Función o funciones:
 - Exponer una API segura desde Electron hacia la interfaz.
 - Listar, seleccionar, validar, procesar y exportar documentos.
 - Consultar base local, filtros, detalle, respaldos y restauración.
-- Mantener compatibilidad temporal con la API anterior.
+- Mantener una única API modular sin canales heredados.
 ========================================================= */
 
 "use strict";
@@ -28,10 +28,7 @@ const ALLOWED_CHANNELS = new Set([
   "backup:get-summary",
   "backup:create-manual",
   "backup:restore",
-  "backup:open-folder",
-  "dialog:select-pdfs",
-  "files:validate-pdfs",
-  "reports:generate-plan-report"
+  "backup:open-folder"
 ]);
 
 function invokeSafe(channel, payload) {
@@ -41,7 +38,7 @@ function invokeSafe(channel, payload) {
   return ipcRenderer.invoke(channel, payload);
 }
 
-const documentAppAPI = {
+const documentAppAPI = Object.freeze({
   getAppInfo() {
     return invokeSafe("app:get-info");
   },
@@ -93,20 +90,6 @@ const documentAppAPI = {
   openBackupFolder() {
     return invokeSafe("backup:open-folder");
   }
-};
+});
 
 contextBridge.exposeInMainWorld("documentAppAPI", documentAppAPI);
-
-contextBridge.exposeInMainWorld("planDocenteAPI", {
-  getAppInfo: documentAppAPI.getAppInfo,
-  selectPdfFiles() {
-    return invokeSafe("dialog:select-pdfs");
-  },
-  validatePdfFiles(filePaths) {
-    return invokeSafe("files:validate-pdfs", filePaths);
-  },
-  chooseOutputDirectory: documentAppAPI.chooseOutputDirectory,
-  generatePlanReport(payload) {
-    return invokeSafe("reports:generate-plan-report", payload);
-  }
-});
