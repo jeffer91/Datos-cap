@@ -1,10 +1,10 @@
 /* =========================================================
 Nombre completo: pdf.reader.js
-Ruta o ubicación: /plan-docente-extractor/src/extractor/pdf.reader.js
+Ruta o ubicación: /src/extractor/pdf.reader.js
 Función o funciones:
 - Leer uno o varios archivos PDF desde rutas locales.
 - Extraer texto usando pdf-parse.
-- Devolver metadatos básicos del archivo y del PDF.
+- Calcular una huella SHA-256 estable por documento.
 - Mantener errores por documento sin detener todo el proceso.
 ========================================================= */
 
@@ -14,6 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
 const { normalizeLineBreaks } = require("./normalizer");
+const { calculateBufferHash } = require("../utils/hash.utils");
 
 function createEmptyPdfResult(filePath, index = 0) {
   const cleanPath = String(filePath || "").trim();
@@ -24,6 +25,7 @@ function createEmptyPdfResult(filePath, index = 0) {
     fileName: cleanPath ? path.basename(cleanPath) : "",
     extension: cleanPath ? path.extname(cleanPath).toLowerCase() : "",
     sizeBytes: 0,
+    fileHash: "",
     pageCount: 0,
     text: "",
     info: {},
@@ -35,33 +37,23 @@ function createEmptyPdfResult(filePath, index = 0) {
 }
 
 function validateReadablePdf(filePath) {
-  const result = {
-    ok: false,
-    sizeBytes: 0,
-    errors: []
-  };
-
+  const result = { ok: false, sizeBytes: 0, errors: [] };
   const cleanPath = String(filePath || "").trim();
 
   if (!cleanPath) {
     result.errors.push("Ruta vacía.");
     return result;
   }
-
   if (!fs.existsSync(cleanPath)) {
     result.errors.push("El archivo no existe.");
     return result;
   }
-
-  const extension = path.extname(cleanPath).toLowerCase();
-
-  if (extension !== ".pdf") {
+  if (path.extname(cleanPath).toLowerCase() !== ".pdf") {
     result.errors.push("El archivo no tiene extensión PDF.");
     return result;
   }
 
   let stat = null;
-
   try {
     stat = fs.statSync(cleanPath);
   } catch (error) {
@@ -69,26 +61,18 @@ function validateReadablePdf(filePath) {
     return result;
   }
 
-  if (!stat.isFile()) {
-    result.errors.push("La ruta no corresponde a un archivo.");
-    return result;
-  }
-
-  if (stat.size <= 0) {
-    result.errors.push("El PDF está vacío.");
-    return result;
-  }
+  if (!stat.isFile()) result.errors.push("La ruta no corresponde a un archivo.");
+  if (stat.size <= 0) result.errors.push("El PDF está vacío.");
+  if (result.errors.length) return result;
 
   result.ok = true;
   result.sizeBytes = stat.size;
-
   return result;
 }
 
 async function readPdfFile(filePath, index = 0) {
   const output = createEmptyPdfResult(filePath, index);
   const validation = validateReadablePdf(filePath);
-
   output.sizeBytes = validation.sizeBytes;
 
   if (!validation.ok) {
@@ -98,6 +82,8 @@ async function readPdfFile(filePath, index = 0) {
 
   try {
     const buffer = await fs.promises.readFile(filePath);
+    output.fileHash = calculateBufferHash(buffer);
+
     const parsed = await pdfParse(buffer);
     const text = normalizeLineBreaks(parsed.text || "");
 
@@ -107,13 +93,8 @@ async function readPdfFile(filePath, index = 0) {
     output.metadata = parsed.metadata || {};
     output.ok = Boolean(text);
 
-    if (!text) {
-      output.errors.push("No se pudo extraer texto del PDF. Puede ser escaneado o imagen.");
-    }
-
-    if (output.pageCount === 0) {
-      output.warnings.push("No se detectó número de páginas.");
-    }
+    if (!text) output.errors.push("No se pudo extraer texto del PDF. Puede ser escaneado o imagen y requerir OCR.");
+    if (output.pageCount === 0) output.warnings.push("No se detectó número de páginas.");
 
     return output;
   } catch (error) {
@@ -127,8 +108,7 @@ async function readPdfFiles(filePaths) {
   const results = [];
 
   for (let index = 0; index < paths.length; index += 1) {
-    const result = await readPdfFile(paths[index], index);
-    results.push(result);
+    results.push(await readPdfFile(paths[index], index));
   }
 
   return {
