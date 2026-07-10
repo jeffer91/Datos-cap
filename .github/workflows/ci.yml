@@ -63,3 +63,6 @@ jobs:
 
       - name: Probar Consultas y Filtros
         run: npm run test:query-service
+
+      - name: Probar Respaldo y Restauración
+        run: npm run test:backup-service
