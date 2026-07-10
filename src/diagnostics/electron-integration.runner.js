@@ -13,11 +13,7 @@ Función o funciones:
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const {
-  app,
-  BrowserWindow,
-  ipcMain
-} = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 
 const { generateFixtureSet, ensureDirectory } = require("./pdf-fixture.generator");
 const { validatePdfFiles, validateOutputRequest } = require("../validators/document.validator");
@@ -53,8 +49,8 @@ let backupService = null;
 let fixtures = [];
 let fixtureByType = new Map();
 let integrationWindow = null;
-let processingResults = [];
-let rendererMessages = [];
+const processingResults = [];
+const rendererMessages = [];
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -168,12 +164,18 @@ function registerIntegrationHandlers() {
   ipcMain.handle("backup:get-summary", async () => backupService.getSummary());
   ipcMain.handle("backup:create-manual", async () => ({ canceled: true }));
   ipcMain.handle("backup:restore", async () => ({ canceled: true }));
-  ipcMain.handle("backup:open-folder", async () => ({ ok: true, backupDirectory: backupService.backupDirectory }));
+  ipcMain.handle("backup:open-folder", async () => ({
+    ok: true,
+    backupDirectory: backupService.backupDirectory
+  }));
 }
 
 function waitForWindowReady(window) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("La interfaz no terminó de cargar dentro del tiempo esperado.")), 60000);
+    const timeout = setTimeout(
+      () => reject(new Error("La interfaz no terminó de cargar dentro del tiempo esperado.")),
+      60000
+    );
     window.webContents.once("did-finish-load", () => {
       clearTimeout(timeout);
       resolve();
@@ -237,10 +239,14 @@ function buildRendererFlowScript(documentTypes) {
 
     const results = [];
     for (const documentType of documentTypes) {
-      const section = document.querySelector('[data-document-type="' + documentType + '"]');
+      const selector = '[data-document-type="' + documentType + '"]';
+      const section = document.querySelector(selector);
       if (!section) throw new Error("No existe el apartado " + documentType);
       section.click();
-      await waitFor(() => section.classList.contains("is-active"), "selección de " + documentType, 15000);
+      await waitFor(() => {
+        const currentSection = document.querySelector(selector);
+        return Boolean(currentSection && currentSection.classList.contains("is-active"));
+      }, "selección de " + documentType, 15000);
 
       document.getElementById("btnSelectPdf").click();
       await waitFor(
@@ -292,7 +298,9 @@ function buildRendererFlowScript(documentTypes) {
         tableCount: document.querySelectorAll("#expectedTables .expected-table").length
       });
 
-      if (!success) throw new Error("La interfaz falló en " + documentType + ": " + results.at(-1).status);
+      if (!success) {
+        throw new Error("La interfaz falló en " + documentType + ": " + results.at(-1).status);
+      }
       await sleep(300);
     }
 
@@ -319,7 +327,10 @@ async function captureScreenshot(index, documentType) {
 
 async function runRendererFlow() {
   const documentTypes = listDocumentTypes().map((definition) => definition.id);
-  const flowPromise = integrationWindow.webContents.executeJavaScript(buildRendererFlowScript(documentTypes), true);
+  const flowPromise = integrationWindow.webContents.executeJavaScript(
+    buildRendererFlowScript(documentTypes),
+    true
+  );
 
   let capturedCount = 0;
   const captureTimer = setInterval(async () => {
@@ -330,7 +341,7 @@ async function runRendererFlow() {
         capturedCount += 1;
       }
     } catch (_error) {
-      // La captura es evidencia adicional y no debe detener el procesamiento principal.
+      // Las capturas son evidencia adicional y no detienen la prueba principal.
     }
   }, 500);
 
@@ -350,8 +361,11 @@ async function runRendererFlow() {
 async function inspectFixtures() {
   const inspections = [];
   for (const fixture of fixtures) {
-    const header = await fs.promises.readFile(fixture.filePath, { encoding: null });
-    assertCondition(header.subarray(0, 4).toString("ascii") === "%PDF", `${fixture.fileName} no es un PDF real.`);
+    const buffer = await fs.promises.readFile(fixture.filePath);
+    assertCondition(
+      buffer.subarray(0, 4).toString("ascii") === "%PDF",
+      `${fixture.fileName} no es un PDF real.`
+    );
     const digital = await readPdfFile(fixture.filePath, 0);
     inspections.push({
       documentType: fixture.documentType,
@@ -370,7 +384,10 @@ function validateIntegration(uiResult, fixtureInspections) {
   assertCondition(uiResult.apiAvailable, "El preload no expuso documentAppAPI.");
   assertCondition(uiResult.menuCount === 8, "La interfaz no mostró ocho apartados.");
   assertCondition(uiResult.results.length === 8, "La interfaz no completó ocho flujos.");
-  assertCondition(uiResult.results.every((item) => item.success), "Algún apartado no terminó correctamente desde la interfaz.");
+  assertCondition(
+    uiResult.results.every((item) => item.success),
+    "Algún apartado no terminó correctamente desde la interfaz."
+  );
   assertCondition(processingResults.length === 8, "El proceso principal no recibió ocho solicitudes.");
 
   documentTypes.forEach((documentType) => {
@@ -378,16 +395,30 @@ function validateIntegration(uiResult, fixtureInspections) {
     assertCondition(entry && entry.result && entry.result.ok, `El procesador ${documentType} no devolvió ok=true.`);
     assertCondition(fs.existsSync(entry.result.files.excel.filePath), `No existe el Excel de ${documentType}.`);
     assertCondition(fs.existsSync(entry.result.files.json.filePath), `No existe el JSON de ${documentType}.`);
-    assertCondition(entry.result.database && entry.result.database.rowsSaved > 0, `No se guardaron filas de ${documentType}.`);
-    assertCondition(entry.result.backup && entry.result.backup.ok, `No se creó respaldo automático para ${documentType}.`);
+    assertCondition(
+      entry.result.database && entry.result.database.rowsSaved > 0,
+      `No se guardaron filas de ${documentType}.`
+    );
+    assertCondition(
+      entry.result.backup && entry.result.backup.ok,
+      `No se creó respaldo automático para ${documentType}.`
+    );
   });
 
   const ocrResult = processingResults.find((item) => item.documentType === "acuerdo-patrocinio");
   assertCondition(ocrResult.result.readResult.ocrCount >= 1, "El PDF escaneado no activó OCR.");
-  assertCondition(ocrResult.result.readResult.digitalCount === 0, "El PDF escaneado fue clasificado incorrectamente como digital.");
+  assertCondition(
+    ocrResult.result.readResult.digitalCount === 0,
+    "El PDF escaneado fue clasificado incorrectamente como digital."
+  );
 
-  const scannedInspection = fixtureInspections.find((item) => item.documentType === "acuerdo-patrocinio");
-  assertCondition(scannedInspection.digitalTextLength < 80, "El fixture escaneado contiene una capa de texto significativa.");
+  const scannedInspection = fixtureInspections.find(
+    (item) => item.documentType === "acuerdo-patrocinio"
+  );
+  assertCondition(
+    scannedInspection.digitalTextLength < 80,
+    "El fixture escaneado contiene una capa de texto significativa."
+  );
 
   const summary = persistenceService.getSummary();
   const query = queryService.queryDocuments({ pageSize: 100 });
@@ -396,10 +427,16 @@ function validateIntegration(uiResult, fixtureInspections) {
   assertCondition(summary.activeDocumentCount === 8, "Los ocho documentos deben permanecer activos.");
   assertCondition(summary.tableRows > 8, "La base no contiene suficientes filas documentales.");
   assertCondition(query.pagination.total === 8, "La consulta integral no recuperó ocho documentos.");
-  assertCondition(backups.automaticBackupCount >= 8, "No se conservaron los respaldos automáticos de los ocho procesos.");
+  assertCondition(
+    backups.automaticBackupCount >= 8,
+    "No se conservaron los respaldos automáticos de los ocho procesos."
+  );
 
   const seriousRendererMessages = rendererMessages.filter((message) => Number(message.level) >= 3);
-  assertCondition(seriousRendererMessages.length === 0, `La interfaz registró errores: ${JSON.stringify(seriousRendererMessages)}`);
+  assertCondition(
+    seriousRendererMessages.length === 0,
+    `La interfaz registró errores: ${JSON.stringify(seriousRendererMessages)}`
+  );
 
   return { summary, query, backups, seriousRendererMessages };
 }
@@ -462,7 +499,9 @@ app.whenReady().then(async () => {
       documents: result.database.documentCount,
       rows: result.database.tableRows,
       backups: result.backups.automaticBackupCount,
-      ocrCount: result.processing.find((item) => item.documentType === "acuerdo-patrocinio").readResult.ocrCount
+      ocrCount: result.processing.find(
+        (item) => item.documentType === "acuerdo-patrocinio"
+      ).readResult.ocrCount
     }, null, 2));
     if (integrationWindow && !integrationWindow.isDestroyed()) integrationWindow.destroy();
     app.exit(0);
@@ -479,12 +518,14 @@ app.whenReady().then(async () => {
         rendererMessages,
         error: { message: error.message, stack: error.stack }
       });
-    } catch (_reportError) { /* Sin acción. */ }
+    } catch (_reportError) {
+      // Sin acción.
+    }
     if (integrationWindow && !integrationWindow.isDestroyed()) integrationWindow.destroy();
     app.exit(1);
   }
 });
 
 app.on("window-all-closed", () => {
-  // El runner controla el cierre explícitamente después de escribir el reporte.
+  // El runner controla el cierre después de escribir el reporte.
 });
