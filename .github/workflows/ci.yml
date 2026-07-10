@@ -85,3 +85,6 @@ jobs:
 
       - name: Probar aislamiento de los ocho flujos
         run: npm run test:flow-isolation
+
+      - name: Probar modelo de datos para nuevos reportes
+        run: npm run test:report-data
