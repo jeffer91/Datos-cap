@@ -4,8 +4,8 @@ Ruta o ubicación: /main.js
 Función o funciones:
 - Crear la ventana principal de la aplicación Electron.
 - Seleccionar, validar, procesar, guardar y exportar documentos.
-- Administrar resumen, historial y carpeta física de la base local.
-- Exponer consultas por tipo, periodo, carrera, docente, curso y estado.
+- Administrar base local, historial, consultas, respaldos y restauración.
+- Exponer operaciones seguras mediante canales IPC cerrados.
 ========================================================= */
 
 "use strict";
@@ -16,11 +16,17 @@ const path = require("path");
 const { validatePdfFiles, validateOutputRequest } = require("./src/validators/document.validator");
 const { processDocument } = require("./src/core/document.processor");
 const { listDocumentTypes, assertDocumentType } = require("./src/core/document-type.registry");
-const { createPersistenceService, createQueryService } = require("./src/database");
+const {
+  createPersistenceService,
+  createQueryService,
+  createBackupService,
+  BACKUP_EXTENSION
+} = require("./src/database");
 
 let mainWindow = null;
 let persistenceService = null;
 let queryService = null;
+let backupService = null;
 
 const APP_NAME = "Gestor Documental de Capacitación";
 const DEFAULT_DOCUMENT_TYPE = "plan-individual";
@@ -63,6 +69,17 @@ function initializeLocalDatabase() {
   const databaseDirectory = path.join(app.getPath("userData"), "local-database");
   persistenceService = createPersistenceService(databaseDirectory);
   queryService = createQueryService(persistenceService.database);
+  backupService = createBackupService(persistenceService.database, {
+    appVersion: app.getVersion(),
+    defaultRetention: 20
+  });
+
+  try {
+    backupService.ensureDailyBackup();
+  } catch (error) {
+    console.warn("No se pudo crear el respaldo diario:", error.message);
+  }
+
   return persistenceService.getSummary();
 }
 
@@ -78,6 +95,13 @@ function requireQueryService() {
     throw new Error("El servicio de consultas no está disponible porque la base local no pudo iniciarse.");
   }
   return queryService;
+}
+
+function requireBackupService() {
+  if (!backupService) {
+    throw new Error("El servicio de respaldos no está disponible porque la base local no pudo iniciarse.");
+  }
+  return backupService;
 }
 
 async function selectPdfFiles(documentType = DEFAULT_DOCUMENT_TYPE) {
@@ -160,12 +184,24 @@ async function generateDocumentReport(payload) {
     };
   }
 
-  return processDocument({
+  const result = await processDocument({
     documentType: config.documentType,
     outputDir: config.outputDir,
     validation,
     persistenceService: requirePersistenceService()
   });
+
+  if (result && result.ok) {
+    try {
+      result.backup = requireBackupService().createAutomaticBackup(`procesamiento-${config.documentType}`);
+    } catch (error) {
+      result.backup = { ok: false, message: error.message };
+      result.warnings = Array.isArray(result.warnings) ? result.warnings : [];
+      result.warnings.push({ etapa: "respaldo", advertencia: `El procesamiento terminó, pero el respaldo automático falló: ${error.message}` });
+    }
+  }
+
+  return result;
 }
 
 async function openDatabaseFolder() {
@@ -175,13 +211,91 @@ async function openDatabaseFolder() {
   return { ok: true, databasePath: service.getDatabasePath() };
 }
 
+async function openBackupFolder() {
+  const service = requireBackupService();
+  const errorMessage = await shell.openPath(service.backupDirectory);
+  if (errorMessage) throw new Error(errorMessage);
+  return { ok: true, backupDirectory: service.backupDirectory };
+}
+
+function defaultBackupFileName() {
+  const date = new Date().toISOString().slice(0, 10);
+  return `Datos-cap-respaldo-${date}${BACKUP_EXTENSION}`;
+}
+
+async function createManualBackup() {
+  if (!mainWindow) return { canceled: true };
+  const target = await dialog.showSaveDialog(mainWindow, {
+    title: "Guardar respaldo completo",
+    buttonLabel: "Crear respaldo",
+    defaultPath: path.join(app.getPath("documents"), defaultBackupFileName()),
+    filters: [{ name: "Respaldo Datos-cap", extensions: [BACKUP_EXTENSION.slice(1)] }]
+  });
+
+  if (target.canceled || !target.filePath) return { canceled: true };
+  return {
+    canceled: false,
+    ...requireBackupService().createBackup(target.filePath, { reason: "manual" })
+  };
+}
+
+async function chooseAndRestoreBackup() {
+  if (!mainWindow) return { canceled: true };
+  const selected = await dialog.showOpenDialog(mainWindow, {
+    title: "Seleccionar respaldo para restaurar",
+    buttonLabel: "Revisar respaldo",
+    properties: ["openFile"],
+    filters: [{ name: "Respaldo Datos-cap", extensions: [BACKUP_EXTENSION.slice(1)] }]
+  });
+
+  if (selected.canceled || !selected.filePaths || !selected.filePaths[0]) return { canceled: true };
+
+  const filePath = selected.filePaths[0];
+  const validation = requireBackupService().validateBackup(filePath);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      canceled: false,
+      message: validation.errors.join(" "),
+      validation
+    };
+  }
+
+  const summary = validation.summary || {};
+  const choice = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "Confirmar restauración",
+    message: "El respaldo es válido. Selecciona cómo deseas restaurarlo.",
+    detail: [
+      `Archivo: ${path.basename(filePath)}`,
+      `Creado: ${summary.createdAt || "sin fecha"}`,
+      `Colecciones: ${summary.collectionCount || 0}`,
+      `Registros: ${summary.recordCount || 0}`,
+      "Reemplazar conserva un respaldo de seguridad y sustituye la base actual.",
+      "Combinar conserva los datos actuales y agrega o actualiza registros por ID."
+    ].join("\n"),
+    buttons: ["Reemplazar base", "Combinar datos", "Cancelar"],
+    defaultId: 2,
+    cancelId: 2,
+    noLink: true
+  });
+
+  if (choice.response === 2) return { canceled: true, validation };
+  const mode = choice.response === 1 ? "merge" : "replace";
+  return {
+    canceled: false,
+    ...requireBackupService().restoreBackup(filePath, { mode })
+  };
+}
+
 function registerIpcHandlers() {
   ipcMain.handle("app:get-info", async () => ({
     appName: APP_NAME,
     version: app.getVersion(),
     platform: process.platform,
     databaseAvailable: Boolean(persistenceService),
-    queryServiceAvailable: Boolean(queryService)
+    queryServiceAvailable: Boolean(queryService),
+    backupServiceAvailable: Boolean(backupService)
   }));
 
   ipcMain.handle("document-types:list", async () => listDocumentTypes());
@@ -243,6 +357,35 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle("backup:get-summary", async () => {
+    try {
+      return requireBackupService().getSummary();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo consultar el estado de los respaldos.");
+    }
+  });
+  ipcMain.handle("backup:create-manual", async () => {
+    try {
+      return await createManualBackup();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo crear el respaldo manual.");
+    }
+  });
+  ipcMain.handle("backup:restore", async () => {
+    try {
+      return await chooseAndRestoreBackup();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo restaurar el respaldo.");
+    }
+  });
+  ipcMain.handle("backup:open-folder", async () => {
+    try {
+      return await openBackupFolder();
+    } catch (error) {
+      return createErrorResponse(error, "No se pudo abrir la carpeta de respaldos.");
+    }
+  });
+
   // Compatibilidad temporal con la interfaz anterior.
   ipcMain.handle("dialog:select-pdfs", async () => selectPdfFiles(DEFAULT_DOCUMENT_TYPE));
   ipcMain.handle("files:validate-pdfs", async (_event, filePaths) => {
@@ -264,6 +407,7 @@ app.whenReady().then(() => {
   } catch (error) {
     persistenceService = null;
     queryService = null;
+    backupService = null;
     console.error("No se pudo iniciar la base local:", error);
   }
 
