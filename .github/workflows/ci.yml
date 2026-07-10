@@ -57,3 +57,6 @@ jobs:
 
       - name: Probar Plan General de Capacitación
         run: npm run test:plan-general-capacitacion
+
+      - name: Probar Base de Datos Local
+        run: npm run test:local-database
