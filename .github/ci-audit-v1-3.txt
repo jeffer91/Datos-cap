@@ -1,0 +1,2 @@
+Auditoría de la versión 1.3.0.
+Valida Informes Finales, nueve tablas, Base y vista Detalles.
