@@ -2,7 +2,7 @@
 Nombre completo: document-selection.validator.js
 Ruta o ubicación: /src/validators/document-selection.validator.js
 Función o funciones:
-- Validar PDF y detectar tres tipos documentales.
+- Validar PDF y detectar cuatro tipos documentales.
 - Aplicar OCR breve durante la identificación cuando sea necesario.
 - Impedir que documentos se carguen en una sección equivocada.
 ========================================================= */
@@ -15,11 +15,18 @@ const { normalizeForSearch } = require("../extractor/normalizer");
 const LABELS = Object.freeze({
   "plan-individual": "Plan Individual",
   "acuerdo-patrocinio": "Acuerdo de Patrocinio",
-  "planificacion-capacitacion": "Planificación de Capacitación"
+  "planificacion-capacitacion": "Planificación de Capacitación",
+  "informe-final-capacitacion": "Informe Final de Capacitación"
 });
 
 function detectDocumentType(text, fileName = "") {
   const source = normalizeForSearch(`${text || ""} ${fileName || ""}`);
+
+  const finalReportByTitle = source.includes("informe final de la capacitacion") ||
+    source.includes("informe final de capacitacion de") ||
+    source.includes("informe final de capacitacion:");
+  const finalReportByCode = /(?:^|\s|-)inf(?:\s|-)/.test(source) && /pro\s*-?\s*134/.test(source);
+  if (finalReportByTitle || finalReportByCode) return "informe-final-capacitacion";
 
   const planningByTitle = source.includes("planificacion de capacitacion") ||
     source.includes("planificacion de la capacitacion");
