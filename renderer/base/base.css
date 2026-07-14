@@ -12,7 +12,15 @@
 .overview-sections h3 { margin: 0; color: var(--navy); font-size: 16px; }
 .database-path { margin-top: 12px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .type-filter { min-width: 245px; }
+.detail-picker { display: grid; grid-template-columns: minmax(120px, 180px) minmax(280px, 1fr); gap: 12px; align-items: center; margin-bottom: 16px; }
+.detail-picker select { width: 100%; }
+.detail-header { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+.detail-header h2 { margin: 0; color: var(--navy); font-size: 18px; }
+.detail-header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.detail-section { margin-top: 18px; }
+.detail-section h3 { margin: 0 0 9px; color: var(--navy); font-size: 15px; }
 @media (max-width: 980px) {
   .overview-sections { grid-template-columns: 1fr; }
   .base-toolbar { align-items: stretch; flex-direction: column; }
+  .detail-picker { grid-template-columns: 1fr; }
 }
