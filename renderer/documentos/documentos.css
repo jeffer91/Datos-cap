@@ -1,4 +1,4 @@
-.document-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.document-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 .document-tab { text-align: left; border: 1px solid var(--line); background: #fff; color: var(--text); padding: 15px; min-height: 88px; }
 .document-tab strong { display: block; margin-bottom: 6px; font-size: 14px; }
 .document-tab span { display: block; color: var(--muted); font-size: 11px; }
@@ -12,7 +12,10 @@
 .progress-panel span { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
 .result-files { margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 10px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .hidden { display: none !important; }
-@media (max-width: 900px) {
+@media (max-width: 1150px) {
+  .document-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
   .document-tabs { grid-template-columns: 1fr; }
   .output-row { grid-template-columns: 1fr; }
   .workspace-head { display: block; }
