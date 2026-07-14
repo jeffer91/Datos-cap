@@ -1,441 +1,275 @@
 /* =========================================================
 Nombre completo: app.js
-Ruta o ubicación: /plan-docente-extractor/renderer/app.js
+Ruta o ubicación: /renderer/app.js
 Función o funciones:
-- Controlar la interfaz principal del renderer.
-- Ejecutar selección múltiple de PDF usando la API segura del preload.
-- Validar archivos seleccionados desde el proceso principal.
-- Mostrar resumen de documentos válidos, inválidos y duplicados.
-- Guardar temporalmente la carpeta de salida elegida.
-- Ejecutar la generación real de Excel + JSON.
+- Controlar las secciones independientes de Planes y Acuerdos.
+- Consultar y mostrar la base local compartida.
 ========================================================= */
-
 "use strict";
 
-const state = {
-  selectedPaths: [],
-  validation: null,
-  outputDir: "",
-  isGenerating: false,
-  lastResult: null
-};
-
-const elements = {
-  appVersion: document.getElementById("appVersion"),
-  btnSelectPdf: document.getElementById("btnSelectPdf"),
-  btnValidate: document.getElementById("btnValidate"),
-  btnClear: document.getElementById("btnClear"),
-  btnChooseOutput: document.getElementById("btnChooseOutput"),
-  btnGenerate: document.getElementById("btnGenerate"),
-  emptyBox: document.getElementById("emptyBox"),
-  statusBox: document.getElementById("statusBox"),
-  outputBox: document.getElementById("outputBox"),
-  totalFiles: document.getElementById("totalFiles"),
-  validFiles: document.getElementById("validFiles"),
-  invalidFiles: document.getElementById("invalidFiles"),
-  readyState: document.getElementById("readyState"),
-  filesTableContainer: document.getElementById("filesTableContainer")
-};
-
-function hasBridge() {
-  return Boolean(window.planDocenteAPI);
-}
-
 function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return String(value == null ? "" : value)
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+function statusClass(type) {
+  return `status-box status-${["info", "success", "warning", "danger"].includes(type) ? type : "info"}`;
+}
+function fileName(filePath) { return String(filePath || "").split(/[\\/]/).pop(); }
+function formatNumber(value) { return new Intl.NumberFormat("es-EC").format(Number(value || 0)); }
+function formatDate(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-EC", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
-function setStatus(message, type = "info") {
-  const validTypes = new Set(["info", "success", "warning", "danger"]);
-  const safeType = validTypes.has(type) ? type : "info";
+function createModule(config) {
+  const state = { selectedPaths: [], validation: null, outputDir: "", generating: false };
+  const el = Object.fromEntries(Object.entries(config.ids).map(([key, id]) => [key, document.getElementById(id)]));
 
-  elements.statusBox.className = `status-box status-${safeType}`;
-  elements.statusBox.textContent = message;
-}
-
-function setOutputStatus(message, type = "info") {
-  const validTypes = new Set(["info", "success", "warning", "danger"]);
-  const safeType = validTypes.has(type) ? type : "info";
-
-  elements.outputBox.className = `status-box status-${safeType}`;
-  elements.outputBox.textContent = message;
-}
-
-function updateButtons() {
-  const hasFiles = state.selectedPaths.length > 0;
-  const hasValidation = Boolean(state.validation);
-  const canGenerate = Boolean(
-    hasValidation &&
-    state.validation.canContinue &&
-    state.outputDir &&
-    !state.isGenerating
-  );
-
-  elements.btnSelectPdf.disabled = state.isGenerating;
-  elements.btnValidate.disabled = !hasFiles || state.isGenerating;
-  elements.btnClear.disabled = !hasFiles || state.isGenerating;
-  elements.btnChooseOutput.disabled = state.isGenerating;
-  elements.btnGenerate.disabled = !canGenerate;
-  elements.btnGenerate.textContent = state.isGenerating ? "Generando..." : "Generar Excel + JSON";
-}
-
-function updateSummary() {
-  const validation = state.validation;
-
-  if (!validation) {
-    elements.totalFiles.textContent = String(state.selectedPaths.length);
-    elements.validFiles.textContent = "0";
-    elements.invalidFiles.textContent = "0";
-    elements.readyState.textContent = "No";
-    return;
+  function setStatus(message, type = "info") {
+    el.status.className = statusClass(type);
+    el.status.textContent = message;
   }
-
-  elements.totalFiles.textContent = String(validation.total || 0);
-  elements.validFiles.textContent = String(validation.validCount || 0);
-  elements.invalidFiles.textContent = String(validation.invalidCount || 0);
-  elements.readyState.textContent = validation.canContinue ? "Sí" : "No";
-}
-
-function renderEmptyFiles() {
-  elements.filesTableContainer.innerHTML = `
-    <div class="empty">
-      Aquí aparecerá la lista de PDF seleccionados.
-    </div>
-  `;
-}
-
-function renderSelectedPathsOnly() {
-  if (!state.selectedPaths.length) {
-    renderEmptyFiles();
-    return;
+  function setOutput(message, type = "info") {
+    el.output.className = statusClass(type);
+    el.output.textContent = message;
   }
-
-  const rows = state.selectedPaths
-    .map((filePath, index) => {
-      return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${escapeHtml(filePath.split(/[\\/]/).pop())}</td>
-          <td>${escapeHtml(filePath)}</td>
-          <td><span class="badge badge-ok">Pendiente validación</span></td>
-          <td>Seleccionado correctamente.</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  elements.filesTableContainer.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Archivo</th>
-          <th>Ruta</th>
-          <th>Estado</th>
-          <th>Observación</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-}
-
-function renderValidationTable() {
-  const validation = state.validation;
-
-  if (!validation || !Array.isArray(validation.files) || !validation.files.length) {
-    renderEmptyFiles();
-    return;
+  function updateSummary() {
+    const validation = state.validation;
+    el.total.textContent = String(validation?.total ?? state.selectedPaths.length);
+    el.valid.textContent = String(validation?.validCount || 0);
+    el.invalid.textContent = String(validation?.invalidCount || 0);
+    el.ready.textContent = validation?.canContinue ? "Sí" : "No";
   }
-
-  const rows = validation.files
-    .map((file, index) => {
-      const statusClass = file.valid ? "badge-ok" : "badge-error";
-      const statusText = file.valid ? "Válido" : "Revisar";
-      const errors = Array.isArray(file.errors) && file.errors.length
-        ? file.errors.join(" | ")
-        : "Listo para extracción.";
-
-      return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${escapeHtml(file.name)}</td>
-          <td>${escapeHtml(file.path)}</td>
-          <td>${escapeHtml(file.sizeMB)} MB</td>
-          <td><span class="badge ${statusClass}">${statusText}</span></td>
-          <td>${escapeHtml(errors)}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  elements.filesTableContainer.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Archivo</th>
-          <th>Ruta</th>
-          <th>Tamaño</th>
-          <th>Estado</th>
-          <th>Observación</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
-}
-
-function renderResultTable(result) {
-  if (!result || !result.ok) {
-    return;
+  function updateButtons() {
+    const hasFiles = state.selectedPaths.length > 0;
+    const canGenerate = Boolean(state.validation?.canContinue && state.outputDir && !state.generating);
+    el.select.disabled = state.generating;
+    el.validate.disabled = !hasFiles || state.generating;
+    el.clear.disabled = !hasFiles || state.generating;
+    el.outputSelect.disabled = state.generating;
+    el.generate.disabled = !canGenerate;
+    el.generate.textContent = state.generating ? "Generando..." : "Generar Excel + JSON";
   }
-
-  const summary = result.summary || {};
-  const files = result.files || {};
-  const excel = files.excel || {};
-  const json = files.json || {};
-  const rowsByTable = summary.rows_by_table || {};
-
-  const tableRows = Object.keys(rowsByTable)
-    .map((tableName) => {
-      return `
-        <tr>
-          <td>${escapeHtml(tableName)}</td>
-          <td>${escapeHtml(rowsByTable[tableName])}</td>
-          <td>${escapeHtml((summary.warnings_by_table || {})[tableName] || 0)}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  const resultHtml = `
-    <div class="status-box status-success">
-      Reporte generado correctamente.<br>
-      Excel: ${escapeHtml(excel.filePath || "")}<br>
-      JSON: ${escapeHtml(json.filePath || "")}
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Tabla</th>
-          <th>Filas</th>
-          <th>Advertencias</th>
-        </tr>
-      </thead>
-      <tbody>${tableRows}</tbody>
-    </table>
-  `;
-
-  elements.filesTableContainer.innerHTML = resultHtml;
-}
-
-function resetState() {
-  state.selectedPaths = [];
-  state.validation = null;
-  state.outputDir = "";
-  state.isGenerating = false;
-  state.lastResult = null;
-
-  elements.emptyBox.style.display = "block";
-  setStatus("Esperando selección de documentos.", "info");
-  setOutputStatus("Carpeta de salida no seleccionada.", "info");
-
-  updateSummary();
-  updateButtons();
-  renderEmptyFiles();
-}
-
-async function loadAppInfo() {
-  if (!hasBridge()) {
-    elements.appVersion.textContent = "API de Electron no disponible";
-    return;
-  }
-
-  try {
-    const info = await window.planDocenteAPI.getAppInfo();
-    elements.appVersion.textContent = `${info.appName} v${info.version}`;
-  } catch (error) {
-    elements.appVersion.textContent = "No se pudo cargar la versión";
-  }
-}
-
-async function handleSelectPdfFiles() {
-  if (!hasBridge()) {
-    setStatus("No está disponible la comunicación con Electron.", "danger");
-    return;
-  }
-
-  try {
-    const result = await window.planDocenteAPI.selectPdfFiles();
-
-    if (result.canceled) {
-      setStatus("Selección cancelada. No se cargaron documentos.", "warning");
-      return;
-    }
-
-    state.selectedPaths = Array.isArray(result.filePaths) ? result.filePaths : [];
-    state.validation = null;
-    state.lastResult = null;
-
+  function renderSelected() {
     if (!state.selectedPaths.length) {
-      setStatus("No se seleccionaron archivos.", "warning");
-      updateSummary();
+      el.files.innerHTML = `<div class="empty">${escapeHtml(config.emptyText)}</div>`;
+      return;
+    }
+    const rows = state.selectedPaths.map((path, index) => `
+      <tr><td>${index + 1}</td><td>${escapeHtml(fileName(path))}</td><td>${escapeHtml(path)}</td>
+      <td><span class="badge badge-warning">Pendiente</span></td><td>Ejecuta la validación.</td></tr>`).join("");
+    el.files.innerHTML = `<table><thead><tr><th>#</th><th>Archivo</th><th>Ruta</th><th>Estado</th><th>Observación</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  function renderValidation() {
+    const files = state.validation?.files || [];
+    if (!files.length) { renderSelected(); return; }
+    const rows = files.map((file, index) => {
+      const ok = file.valid;
+      const detected = file.detectedType === "plan-individual" ? "Plan Individual"
+        : file.detectedType === "acuerdo-patrocinio" ? "Acuerdo" : "No identificado";
+      return `<tr>
+        <td>${index + 1}</td><td>${escapeHtml(file.name)}</td><td>${escapeHtml(file.sizeMB)} MB</td>
+        <td>${escapeHtml(detected)}</td><td><span class="badge ${ok ? "badge-ok" : "badge-error"}">${ok ? "Válido" : "Revisar"}</span></td>
+        <td>${escapeHtml((file.errors || []).join(" | ") || "Listo para procesar.")}</td>
+      </tr>`;
+    }).join("");
+    el.files.innerHTML = `<table><thead><tr><th>#</th><th>Archivo</th><th>Tamaño</th><th>Tipo detectado</th><th>Estado</th><th>Observación</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  function renderResult(result) {
+    if (!result?.ok) { el.result.innerHTML = ""; return; }
+    const persistence = result.persistence || {};
+    const rows = Object.entries(result.summary?.rows_by_table || {}).map(([name, count]) =>
+      `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(count)}</td></tr>`).join("");
+    el.result.innerHTML = `<div class="result-box">
+      <div class="status-box status-success">Reporte generado correctamente.</div>
+      <div class="result-files">
+        Excel: ${escapeHtml(result.files?.excel?.filePath || "")}<br>
+        JSON: ${escapeHtml(result.files?.json?.filePath || "")}<br>
+        Guardados en base local: ${escapeHtml(persistence.documentsSaved || 0)} documento(s), ${escapeHtml(persistence.rowsSaved || 0)} fila(s).<br>
+        Duplicados omitidos en la base: ${escapeHtml(persistence.duplicateDocumentsSkipped || 0)}.
+      </div>
+      <table><thead><tr><th>Tabla</th><th>Filas</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }
+  function reset() {
+    state.selectedPaths = [];
+    state.validation = null;
+    state.outputDir = "";
+    state.generating = false;
+    setStatus(config.initialStatus, "info");
+    setOutput("Carpeta de salida no seleccionada.", "info");
+    el.result.innerHTML = "";
+    updateSummary(); updateButtons(); renderSelected();
+  }
+
+  async function selectFiles() {
+    try {
+      const result = await window.documentAppAPI.selectDocumentFiles(config.documentType);
+      if (result.canceled) { setStatus("Selección cancelada.", "warning"); return; }
+      state.selectedPaths = Array.isArray(result.filePaths) ? result.filePaths : [];
+      state.validation = null;
+      el.result.innerHTML = "";
+      setStatus(`Se seleccionaron ${state.selectedPaths.length} documento(s). Ejecuta la validación.`, state.selectedPaths.length ? "success" : "warning");
+      updateSummary(); updateButtons(); renderSelected();
+    } catch (error) { setStatus(`Error al seleccionar archivos: ${error.message}`, "danger"); }
+  }
+  async function validateFiles() {
+    try {
+      setStatus("Leyendo y verificando el tipo de los PDF...", "info");
+      state.validation = await window.documentAppAPI.validateDocumentFiles({
+        documentType: config.documentType,
+        filePaths: state.selectedPaths
+      });
+      updateSummary(); updateButtons(); renderValidation();
+      if (!state.validation.canContinue) setStatus("No existen documentos válidos para esta sección.", "danger");
+      else if (state.validation.invalidCount) setStatus(`Validación terminada: ${state.validation.validCount} válido(s) y ${state.validation.invalidCount} para revisar.`, "warning");
+      else setStatus(`Validación terminada: ${state.validation.validCount} documento(s) listo(s).`, "success");
+    } catch (error) { setStatus(`Error al validar: ${error.message}`, "danger"); }
+  }
+  async function chooseOutput() {
+    try {
+      const result = await window.documentAppAPI.chooseOutputDirectory();
+      if (result.canceled) { setOutput("Selección de carpeta cancelada.", "warning"); return; }
+      state.outputDir = result.outputDir || "";
+      setOutput(`Carpeta seleccionada: ${state.outputDir}`, "success");
       updateButtons();
-      renderEmptyFiles();
-      return;
-    }
-
-    elements.emptyBox.style.display = "none";
-    setStatus(`Se seleccionaron ${state.selectedPaths.length} documento(s). Ejecuta la validación.`, "success");
-
-    updateSummary();
-    updateButtons();
-    renderSelectedPathsOnly();
-  } catch (error) {
-    setStatus(`Error al seleccionar PDF: ${error.message}`, "danger");
+    } catch (error) { setOutput(`Error al seleccionar carpeta: ${error.message}`, "danger"); }
   }
+  async function generate() {
+    if (!state.validation?.canContinue || !state.outputDir) return;
+    state.generating = true; updateButtons();
+    setStatus("Procesando documentos y guardando datos localmente...", "info");
+    setOutput("Generando Excel y JSON...", "info");
+    try {
+      const result = await window.documentAppAPI.generateDocumentReport({
+        documentType: config.documentType,
+        filePaths: state.selectedPaths,
+        outputDir: state.outputDir
+      });
+      if (!result.ok) {
+        setStatus(result.message || "No se pudo procesar.", "danger");
+        setOutput("No se generaron archivos de salida.", "danger");
+        return;
+      }
+      const revision = Number(result.summary?.requiere_revision_rows || 0);
+      setStatus(`Proceso completado. Registros para revisión: ${revision}.`, revision ? "warning" : "success");
+      setOutput(`Archivos creados en: ${result.outputDir}`, "success");
+      renderResult(result);
+      await refreshDatabase();
+    } catch (error) {
+      setStatus(`Error al generar: ${error.message}`, "danger");
+      setOutput("Ocurrió un error durante la generación.", "danger");
+    } finally { state.generating = false; updateButtons(); }
+  }
+
+  el.select.addEventListener("click", selectFiles);
+  el.validate.addEventListener("click", validateFiles);
+  el.clear.addEventListener("click", reset);
+  el.outputSelect.addEventListener("click", chooseOutput);
+  el.generate.addEventListener("click", generate);
+  reset();
+  return { reset };
 }
 
-async function handleValidatePdfFiles() {
-  if (!hasBridge()) {
-    setStatus("No está disponible la comunicación con Electron.", "danger");
-    return;
-  }
+const databaseElements = {
+  documents: document.getElementById("dbDocuments"), plans: document.getElementById("dbPlans"),
+  agreements: document.getElementById("dbAgreements"), rows: document.getElementById("dbRows"),
+  runs: document.getElementById("dbRuns"), duplicates: document.getElementById("dbDuplicates"),
+  status: document.getElementById("databaseStatus"), documentsTable: document.getElementById("dbDocumentsTable"),
+  runsTable: document.getElementById("dbRunsTable"), refresh: document.getElementById("btnRefreshDatabase"),
+  open: document.getElementById("btnOpenDatabase")
+};
 
-  if (!state.selectedPaths.length) {
-    setStatus("Primero selecciona uno o varios PDF.", "warning");
-    return;
-  }
-
+function renderDatabaseDocuments(documents) {
+  if (!documents.length) { databaseElements.documentsTable.innerHTML = '<div class="empty">Todavía no hay documentos guardados.</div>'; return; }
+  const rows = documents.map((doc) => `<tr>
+    <td>${escapeHtml(formatDate(doc.fecha_registro))}</td><td>${escapeHtml(doc.nombre_tipo_documental)}</td>
+    <td>${escapeHtml(doc.nombre_archivo)}</td><td>${escapeHtml(doc.docente)}</td>
+    <td>${escapeHtml(doc.codigo_documento)}</td><td><span class="badge ${doc.requiere_revision === "SI" ? "badge-warning" : "badge-ok"}">${escapeHtml(doc.requiere_revision === "SI" ? "Revisar" : "Guardado")}</span></td>
+  </tr>`).join("");
+  databaseElements.documentsTable.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Archivo</th><th>Docente</th><th>Código</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function renderDatabaseRuns(runs) {
+  if (!runs.length) { databaseElements.runsTable.innerHTML = '<div class="empty">Todavía no hay procesamientos.</div>'; return; }
+  const rows = runs.map((run) => `<tr>
+    <td>${escapeHtml(formatDate(run.fecha_fin || run.fecha_inicio))}</td><td>${escapeHtml(run.nombre_tipo_documental)}</td>
+    <td>${escapeHtml(run.documentos_guardados)}</td><td>${escapeHtml(run.documentos_duplicados_omitidos)}</td>
+    <td>${escapeHtml(run.filas_guardadas)}</td><td><span class="badge ${run.estado === "COMPLETADO" ? "badge-ok" : "badge-warning"}">${escapeHtml(run.estado)}</span></td>
+  </tr>`).join("");
+  databaseElements.runsTable.innerHTML = `<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Nuevos</th><th>Duplicados</th><th>Filas</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+async function refreshDatabase() {
+  if (!window.documentAppAPI) return;
+  databaseElements.refresh.disabled = true;
+  databaseElements.status.className = statusClass("info");
+  databaseElements.status.textContent = "Actualizando la base local...";
   try {
-    const validation = await window.planDocenteAPI.validatePdfFiles(state.selectedPaths);
-    state.validation = validation;
-    state.lastResult = null;
-
-    updateSummary();
-    updateButtons();
-    renderValidationTable();
-
-    if (!validation.canContinue) {
-      setStatus("No hay PDF válidos para continuar. Revisa los archivos marcados.", "danger");
-      return;
-    }
-
-    if (validation.invalidCount > 0) {
-      setStatus(
-        `Validación completada: ${validation.validCount} válido(s) y ${validation.invalidCount} para revisar. Se generará el reporte solo con los PDF válidos.`,
-        "warning"
-      );
-      return;
-    }
-
-    setStatus(`Validación completada: ${validation.validCount} PDF válido(s) listos para extracción.`, "success");
+    const [summary, documentsResult, runsResult] = await Promise.all([
+      window.documentAppAPI.getDatabaseSummary(),
+      window.documentAppAPI.listRecentDocuments({ limit: 20 }),
+      window.documentAppAPI.listRecentDatabaseRuns({ limit: 10 })
+    ]);
+    databaseElements.documents.textContent = formatNumber(summary.documentCount);
+    databaseElements.plans.textContent = formatNumber(summary.planCount);
+    databaseElements.agreements.textContent = formatNumber(summary.agreementCount);
+    databaseElements.rows.textContent = formatNumber(summary.tableRows);
+    databaseElements.runs.textContent = formatNumber(summary.processingRunCount);
+    databaseElements.duplicates.textContent = formatNumber(summary.duplicateCount);
+    databaseElements.status.className = statusClass("success");
+    databaseElements.status.textContent = `Base local disponible en: ${summary.databasePath}`;
+    renderDatabaseDocuments(documentsResult.documents || []);
+    renderDatabaseRuns(runsResult.runs || []);
   } catch (error) {
-    setStatus(`Error al validar documentos: ${error.message}`, "danger");
-  }
+    databaseElements.status.className = statusClass("danger");
+    databaseElements.status.textContent = `No se pudo consultar la base local: ${error.message}`;
+  } finally { databaseElements.refresh.disabled = false; }
 }
-
-async function handleChooseOutputDirectory() {
-  if (!hasBridge()) {
-    setOutputStatus("No está disponible la comunicación con Electron.", "danger");
-    return;
-  }
-
+async function openDatabase() {
   try {
-    const result = await window.planDocenteAPI.chooseOutputDirectory();
-
-    if (result.canceled) {
-      setOutputStatus("Selección de carpeta cancelada.", "warning");
-      return;
-    }
-
-    state.outputDir = result.outputDir || "";
-    setOutputStatus(`Carpeta de salida seleccionada: ${state.outputDir}`, "success");
-
-    updateButtons();
+    const result = await window.documentAppAPI.openDatabaseFolder();
+    databaseElements.status.className = statusClass("success");
+    databaseElements.status.textContent = `Carpeta abierta: ${result.databasePath}`;
   } catch (error) {
-    setOutputStatus(`Error al seleccionar carpeta: ${error.message}`, "danger");
+    databaseElements.status.className = statusClass("danger");
+    databaseElements.status.textContent = `No se pudo abrir la carpeta: ${error.message}`;
   }
 }
 
-async function handleGenerateReport() {
-  if (!hasBridge()) {
-    setStatus("No está disponible la comunicación con Electron.", "danger");
+async function initialize() {
+  if (!window.documentAppAPI) {
+    document.getElementById("appVersion").textContent = "API de Electron no disponible";
     return;
   }
-
-  if (!state.validation || !state.validation.canContinue) {
-    setStatus("Primero valida los PDF antes de generar el reporte.", "warning");
-    return;
-  }
-
-  if (!state.outputDir) {
-    setOutputStatus("Selecciona una carpeta de salida antes de generar.", "warning");
-    return;
-  }
-
-  state.isGenerating = true;
-  state.lastResult = null;
-  updateButtons();
-  setStatus("Procesando PDF, extrayendo campos y construyendo tablas...", "info");
-  setOutputStatus("Generando archivos Excel y JSON...", "info");
-
   try {
-    const result = await window.planDocenteAPI.generatePlanReport({
-      filePaths: state.selectedPaths,
-      outputDir: state.outputDir
-    });
+    const info = await window.documentAppAPI.getAppInfo();
+    document.getElementById("appVersion").textContent = `${info.appName} v${info.version}`;
+  } catch (_error) { document.getElementById("appVersion").textContent = "Versión no disponible"; }
 
-    state.lastResult = result;
-
-    if (!result.ok) {
-      setStatus(result.message || "No se pudo generar el reporte.", "danger");
-      setOutputStatus("No se generaron archivos de salida.", "danger");
-      return;
+  createModule({
+    documentType: "plan-individual",
+    initialStatus: "Esperando selección de Planes Individuales.",
+    emptyText: "Aquí aparecerán los planes seleccionados.",
+    ids: {
+      select: "planSelect", validate: "planValidate", clear: "planClear", outputSelect: "planOutputSelect",
+      generate: "planGenerate", status: "planStatus", output: "planOutput", total: "planTotal",
+      valid: "planValid", invalid: "planInvalid", ready: "planReady", files: "planFiles", result: "planResult"
     }
-
-    const summary = result.summary || {};
-    const revisionRows = Number(summary.requiere_revision_rows || 0);
-    const totalRows = Number(summary.total_rows || 0);
-
-    setStatus(
-      `Reporte generado: ${totalRows} fila(s) totales. Registros para revisión: ${revisionRows}.`,
-      revisionRows > 0 ? "warning" : "success"
-    );
-
-    setOutputStatus(
-      `Archivos creados en: ${result.outputDir}`,
-      "success"
-    );
-
-    renderResultTable(result);
-  } catch (error) {
-    setStatus(`Error al generar reporte: ${error.message}`, "danger");
-    setOutputStatus("Ocurrió un error durante la generación.", "danger");
-  } finally {
-    state.isGenerating = false;
-    updateButtons();
-  }
+  });
+  createModule({
+    documentType: "acuerdo-patrocinio",
+    initialStatus: "Esperando selección de Acuerdos de Patrocinio.",
+    emptyText: "Aquí aparecerán los acuerdos seleccionados.",
+    ids: {
+      select: "agreementSelect", validate: "agreementValidate", clear: "agreementClear", outputSelect: "agreementOutputSelect",
+      generate: "agreementGenerate", status: "agreementStatus", output: "agreementOutput", total: "agreementTotal",
+      valid: "agreementValid", invalid: "agreementInvalid", ready: "agreementReady", files: "agreementFiles", result: "agreementResult"
+    }
+  });
+  databaseElements.refresh.addEventListener("click", refreshDatabase);
+  databaseElements.open.addEventListener("click", openDatabase);
+  await refreshDatabase();
 }
 
-function bindEvents() {
-  elements.btnSelectPdf.addEventListener("click", handleSelectPdfFiles);
-  elements.btnValidate.addEventListener("click", handleValidatePdfFiles);
-  elements.btnClear.addEventListener("click", resetState);
-  elements.btnChooseOutput.addEventListener("click", handleChooseOutputDirectory);
-  elements.btnGenerate.addEventListener("click", handleGenerateReport);
-}
-
-function init() {
-  bindEvents();
-  resetState();
-  loadAppInfo();
-}
-
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", initialize);
