@@ -12,17 +12,17 @@ Documentos | Base
 
 ### Documentos
 
-Es la página inicial y se encuentra en:
+Es la página inicial:
 
 ```text
 renderer/documentos/documentos.html
 ```
 
-Aquí se seleccionan, validan, escanean, procesan y exportan los PDF.
+Aquí se seleccionan, validan, escanean, entienden, guardan y exportan los PDF.
 
 ### Base
 
-Es una página independiente y se encuentra en:
+Es una página independiente:
 
 ```text
 renderer/base/base.html
@@ -30,7 +30,7 @@ renderer/base/base.html
 
 Aquí únicamente se consulta lo que ya fue guardado en la base local. No procesa PDF.
 
-## Tres secciones documentales
+## Cuatro secciones documentales
 
 ### 1. Planes Individuales
 
@@ -66,20 +66,7 @@ RGI1
 PRO-134
 ```
 
-Extrae:
-
-- datos generales del curso;
-- carrera o público objetivo;
-- forma de ejecución;
-- tipo de capacitación;
-- carácter y modalidad;
-- certificado;
-- objetivo, fechas y horario;
-- unidades, contenidos y horas;
-- evaluaciones;
-- responsables y facilitadores;
-- anexos;
-- texto y confianza OCR por página.
+Extrae datos generales, modalidad, unidades, contenidos, horas, evaluaciones, responsables, facilitadores, anexos y trazabilidad OCR.
 
 Genera ocho hojas:
 
@@ -94,9 +81,49 @@ Genera ocho hojas:
 08_ocr_paginas
 ```
 
+### 4. Informes Finales de Capacitación
+
+Reconoce variaciones como:
+
+```text
+INFORME FINAL DE LA CAPACITACIÓN
+INFORME FINAL DE CAPACITACIÓN DE
+INF
+PRO-134
+```
+
+Extrae y guarda únicamente información relevante y comparable:
+
+- código original y código normalizado;
+- periodo y fecha de elaboración;
+- capacitación y público dirigido;
+- facilitador, fechas y duración;
+- objetivo general, objetivos específicos y cumplimiento;
+- participantes con columnas opcionales;
+- certificados individuales y resumen de resultados;
+- responsables;
+- anexos;
+- páginas OCR;
+- páginas físicas y páginas declaradas;
+- diferencias e inconsistencias que requieren revisión.
+
+Genera nueve hojas:
+
+```text
+01_archivos
+02_datos_generales
+03_objetivos
+04_participantes
+05_certificados
+06_resumen_certificados
+07_responsables
+08_anexos
+09_ocr_paginas
+```
+
 ## Lectura digital y OCR
 
-Las tres secciones utilizan el mismo flujo híbrido:
+Las cuatro secciones utilizan el mismo flujo híbrido:
 
 ```text
 PDF
@@ -128,12 +155,30 @@ La página Base permite consultar:
 - Planes Individuales;
 - Acuerdos de Patrocinio;
 - Planificaciones de Capacitación;
+- Informes Finales de Capacitación;
+- detalles completos relacionados por `id_documento`;
 - método de extracción;
 - páginas y confianza OCR;
 - documentos para revisión;
 - procesamientos y duplicados.
 
 Cada PDF recibe una huella SHA-256. Si el mismo archivo se procesa nuevamente, puede volver a exportarse, pero no se duplican sus registros locales.
+
+## Colecciones de Informes Finales
+
+```text
+archivos_informe_final
+datos_generales_informe
+objetivos_informe
+participantes_informe
+certificados_informe
+resumen_certificados_informe
+responsables_informe
+anexos_informe
+ocr_paginas_informe
+```
+
+Todas se relacionan mediante `id_documento`.
 
 ## Estructura visual
 
@@ -151,7 +196,8 @@ renderer/
 │  └─ secciones/
 │     ├─ planes.section.js
 │     ├─ acuerdos.section.js
-│     └─ planificaciones.section.js
+│     ├─ planificaciones.section.js
+│     └─ informes-finales.section.js
 └─ base/
    ├─ base.html
    ├─ base.js
@@ -160,6 +206,7 @@ renderer/
       ├─ resumen.view.js
       ├─ documentos.view.js
       ├─ tipos.view.js
+      ├─ detalles.view.js
       └─ procesamientos.view.js
 ```
 
@@ -187,7 +234,7 @@ npm run check
 npm run selftest
 ```
 
-La prueba comprueba los tres tipos documentales, trece grupos de tablas, exportación Excel/JSON, almacenamiento y consultas de Base.
+La prueba comprueba los cuatro tipos documentales, veintiséis grupos de tablas, exportación Excel/JSON, almacenamiento, consultas y detalles de Base.
 
 ## Consideración del primer OCR
 
