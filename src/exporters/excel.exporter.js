@@ -2,7 +2,7 @@
 Nombre completo: excel.exporter.js
 Ruta o ubicación: /src/exporters/excel.exporter.js
 Función o funciones:
-- Generar Excel para Planes, Acuerdos y Planificaciones.
+- Generar Excel para cuatro tipos documentales.
 - Mantener orden y nombres seguros de hojas por tipo documental.
 ========================================================= */
 "use strict";
@@ -19,7 +19,10 @@ const DEFAULT_SHEET_ORDER = [
   "archivos_planificacion_capacitacion", "datos_planificacion_capacitacion",
   "temario_planificacion_capacitacion", "evaluaciones_planificacion_capacitacion",
   "responsables_planificacion_capacitacion", "facilitadores_planificacion_capacitacion",
-  "anexos_planificacion_capacitacion", "ocr_paginas_planificacion"
+  "anexos_planificacion_capacitacion", "ocr_paginas_planificacion",
+  "archivos_informe_final", "datos_generales_informe", "objetivos_informe",
+  "participantes_informe", "certificados_informe", "resumen_certificados_informe",
+  "responsables_informe", "anexos_informe", "ocr_paginas_informe"
 ];
 
 const SHEET_LABELS = {
@@ -39,7 +42,16 @@ const SHEET_LABELS = {
   responsables_planificacion_capacitacion: "05_responsables",
   facilitadores_planificacion_capacitacion: "06_facilitadores",
   anexos_planificacion_capacitacion: "07_anexos",
-  ocr_paginas_planificacion: "08_ocr_paginas"
+  ocr_paginas_planificacion: "08_ocr_paginas",
+  archivos_informe_final: "01_archivos",
+  datos_generales_informe: "02_datos_generales",
+  objetivos_informe: "03_objetivos",
+  participantes_informe: "04_participantes",
+  certificados_informe: "05_certificados",
+  resumen_certificados_informe: "06_resumen_certificados",
+  responsables_informe: "07_responsables",
+  anexos_informe: "08_anexos",
+  ocr_paginas_informe: "09_ocr_paginas"
 };
 
 function ensureDirectory(dir) {
