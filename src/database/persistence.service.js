@@ -4,7 +4,8 @@ Ruta o ubicación: /src/database/persistence.service.js
 Función o funciones:
 - Guardar documentos procesados y sus tablas en la base local.
 - Evitar duplicados mediante huella SHA-256.
-- Registrar ejecuciones y permitir consultar historial reciente.
+- Conservar método de extracción, páginas OCR y confianza.
+- Registrar ejecuciones para la página Base.
 ========================================================= */
 "use strict";
 
@@ -15,27 +16,40 @@ const { calculateFileHash } = require("../utils/hash.utils");
 
 const DOCUMENTS_COLLECTION = "_documents";
 const RUNS_COLLECTION = "_processing_runs";
+const TYPE_LABELS = Object.freeze({
+  "plan-individual": "Plan Individual de Formación y Capacitación Docente",
+  "acuerdo-patrocinio": "Acuerdo de Patrocinio Institucional",
+  "planificacion-capacitacion": "Planificación de Capacitación"
+});
 
 function makeId(prefix) {
   if (typeof crypto.randomUUID === "function") return `${prefix}_${crypto.randomUUID()}`;
   return `${prefix}_${crypto.createHash("sha1").update(`${Date.now()}-${Math.random()}`).digest("hex")}`;
 }
 function text(value) { return String(value == null ? "" : value).trim(); }
+function getTypeLabel(documentType) { return TYPE_LABELS[documentType] || documentType || "Documento"; }
+
 function getFileData(parsed) {
   const document = parsed || {};
   const file = document.archivo || {};
-  const general = document.identificacion || document.datos_acuerdo || {};
+  const general = document.identificacion || document.datos_acuerdo || document.datos_generales || {};
   const filePath = text(file.ruta_archivo);
+  const source = document.source || {};
   return {
     id_documento: text(document.id_documento || file.id_documento),
     nombre_archivo: text(file.nombre_archivo || path.basename(filePath)),
     ruta_archivo: filePath,
-    hash_archivo: text(file.hash_archivo) || calculateFileHash(filePath),
+    hash_archivo: text(file.hash_archivo || source.file_hash) || calculateFileHash(filePath),
     codigo_documento: text(file.codigo_documento || general.codigo_documento),
     periodo: text(file.periodo || general.periodo),
     docente: text(general.nombre_docente || general.docente),
-    carrera: text(general.carrera),
-    capacitacion: text(general.nombre_capacitacion || general.capacitacion),
+    carrera: text(general.carrera || general.carrera_publico),
+    capacitacion: text(general.nombre_capacitacion || general.capacitacion || general.nombre_curso),
+    metodo_extraccion: text(file.metodo_extraccion || source.extraction_method || "digital"),
+    total_paginas: Number(file.total_paginas || 0),
+    paginas_digitales: Number(file.paginas_digitales || source.digital_pages || 0),
+    paginas_ocr: Number(file.paginas_ocr || source.ocr_pages || 0),
+    confianza_ocr: Number(file.confianza_ocr || source.ocr_confidence || 0),
     estado_extraccion: text(file.estado_extraccion || "OK"),
     requiere_revision: text(file.requiere_revision || general.requiere_revision || "NO")
   };
@@ -75,13 +89,12 @@ class PersistenceService {
         });
         return;
       }
+
       const record = {
         id: metadata.id_documento,
         ...metadata,
         tipo_documental: documentType,
-        nombre_tipo_documental: documentType === "acuerdo-patrocinio"
-          ? "Acuerdo de Patrocinio Institucional"
-          : "Plan Individual de Formación y Capacitación Docente",
+        nombre_tipo_documental: getTypeLabel(documentType),
         fecha_registro: timestamp,
         ultima_fecha_procesamiento: timestamp,
         ejecucion_origen_id: runId
@@ -107,9 +120,7 @@ class PersistenceService {
     const run = {
       id: runId,
       tipo_documental: documentType,
-      nombre_tipo_documental: documentType === "acuerdo-patrocinio"
-        ? "Acuerdo de Patrocinio Institucional"
-        : "Plan Individual de Formación y Capacitación Docente",
+      nombre_tipo_documental: getTypeLabel(documentType),
       fecha_inicio: timestamp,
       fecha_fin: timestamp,
       estado: "GUARDADO_LOCALMENTE",
@@ -117,6 +128,7 @@ class PersistenceService {
       documentos_guardados: inserted.length,
       documentos_duplicados_omitidos: duplicates.length,
       filas_guardadas: rowsSaved,
+      paginas_ocr: inserted.reduce((sum, row) => sum + Number(row.paginas_ocr || 0), 0),
       carpeta_salida: text(options.outputDir),
       archivos_exportados: {},
       resumen: options.summary || {},
@@ -131,6 +143,7 @@ class PersistenceService {
       documentsSaved: inserted.length,
       duplicateDocumentsSkipped: duplicates.length,
       rowsSaved,
+      ocrPagesSaved: run.paginas_ocr,
       duplicates,
       tableResults
     };
@@ -169,7 +182,9 @@ function createPersistenceService(databaseDirectory) { return new PersistenceSer
 module.exports = {
   DOCUMENTS_COLLECTION,
   RUNS_COLLECTION,
+  TYPE_LABELS,
   PersistenceService,
   createPersistenceService,
+  getTypeLabel,
   getFileData
 };
