@@ -201,6 +201,8 @@ class LocalDatabase {
       documentCount: documents.length,
       planCount: documents.filter((row) => row.tipo_documental === "plan-individual").length,
       agreementCount: documents.filter((row) => row.tipo_documental === "acuerdo-patrocinio").length,
+      planningCount: documents.filter((row) => row.tipo_documental === "planificacion-capacitacion").length,
+      finalReportCount: documents.filter((row) => row.tipo_documental === "informe-final-capacitacion").length,
       tableRows: tableCollections.reduce((sum, name) => sum + Number(counts[name] || 0), 0),
       processingRunCount: runs.length,
       duplicateCount: runs.reduce((sum, row) => sum + Number(row.documentos_duplicados_omitidos || 0), 0),
