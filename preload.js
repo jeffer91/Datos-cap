@@ -18,6 +18,7 @@ const INVOKE_CHANNELS = new Set([
   "database:get-overview",
   "database:query-documents",
   "database:query-type-records",
+  "database:query-document-details",
   "database:query-runs",
   "database:open-folder"
 ]);
@@ -29,7 +30,6 @@ function invoke(channel, payload) {
   }
   return ipcRenderer.invoke(channel, payload);
 }
-
 function subscribe(channel, callback) {
   if (!EVENT_CHANNELS.has(channel) || typeof callback !== "function") return () => {};
   const listener = (_event, payload) => callback(payload);
@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld("documentAppAPI", {
   getDatabaseOverview: () => invoke("database:get-overview"),
   queryDatabaseDocuments: (options) => invoke("database:query-documents", options),
   queryDatabaseTypeRecords: (documentType, options) => invoke("database:query-type-records", { documentType, options }),
+  queryDatabaseDocumentDetails: (documentId) => invoke("database:query-document-details", documentId),
   queryDatabaseRuns: (options) => invoke("database:query-runs", options),
   openDatabaseFolder: () => invoke("database:open-folder")
 });
