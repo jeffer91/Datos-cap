@@ -2,8 +2,8 @@
 Nombre completo: main.js
 Ruta o ubicación: /main.js
 Función o funciones:
-- Abrir la página Documentos con menú superior y tres secciones.
-- Procesar Planes, Acuerdos y Planificaciones con lectura digital u OCR.
+- Abrir la página Documentos con menú superior y cuatro secciones.
+- Procesar Planes, Acuerdos, Planificaciones e Informes Finales con lectura digital u OCR.
 - Exponer consultas para la página Base independiente.
 ========================================================= */
 "use strict";
@@ -15,22 +15,15 @@ const { validateDocumentSelection } = require("./src/validators/document-selecti
 const { processReport } = require("./src/processors/report.processor");
 const { processAgreementReport } = require("./src/processors/acuerdo-patrocinio.processor");
 const { processPlanningReport } = require("./src/processors/planificacion-capacitacion.processor");
+const { processFinalReport } = require("./src/processors/informe-final-capacitacion.processor");
 const { createPersistenceService, createQueryService } = require("./src/database");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
 const DOCUMENT_TYPES = Object.freeze({
-  "plan-individual": {
-    label: "Planes Individuales de Formación y Capacitación",
-    dialogTitle: "Seleccionar planes individuales en PDF"
-  },
-  "acuerdo-patrocinio": {
-    label: "Acuerdos de Patrocinio Institucional",
-    dialogTitle: "Seleccionar acuerdos de patrocinio en PDF"
-  },
-  "planificacion-capacitacion": {
-    label: "Planificaciones de Capacitación",
-    dialogTitle: "Seleccionar planificaciones de capacitación en PDF"
-  }
+  "plan-individual": { label: "Planes Individuales de Formación y Capacitación", dialogTitle: "Seleccionar planes individuales en PDF" },
+  "acuerdo-patrocinio": { label: "Acuerdos de Patrocinio Institucional", dialogTitle: "Seleccionar acuerdos de patrocinio en PDF" },
+  "planificacion-capacitacion": { label: "Planificaciones de Capacitación", dialogTitle: "Seleccionar planificaciones de capacitación en PDF" },
+  "informe-final-capacitacion": { label: "Informes Finales de Capacitación", dialogTitle: "Seleccionar informes finales de capacitación en PDF" }
 });
 
 let mainWindow = null;
@@ -42,7 +35,6 @@ function assertDocumentType(documentType) {
   if (!definition) throw new Error(`Tipo documental no permitido: ${documentType || "vacío"}.`);
   return definition;
 }
-
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -63,7 +55,6 @@ function createMainWindow() {
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("closed", () => { mainWindow = null; });
 }
-
 function createErrorResponse(error, fallbackMessage) {
   const message = error?.message || fallbackMessage;
   return { ok: false, message, files: {}, summary: {}, warnings: [], errors: [{ message }] };
@@ -78,11 +69,7 @@ function requireQueryService() {
 }
 function emitOcrProgress(documentType, phase, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send("ocr:progress", {
-    documentType,
-    phase,
-    ...payload
-  });
+  mainWindow.webContents.send("ocr:progress", { documentType, phase, ...payload });
 }
 function createProgressCallbacks(documentType, phase) {
   return {
@@ -122,13 +109,8 @@ async function selectPdfFiles(documentType) {
     properties: ["openFile", "multiSelections"],
     filters: [{ name: "Documentos PDF", extensions: ["pdf"] }]
   });
-  return {
-    canceled: result.canceled,
-    documentType,
-    filePaths: result.canceled ? [] : (result.filePaths || [])
-  };
+  return { canceled: result.canceled, documentType, filePaths: result.canceled ? [] : (result.filePaths || []) };
 }
-
 async function chooseOutputDirectory() {
   if (!mainWindow) return { canceled: true, outputDir: "" };
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -136,25 +118,15 @@ async function chooseOutputDirectory() {
     buttonLabel: "Usar esta carpeta",
     properties: ["openDirectory", "createDirectory"]
   });
-  return {
-    canceled: result.canceled || !result.filePaths?.[0],
-    outputDir: result.canceled ? "" : (result.filePaths?.[0] || "")
-  };
+  return { canceled: result.canceled || !result.filePaths?.[0], outputDir: result.canceled ? "" : (result.filePaths?.[0] || "") };
 }
-
 async function generateDocumentReport(payload) {
   const config = payload || {};
   assertDocumentType(config.documentType);
   const requestCheck = validateOutputRequest(config);
-  if (!requestCheck.ok) {
-    return { ok: false, message: requestCheck.issues.join(" "), files: {}, summary: {}, warnings: requestCheck.issues };
-  }
+  if (!requestCheck.ok) return { ok: false, message: requestCheck.issues.join(" "), files: {}, summary: {}, warnings: requestCheck.issues };
 
-  const validation = await validateDocumentSelection(
-    config.filePaths,
-    config.documentType,
-    createProgressCallbacks(config.documentType, "validation")
-  );
+  const validation = await validateDocumentSelection(config.filePaths, config.documentType, createProgressCallbacks(config.documentType, "validation"));
   if (!validation.canContinue) {
     return {
       ok: false,
@@ -172,9 +144,9 @@ async function generateDocumentReport(payload) {
     persistenceService: requirePersistence(),
     ...createProgressCallbacks(config.documentType, "processing")
   };
-
   if (config.documentType === "acuerdo-patrocinio") return processAgreementReport(processorOptions);
   if (config.documentType === "planificacion-capacitacion") return processPlanningReport(processorOptions);
+  if (config.documentType === "informe-final-capacitacion") return processFinalReport(processorOptions);
   return processReport(processorOptions);
 }
 
@@ -190,11 +162,7 @@ function registerIpcHandlers() {
   ipcMain.handle("files:validate-document-pdfs", async (_event, payload) => {
     const config = payload || {};
     assertDocumentType(config.documentType);
-    return validateDocumentSelection(
-      config.filePaths || [],
-      config.documentType,
-      createProgressCallbacks(config.documentType, "validation")
-    );
+    return validateDocumentSelection(config.filePaths || [], config.documentType, createProgressCallbacks(config.documentType, "validation"));
   });
   ipcMain.handle("dialog:choose-output-dir", async () => chooseOutputDirectory());
   ipcMain.handle("reports:generate-document-report", async (_event, payload) => {
@@ -204,20 +172,14 @@ function registerIpcHandlers() {
       return createErrorResponse(error, "Error desconocido al generar el reporte.");
     }
   });
-
   ipcMain.handle("database:get-overview", async () => requireQueryService().getOverview());
-  ipcMain.handle("database:query-documents", async (_event, options) => ({
-    ok: true,
-    documents: requireQueryService().listDocuments(options || {})
-  }));
+  ipcMain.handle("database:query-documents", async (_event, options) => ({ ok: true, documents: requireQueryService().listDocuments(options || {}) }));
   ipcMain.handle("database:query-type-records", async (_event, payload) => {
     const config = payload || {};
     return { ok: true, ...requireQueryService().listTypeRecords(config.documentType, config.options || {}) };
   });
-  ipcMain.handle("database:query-runs", async (_event, options) => ({
-    ok: true,
-    runs: requireQueryService().listProcessingRuns(options || {})
-  }));
+  ipcMain.handle("database:query-document-details", async (_event, documentId) => ({ ok: true, ...requireQueryService().getDocumentDetails(documentId) }));
+  ipcMain.handle("database:query-runs", async (_event, options) => ({ ok: true, runs: requireQueryService().listProcessingRuns(options || {}) }));
   ipcMain.handle("database:open-folder", async () => {
     const databasePath = requirePersistence().getDatabasePath();
     const errorMessage = await shell.openPath(databasePath);
@@ -235,7 +197,6 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
 });
-
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
