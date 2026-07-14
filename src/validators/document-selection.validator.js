@@ -2,22 +2,30 @@
 Nombre completo: document-selection.validator.js
 Ruta o ubicación: /src/validators/document-selection.validator.js
 Función o funciones:
-- Validar los PDF y detectar a qué sección documental pertenecen.
-- Impedir que planes y acuerdos se mezclen en la interfaz.
+- Validar PDF y detectar tres tipos documentales.
+- Aplicar OCR breve durante la identificación cuando sea necesario.
+- Impedir que documentos se carguen en una sección equivocada.
 ========================================================= */
 "use strict";
 
 const { validatePdfFiles } = require("./document.validator");
-const { readPdfFiles } = require("../extractor/pdf.reader");
+const { readPdfFilesHybrid } = require("../readers/pdf-hybrid.reader");
 const { normalizeForSearch } = require("../extractor/normalizer");
 
 const LABELS = Object.freeze({
   "plan-individual": "Plan Individual",
-  "acuerdo-patrocinio": "Acuerdo de Patrocinio"
+  "acuerdo-patrocinio": "Acuerdo de Patrocinio",
+  "planificacion-capacitacion": "Planificación de Capacitación"
 });
 
 function detectDocumentType(text, fileName = "") {
   const source = normalizeForSearch(`${text || ""} ${fileName || ""}`);
+
+  const planningByTitle = source.includes("planificacion de capacitacion") ||
+    source.includes("planificacion de la capacitacion");
+  const planningByCode = source.includes("rgi1") && /pro\s*-?\s*134/.test(source);
+  if (planningByTitle || planningByCode) return "planificacion-capacitacion";
+
   const planByTitle = source.includes("plan individual de formacion y capacitacion docente");
   const planByCode = source.includes("rgi1") && /pro\s*-?\s*251/.test(source);
   if (planByTitle || planByCode) return "plan-individual";
@@ -25,13 +33,22 @@ function detectDocumentType(text, fileName = "") {
   const agreementByTitle = source.includes("acuerdo de patrocinio institucional");
   const agreementByCode = source.includes("rgi2") && /pro\s*-?\s*134/.test(source);
   if (agreementByTitle || agreementByCode) return "acuerdo-patrocinio";
+
   return "desconocido";
 }
 
-async function validateDocumentSelection(filePaths, expectedType) {
+async function validateDocumentSelection(filePaths, expectedType, options = {}) {
   const base = validatePdfFiles(filePaths);
   const readablePaths = base.files.filter((file) => file.valid).map((file) => file.path);
-  const readResult = await readPdfFiles(readablePaths);
+  const readResult = await readPdfFilesHybrid(readablePaths, {
+    onDocumentStart: options.onDocumentStart,
+    onModeChange: options.onModeChange,
+    onProgress: options.onOcrProgress,
+    onPageStart: options.onPageStart,
+    onPageRender: options.onPageRender,
+    quality: { minCharacters: 100, minWords: 15 },
+    ocr: { maxPages: 2, scale: 1.8 }
+  });
   const readByPath = new Map(readResult.documents.map((document) => [document.filePath, document]));
 
   const files = base.files.map((file) => {
@@ -41,19 +58,27 @@ async function validateDocumentSelection(filePaths, expectedType) {
       ? detectDocumentType(document.text, document.fileName)
       : "desconocido";
     const errors = [...(file.errors || [])];
+
     if (!document || !document.ok) {
-      errors.push(...((document && document.errors) || ["No se pudo leer el contenido del PDF."]));
+      errors.push(...((document && document.errors) || ["No se pudo leer ni escanear el contenido del PDF."]));
     } else if (detectedType === "desconocido") {
-      errors.push("No se pudo identificar el tipo de documento.");
+      errors.push("No se pudo identificar el tipo de documento en las primeras páginas.");
     } else if (detectedType !== expectedType) {
       errors.push(`Este documento corresponde a ${LABELS[detectedType] || detectedType}. Cárguelo en su sección correcta.`);
     }
+
     return {
       ...file,
+      fileHash: document?.fileHash || file.fileHash || "",
       detectedType,
       typeMatch: detectedType === expectedType,
+      extractionMethod: document?.extractionMethod || "",
+      pageCount: document?.pageCount || 0,
+      ocrPageCount: document?.ocrPageCount || 0,
+      ocrConfidence: document?.ocrConfidence || 0,
       valid: errors.length === 0,
-      errors
+      errors,
+      warnings: document?.warnings || []
     };
   });
 
@@ -65,6 +90,9 @@ async function validateDocumentSelection(filePaths, expectedType) {
     validCount: validFiles.length,
     invalidCount: invalidFiles.length,
     duplicateCount: files.filter((file) => file.duplicate).length,
+    digitalCount: files.filter((file) => file.extractionMethod === "digital").length,
+    ocrCount: files.filter((file) => file.extractionMethod === "ocr").length,
+    mixedCount: files.filter((file) => file.extractionMethod === "mixed").length,
     files,
     validFiles,
     invalidFiles,
@@ -72,4 +100,8 @@ async function validateDocumentSelection(filePaths, expectedType) {
   };
 }
 
-module.exports = { LABELS, detectDocumentType, validateDocumentSelection };
+module.exports = {
+  LABELS,
+  detectDocumentType,
+  validateDocumentSelection
+};
