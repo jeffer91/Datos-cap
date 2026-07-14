@@ -19,7 +19,8 @@ const RUNS_COLLECTION = "_processing_runs";
 const TYPE_LABELS = Object.freeze({
   "plan-individual": "Plan Individual de Formación y Capacitación Docente",
   "acuerdo-patrocinio": "Acuerdo de Patrocinio Institucional",
-  "planificacion-capacitacion": "Planificación de Capacitación"
+  "planificacion-capacitacion": "Planificación de Capacitación",
+  "informe-final-capacitacion": "Informe Final de Capacitación"
 });
 
 function makeId(prefix) {
@@ -40,13 +41,19 @@ function getFileData(parsed) {
     nombre_archivo: text(file.nombre_archivo || path.basename(filePath)),
     ruta_archivo: filePath,
     hash_archivo: text(file.hash_archivo || source.file_hash) || calculateFileHash(filePath),
+    codigo_original: text(file.codigo_original || general.codigo_original),
     codigo_documento: text(file.codigo_documento || general.codigo_documento),
     periodo: text(file.periodo || general.periodo),
     docente: text(general.nombre_docente || general.docente),
-    carrera: text(general.carrera || general.carrera_publico),
+    carrera: text(general.carrera || general.carrera_publico || general.publico_dirigido),
+    publico_dirigido: text(general.publico_dirigido || general.carrera_publico),
     capacitacion: text(general.nombre_capacitacion || general.capacitacion || general.nombre_curso),
+    facilitador: text(general.facilitador),
+    total_participantes: Number(general.total_participantes_detectados || 0),
     metodo_extraccion: text(file.metodo_extraccion || source.extraction_method || "digital"),
-    total_paginas: Number(file.total_paginas || 0),
+    total_paginas: Number(file.total_paginas || file.paginas_fisicas || 0),
+    paginas_declaradas: Number(file.paginas_declaradas || general.paginas_declaradas || 0),
+    coinciden_paginas: text(file.coinciden_paginas || "NO_VERIFICABLE"),
     paginas_digitales: Number(file.paginas_digitales || source.digital_pages || 0),
     paginas_ocr: Number(file.paginas_ocr || source.ocr_pages || 0),
     confianza_ocr: Number(file.confianza_ocr || source.ocr_confidence || 0),
