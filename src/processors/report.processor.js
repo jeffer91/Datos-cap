@@ -2,13 +2,13 @@
 Nombre completo: report.processor.js
 Ruta o ubicación: /src/processors/report.processor.js
 Función o funciones:
-- Procesar Planes Individuales de principio a fin.
-- Guardar las tablas en la base local antes de exportar Excel y JSON.
+- Procesar Planes Individuales digitales, escaneados o mixtos.
+- Guardar resultados en la base local y exportar Excel/JSON.
 ========================================================= */
 "use strict";
 
 const fs = require("fs");
-const { readPdfFiles } = require("../extractor/pdf.reader");
+const { readPdfFilesHybrid } = require("../readers/pdf-hybrid.reader");
 const { parsePdfDocuments } = require("../extractor/fields.parser");
 const { buildAllTables, flattenValidationWarnings } = require("../tables");
 const { exportAll } = require("../exporters");
@@ -28,6 +28,29 @@ function createReportBaseName() { return `reporte_plan_individual_${createTimest
 function normalizeValidFiles(files) {
   return (Array.isArray(files) ? files : []).filter((file) => file && file.valid && file.path).map((file) => file.path);
 }
+function applySourceMetadata(parsedDocuments, readDocuments) {
+  const readByPath = new Map((readDocuments || []).map((document) => [document.filePath, document]));
+  (parsedDocuments || []).forEach((document) => {
+    const file = document.archivo || {};
+    const source = readByPath.get(file.ruta_archivo) || (readDocuments || []).find((item) => item.fileName === file.nombre_archivo);
+    if (!source) return;
+    file.hash_archivo = source.fileHash || file.hash_archivo || "";
+    file.total_paginas = source.pageCount || file.total_paginas || 0;
+    file.metodo_extraccion = source.extractionMethod || "digital";
+    file.paginas_digitales = source.digitalPageCount || 0;
+    file.paginas_ocr = source.ocrPageCount || 0;
+    file.confianza_ocr = source.ocrConfidence || 0;
+    document.archivo = file;
+    document.source = {
+      ...(document.source || {}),
+      file_hash: source.fileHash || "",
+      extraction_method: source.extractionMethod || "digital",
+      digital_pages: source.digitalPageCount || 0,
+      ocr_pages: source.ocrPageCount || 0,
+      ocr_confidence: source.ocrConfidence || 0
+    };
+  });
+}
 
 async function processReport(options = {}) {
   const outputDir = ensureOutputDirectory(options.outputDir);
@@ -36,8 +59,16 @@ async function processReport(options = {}) {
   const paths = normalizeValidFiles(validation.validFiles);
   if (!paths.length) return { ok: false, message: "La validación no contiene rutas PDF válidas.", files: {}, summary: {} };
 
-  const readResult = await readPdfFiles(paths);
+  const readResult = await readPdfFilesHybrid(paths, {
+    onDocumentStart: options.onDocumentStart,
+    onModeChange: options.onModeChange,
+    onProgress: options.onOcrProgress,
+    onPageStart: options.onPageStart,
+    onPageRender: options.onPageRender,
+    ocr: { maxPages: 40, scale: 2.2 }
+  });
   const parseResult = parsePdfDocuments(readResult.documents);
+  applySourceMetadata(parseResult.parsed, readResult.documents);
   const tableResult = buildAllTables(parseResult);
   const warnings = flattenValidationWarnings(tableResult.validations);
   const errors = [
@@ -81,8 +112,20 @@ async function processReport(options = {}) {
     outputDir,
     files: exportResult.files,
     validation,
-    readResult: { total: readResult.total, okCount: readResult.okCount, errorCount: readResult.errorCount },
-    parseResult: { total: parseResult.total, parsedCount: parseResult.parsedCount, errorCount: parseResult.errorCount, errors: parseResult.errors },
+    readResult: {
+      total: readResult.total,
+      okCount: readResult.okCount,
+      errorCount: readResult.errorCount,
+      digitalCount: readResult.digitalCount,
+      ocrCount: readResult.ocrCount,
+      mixedCount: readResult.mixedCount
+    },
+    parseResult: {
+      total: parseResult.total,
+      parsedCount: parseResult.parsedCount,
+      errorCount: parseResult.errorCount,
+      errors: parseResult.errors
+    },
     summary: tableResult.summary,
     persistence,
     warnings,
@@ -95,5 +138,6 @@ module.exports = {
   createTimestamp,
   createReportBaseName,
   normalizeValidFiles,
+  applySourceMetadata,
   processReport
 };
