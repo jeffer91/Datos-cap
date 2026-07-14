@@ -2,12 +2,13 @@
 Nombre completo: acuerdo-patrocinio.processor.js
 Ruta o ubicación: /src/processors/acuerdo-patrocinio.processor.js
 Función o funciones:
-- Leer, extraer, guardar y exportar Acuerdos de Patrocinio.
+- Procesar Acuerdos de Patrocinio digitales, escaneados o mixtos.
+- Guardar resultados en la base local y exportar Excel/JSON.
 ========================================================= */
 "use strict";
 
 const fs = require("fs");
-const { readPdfFiles } = require("../extractor/pdf.reader");
+const { readPdfFilesHybrid } = require("../readers/pdf-hybrid.reader");
 const { exportAll } = require("../exporters");
 const agreement = require("../document-types/acuerdo-patrocinio");
 
@@ -19,9 +20,9 @@ function ensureOutputDirectory(outputDir) {
   return clean;
 }
 function timestamp() {
-  const d = new Date();
+  const date = new Date();
   const pad = (value) => String(value).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 function validPaths(validation) {
   return (validation?.validFiles || []).filter((file) => file.valid && file.path).map((file) => file.path);
@@ -32,7 +33,14 @@ async function processAgreementReport(options = {}) {
   const paths = validPaths(options.validation);
   if (!paths.length) return { ok: false, message: "No hay acuerdos válidos para procesar.", files: {}, summary: {} };
 
-  const readResult = await readPdfFiles(paths);
+  const readResult = await readPdfFilesHybrid(paths, {
+    onDocumentStart: options.onDocumentStart,
+    onModeChange: options.onModeChange,
+    onProgress: options.onOcrProgress,
+    onPageStart: options.onPageStart,
+    onPageRender: options.onPageRender,
+    ocr: { maxPages: 30, scale: 2.2 }
+  });
   const parseResult = agreement.parser.parseDocuments(readResult.documents);
   const tableResult = agreement.tables.buildTables(parseResult);
   const warnings = agreement.tables.flattenWarnings(tableResult.validations);
@@ -74,12 +82,28 @@ async function processAgreementReport(options = {}) {
     files: exportResult.files,
     summary: tableResult.summary,
     validation: options.validation,
-    readResult: { total: readResult.total, okCount: readResult.okCount, errorCount: readResult.errorCount },
-    parseResult: { total: parseResult.total, parsedCount: parseResult.parsedCount, errorCount: parseResult.errorCount },
+    readResult: {
+      total: readResult.total,
+      okCount: readResult.okCount,
+      errorCount: readResult.errorCount,
+      digitalCount: readResult.digitalCount,
+      ocrCount: readResult.ocrCount,
+      mixedCount: readResult.mixedCount
+    },
+    parseResult: {
+      total: parseResult.total,
+      parsedCount: parseResult.parsedCount,
+      errorCount: parseResult.errorCount
+    },
     persistence,
     warnings,
     errors: parseResult.errors
   };
 }
 
-module.exports = { processAgreementReport };
+module.exports = {
+  ensureOutputDirectory,
+  timestamp,
+  validPaths,
+  processAgreementReport
+};
