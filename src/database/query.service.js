@@ -3,14 +3,52 @@ Nombre completo: query.service.js
 Ruta o ubicación: /src/database/query.service.js
 Función o funciones:
 - Consultar la base local para la página independiente Base.
-- Entregar resumen, documentos, registros por tipo y procesamientos.
+- Entregar resumen, documentos, registros por tipo, detalles y procesamientos.
 ========================================================= */
 "use strict";
 
 const TYPE_COLLECTIONS = Object.freeze({
   "plan-individual": "identificacion_docente",
   "acuerdo-patrocinio": "datos_acuerdo_patrocinio",
-  "planificacion-capacitacion": "datos_planificacion_capacitacion"
+  "planificacion-capacitacion": "datos_planificacion_capacitacion",
+  "informe-final-capacitacion": "datos_generales_informe"
+});
+
+const TYPE_DETAIL_COLLECTIONS = Object.freeze({
+  "plan-individual": [
+    "archivos_plan_individual",
+    "identificacion_docente",
+    "capacidades_docente",
+    "capacitaciones_propuestas",
+    "formacion_docente"
+  ],
+  "acuerdo-patrocinio": [
+    "archivos_acuerdo_patrocinio",
+    "datos_acuerdo_patrocinio",
+    "apoyos_acuerdo_patrocinio",
+    "responsables_acuerdo_patrocinio"
+  ],
+  "planificacion-capacitacion": [
+    "archivos_planificacion_capacitacion",
+    "datos_planificacion_capacitacion",
+    "temario_planificacion_capacitacion",
+    "evaluaciones_planificacion_capacitacion",
+    "responsables_planificacion_capacitacion",
+    "facilitadores_planificacion_capacitacion",
+    "anexos_planificacion_capacitacion",
+    "ocr_paginas_planificacion"
+  ],
+  "informe-final-capacitacion": [
+    "archivos_informe_final",
+    "datos_generales_informe",
+    "objetivos_informe",
+    "participantes_informe",
+    "certificados_informe",
+    "resumen_certificados_informe",
+    "responsables_informe",
+    "anexos_informe",
+    "ocr_paginas_informe"
+  ]
 });
 
 function text(value) { return String(value == null ? "" : value).trim(); }
@@ -43,6 +81,7 @@ class QueryService {
       planCount: documents.filter((row) => row.tipo_documental === "plan-individual").length,
       agreementCount: documents.filter((row) => row.tipo_documental === "acuerdo-patrocinio").length,
       planningCount: documents.filter((row) => row.tipo_documental === "planificacion-capacitacion").length,
+      finalReportCount: documents.filter((row) => row.tipo_documental === "informe-final-capacitacion").length,
       reviewCount: documents.filter((row) => row.requiere_revision === "SI").length,
       digitalDocumentCount: documents.filter((row) => row.metodo_extraccion === "digital").length,
       ocrDocumentCount: documents.filter((row) => row.metodo_extraccion === "ocr").length,
@@ -89,6 +128,18 @@ class QueryService {
     };
   }
 
+  getDocumentDetails(documentId) {
+    const id = text(documentId);
+    if (!id) throw new Error("Debes indicar el documento que deseas consultar.");
+    const document = this.readSafe("_documents").find((row) => text(row.id_documento || row.id) === id);
+    if (!document) throw new Error("El documento no existe en la base local.");
+    const collections = {};
+    (TYPE_DETAIL_COLLECTIONS[document.tipo_documental] || []).forEach((collection) => {
+      collections[collection] = this.readSafe(collection).filter((row) => text(row.id_documento) === id);
+    });
+    return { document, collections };
+  }
+
   getOverview(options = {}) {
     return {
       ok: true,
@@ -103,6 +154,7 @@ function createQueryService(database) { return new QueryService(database); }
 
 module.exports = {
   TYPE_COLLECTIONS,
+  TYPE_DETAIL_COLLECTIONS,
   QueryService,
   createQueryService
 };
