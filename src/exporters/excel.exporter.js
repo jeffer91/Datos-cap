@@ -2,7 +2,8 @@
 Nombre completo: excel.exporter.js
 Ruta o ubicación: /src/exporters/excel.exporter.js
 Función o funciones:
-- Generar Excel para Planes Individuales y Acuerdos de Patrocinio.
+- Generar Excel para Planes, Acuerdos y Planificaciones.
+- Mantener orden y nombres seguros de hojas por tipo documental.
 ========================================================= */
 "use strict";
 
@@ -14,8 +15,13 @@ const DEFAULT_SHEET_ORDER = [
   "archivos_plan_individual", "identificacion_docente", "capacidades_docente",
   "capacitaciones_propuestas", "formacion_docente",
   "archivos_acuerdo_patrocinio", "datos_acuerdo_patrocinio",
-  "apoyos_acuerdo_patrocinio", "responsables_acuerdo_patrocinio"
+  "apoyos_acuerdo_patrocinio", "responsables_acuerdo_patrocinio",
+  "archivos_planificacion_capacitacion", "datos_planificacion_capacitacion",
+  "temario_planificacion_capacitacion", "evaluaciones_planificacion_capacitacion",
+  "responsables_planificacion_capacitacion", "facilitadores_planificacion_capacitacion",
+  "anexos_planificacion_capacitacion", "ocr_paginas_planificacion"
 ];
+
 const SHEET_LABELS = {
   archivos_plan_individual: "01_archivos",
   identificacion_docente: "02_identificacion",
@@ -25,8 +31,17 @@ const SHEET_LABELS = {
   archivos_acuerdo_patrocinio: "01_archivos",
   datos_acuerdo_patrocinio: "02_datos_acuerdo",
   apoyos_acuerdo_patrocinio: "03_apoyos",
-  responsables_acuerdo_patrocinio: "04_responsables"
+  responsables_acuerdo_patrocinio: "04_responsables",
+  archivos_planificacion_capacitacion: "01_archivos",
+  datos_planificacion_capacitacion: "02_datos",
+  temario_planificacion_capacitacion: "03_temario",
+  evaluaciones_planificacion_capacitacion: "04_evaluaciones",
+  responsables_planificacion_capacitacion: "05_responsables",
+  facilitadores_planificacion_capacitacion: "06_facilitadores",
+  anexos_planificacion_capacitacion: "07_anexos",
+  ocr_paginas_planificacion: "08_ocr_paginas"
 };
+
 function ensureDirectory(dir) {
   const clean = String(dir || "").trim();
   if (!clean) throw new Error("No se recibió carpeta de salida para generar el Excel.");
@@ -75,6 +90,23 @@ function exportTablesToExcel(options = {}) {
   const filePath = path.join(options.outputDir, `${baseName}.xlsx`);
   const workbook = createWorkbookFromTables(options.tables || {});
   XLSX.writeFile(workbook, filePath, { bookType: "xlsx", compression: true });
-  return { ok: true, filePath, fileName: path.basename(filePath), sheetCount: workbook.SheetNames.length, sheets: workbook.SheetNames };
+  return {
+    ok: true,
+    filePath,
+    fileName: path.basename(filePath),
+    sheetCount: workbook.SheetNames.length,
+    sheets: workbook.SheetNames
+  };
 }
-module.exports = { DEFAULT_SHEET_ORDER, SHEET_LABELS, ensureDirectory, sanitizeFileName, safeSheetName, normalizeRows, calculateColumnWidths, createWorkbookFromTables, exportTablesToExcel };
+
+module.exports = {
+  DEFAULT_SHEET_ORDER,
+  SHEET_LABELS,
+  ensureDirectory,
+  sanitizeFileName,
+  safeSheetName,
+  normalizeRows,
+  calculateColumnWidths,
+  createWorkbookFromTables,
+  exportTablesToExcel
+};
