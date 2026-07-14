@@ -1,23 +1,20 @@
-# Plan Docente Extractor
+# Gestor de Documentos de Capacitación
 
-Aplicación de escritorio en Electron para cargar varios PDF del **Plan Individual de Formación y Capacitación Docente**, extraer los campos variables y generar un reporte en **Excel + JSON**.
+Aplicación de escritorio desarrollada con Electron para procesar documentos institucionales de capacitación docente, guardar la información en una base local y generar reportes en Excel y JSON.
 
-## Objetivo
+## Tipos documentales disponibles
 
-La app permite convertir varios documentos PDF institucionales en cinco tablas no relacionales listas para revisión y futura carga a una base de datos.
+### 1. Plan Individual de Formación y Capacitación Docente
 
-## Flujo principal
+Reconoce documentos con referencias como:
 
 ```text
-Seleccionar PDF
-→ Validar documentos
-→ Seleccionar carpeta de salida
-→ Generar Excel + JSON
+RGI1
+PRO-251
+PLAN INDIVIDUAL DE FORMACIÓN Y CAPACITACIÓN DOCENTE
 ```
 
-## Tablas generadas
-
-El Excel contiene cinco hojas:
+Genera cinco tablas:
 
 ```text
 01_archivos
@@ -27,58 +24,51 @@ El Excel contiene cinco hojas:
 05_formacion
 ```
 
-El JSON contiene la misma información dentro de:
+### 2. Acuerdo de Patrocinio Institucional
 
-```json
-{
-  "metadata": {},
-  "resumen": {},
-  "validaciones": {},
-  "advertencias": [],
-  "errores": [],
-  "tablas": {
-    "archivos_plan_individual": [],
-    "identificacion_docente": [],
-    "capacidades_docente": [],
-    "capacitaciones_propuestas": [],
-    "formacion_docente": []
-  }
-}
-```
-
-## Estructura del proyecto
+Reconoce documentos con referencias como:
 
 ```text
-plan-docente-extractor/
-├─ package.json
-├─ main.js
-├─ preload.js
-├─ renderer/
-│  ├─ index.html
-│  └─ app.js
-├─ src/
-│  ├─ diagnostics/
-│  │  └─ selftest.js
-│  ├─ exporters/
-│  │  ├─ excel.exporter.js
-│  │  ├─ json.exporter.js
-│  │  └─ index.js
-│  ├─ extractor/
-│  │  ├─ fields.parser.js
-│  │  ├─ normalizer.js
-│  │  └─ pdf.reader.js
-│  ├─ processors/
-│  │  └─ report.processor.js
-│  ├─ tables/
-│  │  ├─ archivos.table.js
-│  │  ├─ capacidades.table.js
-│  │  ├─ capacitaciones.table.js
-│  │  ├─ formacion.table.js
-│  │  ├─ identificacion.table.js
-│  │  └─ index.js
-│  └─ utils/
-│     └─ ids.js
+RGI2
+PRO-134
+ACUERDO DE PATROCINIO INSTITUCIONAL
 ```
+
+Extrae docente, cédula, carrera, capacitación, fecha, ciudad, apoyo institucional y responsables.
+
+Genera cuatro tablas:
+
+```text
+01_archivos
+02_datos_acuerdo
+03_apoyos
+04_responsables
+```
+
+## Base local
+
+La aplicación guarda automáticamente los resultados en una base local formada por colecciones JSON. La ubicación se crea dentro de la carpeta de datos de Electron:
+
+```text
+local-database/
+├─ database.meta.json
+└─ collections/
+```
+
+El panel de la aplicación permite ver:
+
+- documentos guardados;
+- cantidad de planes y acuerdos;
+- filas almacenadas;
+- ejecuciones recientes;
+- duplicados omitidos;
+- últimos documentos procesados.
+
+La opción **Abrir carpeta** permite revisar físicamente los archivos JSON.
+
+## Control de duplicados
+
+Cada PDF recibe una huella SHA-256. Si el mismo contenido se procesa nuevamente, la aplicación puede generar otro Excel y JSON, pero no vuelve a duplicar los registros en la base local.
 
 ## Instalación
 
@@ -88,41 +78,41 @@ Desde PowerShell, dentro de la carpeta del proyecto:
 npm install
 ```
 
-## Ejecutar la app
+## Ejecutar
 
 ```powershell
 npm start
 ```
 
-También puedes usar:
+También puede utilizarse:
 
 ```powershell
 npm run dev
 ```
 
-## Probar módulos sin abrir Electron
+## Diagnóstico automático
 
 ```powershell
 npm run selftest
 ```
 
-Esta prueba crea datos simulados, genera tablas y exporta archivos temporales Excel + JSON para verificar que los módulos principales estén funcionando.
+La prueba comprueba:
 
-## Salida esperada
+- cinco tablas de Planes Individuales;
+- cuatro tablas de Acuerdos de Patrocinio;
+- detección de cédula y apoyo marcado;
+- generación de Excel y JSON;
+- almacenamiento en la base local.
 
-Cuando se genera el reporte, la aplicación crea archivos con nombre similar a:
-
-```text
-reporte_plan_individual_20260709_163000.xlsx
-reporte_plan_individual_20260709_163000.json
-```
-
-## Criterio de revisión
-
-Si un PDF tiene datos incompletos, el sistema no bloquea la exportación. Marca el registro con:
+## Flujo de uso
 
 ```text
-requiere_revision = SI
+Seleccionar documentos
+→ Validar el tipo documental
+→ Seleccionar carpeta de salida
+→ Procesar y guardar localmente
+→ Generar Excel + JSON
+→ Revisar la base local
 ```
 
-Esto permite revisar manualmente los casos con campos faltantes, fechas sospechosas o información no detectada.
+Los Planes Individuales y los Acuerdos de Patrocinio se manejan en secciones independientes para evitar que sus archivos y resultados se mezclen.
