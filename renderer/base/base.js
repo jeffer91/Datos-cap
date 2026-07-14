@@ -3,7 +3,7 @@ Nombre completo: base.js
 Ruta o ubicación: /renderer/base/base.js
 Función o funciones:
 - Controlar la página Base independiente.
-- Consultar resumen, documentos, tipos y procesamientos.
+- Consultar resumen, documentos, tipos, detalles y procesamientos.
 ========================================================= */
 "use strict";
 
@@ -65,6 +65,9 @@ Función o funciones:
         const type = currentFilters.documentType || "plan-individual";
         const result = await windowObject.documentAppAPI.queryDatabaseTypeRecords(type, currentFilters);
         views.tipos(elements.view, result);
+      } else if (activeView === "detalles") {
+        const result = await windowObject.documentAppAPI.queryDatabaseDocuments(currentFilters);
+        views.detalles(elements.view, { documents: result.documents || [] });
       } else if (activeView === "procesamientos") {
         const result = await windowObject.documentAppAPI.queryDatabaseRuns(currentFilters);
         views.procesamientos(elements.view, result.runs || []);
@@ -105,7 +108,7 @@ Función o funciones:
       if (event.key === "Enter") loadView();
     });
     elements.type.addEventListener("change", () => {
-      if (activeView === "tipos") loadView();
+      if (activeView === "tipos" || activeView === "detalles") loadView();
     });
   }
 
