@@ -1,20 +1,15 @@
 /* =========================================================
 Nombre completo: document.validator.js
-Ruta o ubicación: /plan-docente-extractor/src/validators/document.validator.js
+Ruta o ubicación: /src/validators/document.validator.js
 Función o funciones:
-- Validar documentos PDF antes de iniciar la extracción.
-- Detectar archivos inexistentes, vacíos, duplicados o con extensión incorrecta.
-- Separar documentos válidos e inválidos para continuar solo con los correctos.
-- Entregar un resumen uniforme para la interfaz y el procesador.
+- Validar existencia, extensión, tamaño y duplicados de PDF.
+- Calcular huella SHA-256 para deduplicación local.
 ========================================================= */
-
 "use strict";
 
 const path = require("path");
-const {
-  normalizeFilePath,
-  createFileInfo
-} = require("../utils/file.utils");
+const { normalizeFilePath, createFileInfo } = require("../utils/file.utils");
+const { calculateFileHash } = require("../utils/hash.utils");
 
 const VALID_EXTENSIONS = new Set([".pdf"]);
 
@@ -29,68 +24,44 @@ function validatePdfFile(filePath) {
     sizeMB: info.sizeMB,
     exists: info.exists,
     isPdf: info.extension === ".pdf",
+    fileHash: "",
     valid: false,
     duplicate: false,
     errors: []
   };
-
-  if (!normalizeFilePath(filePath)) {
-    result.errors.push("Ruta vacía.");
+  if (!normalizeFilePath(filePath)) result.errors.push("Ruta vacía.");
+  if (!result.exists) result.errors.push("El archivo no existe.");
+  if (result.exists && !info.isFile) result.errors.push("La ruta no corresponde a un archivo.");
+  if (!VALID_EXTENSIONS.has(result.extension)) result.errors.push("Solo se permiten archivos PDF.");
+  if (result.exists && info.isFile && result.sizeBytes <= 0) result.errors.push("El archivo está vacío.");
+  if (!result.errors.length) {
+    try { result.fileHash = calculateFileHash(info.path); }
+    catch (error) { result.errors.push(`No se pudo calcular la huella del archivo: ${error.message}`); }
   }
-
-  if (!result.exists) {
-    result.errors.push("El archivo no existe.");
-  }
-
-  if (result.exists && !info.isFile) {
-    result.errors.push("La ruta no corresponde a un archivo.");
-  }
-
-  if (!VALID_EXTENSIONS.has(result.extension)) {
-    result.errors.push("Solo se permiten archivos PDF.");
-  }
-
-  if (result.exists && info.isFile && result.sizeBytes <= 0) {
-    result.errors.push("El archivo está vacío.");
-  }
-
   result.valid = result.errors.length === 0;
-
   return result;
 }
 
-function createDuplicateKey(filePath) {
-  const cleanPath = normalizeFilePath(filePath);
-
-  if (!cleanPath) {
-    return "";
-  }
-
-  return path.resolve(cleanPath).toLowerCase();
-}
-
 function validatePdfFiles(filePaths) {
-  const receivedPaths = Array.isArray(filePaths) ? filePaths : [];
-  const seen = new Set();
-
-  const files = receivedPaths.map((item) => {
+  const received = Array.isArray(filePaths) ? filePaths : [];
+  const seenPaths = new Set();
+  const seenHashes = new Set();
+  const files = received.map((item) => {
     const info = validatePdfFile(item);
-    const duplicateKey = createDuplicateKey(info.path);
-
-    if (duplicateKey && seen.has(duplicateKey)) {
+    const pathKey = normalizeFilePath(info.path) ? path.resolve(info.path).toLowerCase() : "";
+    const hashKey = String(info.fileHash || "").toLowerCase();
+    if ((pathKey && seenPaths.has(pathKey)) || (hashKey && seenHashes.has(hashKey))) {
       info.duplicate = true;
       info.valid = false;
       info.errors.push("Archivo duplicado en la selección.");
-    } else if (duplicateKey) {
-      seen.add(duplicateKey);
+    } else {
+      if (pathKey) seenPaths.add(pathKey);
+      if (hashKey) seenHashes.add(hashKey);
     }
-
     return info;
   });
-
   const validFiles = files.filter((file) => file.valid);
   const invalidFiles = files.filter((file) => !file.valid);
-
   return {
     total: files.length,
     validCount: validFiles.length,
@@ -106,24 +77,10 @@ function validatePdfFiles(filePaths) {
 function validateOutputRequest(payload) {
   const config = payload || {};
   const issues = [];
-
-  if (!Array.isArray(config.filePaths) || !config.filePaths.length) {
-    issues.push("No se recibieron rutas de PDF.");
-  }
-
-  if (!normalizeFilePath(config.outputDir)) {
-    issues.push("No se recibió carpeta de salida.");
-  }
-
-  return {
-    ok: issues.length === 0,
-    issues
-  };
+  if (!Array.isArray(config.filePaths) || !config.filePaths.length) issues.push("No se recibieron rutas de PDF.");
+  if (!normalizeFilePath(config.outputDir)) issues.push("No se recibió carpeta de salida.");
+  if (!config.documentType) issues.push("No se recibió el tipo documental.");
+  return { ok: issues.length === 0, issues };
 }
 
-module.exports = {
-  VALID_EXTENSIONS,
-  validatePdfFile,
-  validatePdfFiles,
-  validateOutputRequest
-};
+module.exports = { VALID_EXTENSIONS, validatePdfFile, validatePdfFiles, validateOutputRequest };
