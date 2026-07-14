@@ -4,14 +4,14 @@
     "ruta_o_ubicacion": "/package.json",
     "funcion_o_funciones": [
       "Configurar la aplicación Electron.",
-      "Procesar Planes Individuales y Acuerdos de Patrocinio.",
-      "Guardar los resultados en una base local JSON.",
-      "Exportar reportes Excel y JSON."
+      "Procesar tres tipos documentales con lectura digital u OCR.",
+      "Guardar resultados en una base local JSON.",
+      "Separar las páginas Documentos y Base."
     ]
   },
   "name": "gestor-documentos-capacitacion",
-  "version": "1.1.0",
-  "description": "Aplicación Electron para procesar Planes Individuales y Acuerdos de Patrocinio, con base local y exportación Excel/JSON.",
+  "version": "1.2.0",
+  "description": "Aplicación Electron para escanear Planes Individuales, Acuerdos y Planificaciones, guardar una base local y exportar Excel/JSON.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
@@ -19,12 +19,15 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "selftest": "node src/diagnostics/selftest.js"
+    "selftest": "node src/diagnostics/selftest.js",
+    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js"
   },
   "dependencies": {
     "electron": "^31.7.7",
     "fs-extra": "^11.2.0",
     "pdf-parse": "^1.1.1",
+    "pdf-to-img": "^4.2.0",
+    "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {}
