@@ -22,7 +22,10 @@ window.BaseViews.resumen = function renderResumen(container, data) {
     ["Procesamientos", summary.processingRunCount],
     ["Confianza OCR promedio", `${summary.averageOcrConfidence || 0}%`]
   ];
-  const cardsHtml = cards.map(([label, value]) => `<div class="overview-card"><span>${ui.escapeHtml(label)}</span><strong>${ui.escapeHtml(ui.formatNumber(value))}</strong></div>`).join("");
+  const cardsHtml = cards.map(([label, value]) => {
+    const display = typeof value === "number" ? ui.formatNumber(value) : String(value == null ? "" : value);
+    return `<div class="overview-card"><span>${ui.escapeHtml(label)}</span><strong>${ui.escapeHtml(display)}</strong></div>`;
+  }).join("");
   container.innerHTML = `
     <div class="overview-grid">${cardsHtml}</div>
     <div class="database-path">Carpeta de la base: ${ui.escapeHtml(summary.databasePath || "No disponible")}</div>
