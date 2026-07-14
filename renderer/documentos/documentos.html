@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentos | Gestor de Capacitación</title>
+  <link rel="stylesheet" href="../shared/menu.css" />
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <link rel="stylesheet" href="./documentos.css" />
+</head>
+<body data-active-menu="documentos">
+  <div data-menu-root></div>
+
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>Documentos</h1>
+        <p>Selecciona una sección para validar, escanear, extraer, guardar y exportar sus PDF.</p>
+      </div>
+    </header>
+
+    <section class="document-tabs" aria-label="Tipos documentales">
+      <button class="document-tab active" data-document-tab="plan-individual">
+        <strong>Planes Individuales</strong>
+        <span>RGI1 · PRO-251</span>
+      </button>
+      <button class="document-tab" data-document-tab="acuerdo-patrocinio">
+        <strong>Acuerdos de Patrocinio</strong>
+        <span>RGI2 · PRO-134</span>
+      </button>
+      <button class="document-tab" data-document-tab="planificacion-capacitacion">
+        <strong>Planificaciones de Capacitación</strong>
+        <span>RGI1 · PRO-134</span>
+      </button>
+    </section>
+
+    <section class="card" id="documentWorkspace">
+      <div class="workspace-head">
+        <div>
+          <h2 class="section-title" id="workspaceTitle">Planes Individuales</h2>
+          <p class="section-description" id="workspaceDescription"></p>
+        </div>
+        <span class="workspace-code" id="workspaceCode"></span>
+      </div>
+
+      <div class="actions workspace-actions">
+        <button class="btn-primary" id="btnSelectDocuments">Seleccionar PDF</button>
+        <button class="btn-secondary" id="btnValidateDocuments" disabled>Validar y detectar</button>
+        <button class="btn-secondary" id="btnChooseOutput">Seleccionar carpeta</button>
+        <button class="btn-primary" id="btnGenerateDocuments" disabled>Escanear, guardar y generar</button>
+        <button class="btn-danger" id="btnClearDocuments" disabled>Limpiar sección</button>
+      </div>
+
+      <div class="output-row">
+        <div class="status-box status-info" id="documentStatus">Esperando selección de PDF.</div>
+        <div class="status-box status-info" id="outputStatus">Carpeta de salida no seleccionada.</div>
+      </div>
+
+      <div class="progress-panel hidden" id="ocrProgressPanel">
+        <strong id="ocrProgressTitle">Escaneando documento...</strong>
+        <span id="ocrProgressDetail">Preparando OCR.</span>
+        <div class="progress-track"><div class="progress-bar" id="ocrProgressBar"></div></div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-item"><span>Seleccionados</span><strong id="summarySelected">0</strong></div>
+        <div class="summary-item"><span>Válidos</span><strong id="summaryValid">0</strong></div>
+        <div class="summary-item"><span>Para revisar</span><strong id="summaryInvalid">0</strong></div>
+        <div class="summary-item"><span>Digitales</span><strong id="summaryDigital">0</strong></div>
+        <div class="summary-item"><span>Con OCR</span><strong id="summaryOcr">0</strong></div>
+        <div class="summary-item"><span>Listo</span><strong id="summaryReady">No</strong></div>
+      </div>
+
+      <div id="selectedDocuments"><div class="empty">Aquí aparecerán los PDF seleccionados.</div></div>
+      <div id="documentResult"></div>
+    </section>
+  </main>
+
+  <script src="../shared/menu.js"></script>
+  <script src="../shared/ui.js"></script>
+  <script src="./secciones/planes.section.js"></script>
+  <script src="./secciones/acuerdos.section.js"></script>
+  <script src="./secciones/planificaciones.section.js"></script>
+  <script src="./documentos.js"></script>
+</body>
+</html>
