@@ -12,7 +12,7 @@ Documentos | Base
 
 ### Documentos
 
-Es la página inicial:
+Página inicial ubicada en:
 
 ```text
 renderer/documentos/documentos.html
@@ -22,15 +22,15 @@ Aquí se seleccionan, validan, escanean, entienden, guardan y exportan los PDF.
 
 ### Base
 
-Es una página independiente:
+Página independiente ubicada en:
 
 ```text
 renderer/base/base.html
 ```
 
-Aquí únicamente se consulta lo que ya fue guardado en la base local. No procesa PDF.
+Aquí se consulta lo guardado en la base local. No procesa PDF.
 
-## Cuatro secciones documentales
+## Seis tipos documentales
 
 ### 1. Planes Individuales
 
@@ -92,38 +92,64 @@ INF
 PRO-134
 ```
 
-Extrae y guarda únicamente información relevante y comparable:
+Extrae datos generales, objetivos, participantes, certificados, responsables, anexos, páginas OCR e inconsistencias de paginación.
 
-- código original y código normalizado;
-- periodo y fecha de elaboración;
-- capacitación y público dirigido;
-- facilitador, fechas y duración;
-- objetivo general, objetivos específicos y cumplimiento;
-- participantes con columnas opcionales;
-- certificados individuales y resumen de resultados;
-- responsables;
-- anexos;
-- páginas OCR;
-- páginas físicas y páginas declaradas;
-- diferencias e inconsistencias que requieren revisión.
+### 5. Instrumentos de Evaluación
 
-Genera nueve hojas:
+Reconoce títulos y variantes como:
+
+```text
+INSTRUMENTO DE EVALUACIÓN
+INSTRUMENTO PARA LA EVALUACIÓN
+FICHA DE EVALUACIÓN DE LA CAPACITACIÓN
+ENCUESTA DE EVALUACIÓN DE LA CAPACITACIÓN
+PRO-135
+```
+
+La estructura queda preparada para extraer:
 
 ```text
 01_archivos
 02_datos_generales
-03_objetivos
-04_participantes
-05_certificados
-06_resumen_certificados
+03_items
+04_resultados
+05_responsables
+06_anexos
+07_ocr_paginas
+```
+
+El parser inicial es flexible: detecta datos generales, ítems numerados, respuestas marcadas, puntajes, resultados, observaciones y recomendaciones. La lógica específica se ajustará cuando se incorporen formatos institucionales reales.
+
+### 6. Informes de Impacto
+
+Reconoce títulos y variantes como:
+
+```text
+INFORME DE IMPACTO
+MEDICIÓN DE IMPACTO DE LA CAPACITACIÓN
+EVALUACIÓN DE IMPACTO DE LA CAPACITACIÓN
+PRO-135
+```
+
+La estructura queda preparada para extraer:
+
+```text
+01_archivos
+02_datos_generales
+03_indicadores
+04_resultados
+05_recomendaciones
+06_participantes
 07_responsables
 08_anexos
 09_ocr_paginas
 ```
 
+El parser inicial detecta indicadores, líneas base, metas, resultados porcentuales, hallazgos, cambios observados, conclusiones y recomendaciones. La lógica específica se ajustará con documentos reales.
+
 ## Lectura digital y OCR
 
-Las cuatro secciones utilizan el mismo flujo híbrido:
+Los seis tipos utilizan el mismo flujo híbrido:
 
 ```text
 PDF
@@ -152,10 +178,7 @@ La página Base permite consultar:
 
 - resumen general;
 - documentos guardados;
-- Planes Individuales;
-- Acuerdos de Patrocinio;
-- Planificaciones de Capacitación;
-- Informes Finales de Capacitación;
+- los seis tipos documentales;
 - detalles completos relacionados por `id_documento`;
 - método de extracción;
 - páginas y confianza OCR;
@@ -164,31 +187,41 @@ La página Base permite consultar:
 
 Cada PDF recibe una huella SHA-256. Si el mismo archivo se procesa nuevamente, puede volver a exportarse, pero no se duplican sus registros locales.
 
-## Colecciones de Informes Finales
+## Nuevas colecciones
+
+### Instrumentos de Evaluación
 
 ```text
-archivos_informe_final
-datos_generales_informe
-objetivos_informe
-participantes_informe
-certificados_informe
-resumen_certificados_informe
-responsables_informe
-anexos_informe
-ocr_paginas_informe
+archivos_instrumento_evaluacion
+datos_generales_instrumento
+items_instrumento_evaluacion
+resultados_instrumento_evaluacion
+responsables_instrumento_evaluacion
+anexos_instrumento_evaluacion
+ocr_paginas_instrumento_evaluacion
 ```
 
-Todas se relacionan mediante `id_documento`.
+### Informes de Impacto
+
+```text
+archivos_informe_impacto
+datos_generales_informe_impacto
+indicadores_informe_impacto
+resultados_informe_impacto
+recomendaciones_informe_impacto
+participantes_informe_impacto
+responsables_informe_impacto
+anexos_informe_impacto
+ocr_paginas_informe_impacto
+```
+
+Todas las colecciones se relacionan mediante `id_documento`.
 
 ## Estructura visual
 
 ```text
 renderer/
 ├─ shared/
-│  ├─ menu.js
-│  ├─ menu.css
-│  ├─ ui.js
-│  └─ ui.css
 ├─ documentos/
 │  ├─ documentos.html
 │  ├─ documentos.js
@@ -197,17 +230,14 @@ renderer/
 │     ├─ planes.section.js
 │     ├─ acuerdos.section.js
 │     ├─ planificaciones.section.js
-│     └─ informes-finales.section.js
+│     ├─ informes-finales.section.js
+│     ├─ instrumentos-evaluacion.section.js
+│     └─ informes-impacto.section.js
 └─ base/
    ├─ base.html
    ├─ base.js
    ├─ base.css
    └─ vistas/
-      ├─ resumen.view.js
-      ├─ documentos.view.js
-      ├─ tipos.view.js
-      ├─ detalles.view.js
-      └─ procesamientos.view.js
 ```
 
 ## Instalar
@@ -234,7 +264,7 @@ npm run check
 npm run selftest
 ```
 
-La prueba comprueba los cuatro tipos documentales, veintiséis grupos de tablas, exportación Excel/JSON, almacenamiento, consultas y detalles de Base.
+La prueba comprueba los seis tipos documentales, exportación Excel/JSON, almacenamiento, consultas y detalles de Base.
 
 ## Consideración del primer OCR
 
