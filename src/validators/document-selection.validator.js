@@ -2,7 +2,7 @@
 Nombre completo: document-selection.validator.js
 Ruta o ubicación: /src/validators/document-selection.validator.js
 Función o funciones:
-- Validar PDF y detectar cuatro tipos documentales.
+- Validar PDF y detectar seis tipos documentales.
 - Aplicar OCR breve durante la identificación cuando sea necesario.
 - Impedir que documentos se carguen en una sección equivocada.
 ========================================================= */
@@ -16,11 +16,27 @@ const LABELS = Object.freeze({
   "plan-individual": "Plan Individual",
   "acuerdo-patrocinio": "Acuerdo de Patrocinio",
   "planificacion-capacitacion": "Planificación de Capacitación",
-  "informe-final-capacitacion": "Informe Final de Capacitación"
+  "informe-final-capacitacion": "Informe Final de Capacitación",
+  "instrumento-evaluacion": "Instrumento de Evaluación",
+  "informe-impacto": "Informe de Impacto"
 });
 
 function detectDocumentType(text, fileName = "") {
   const source = normalizeForSearch(`${text || ""} ${fileName || ""}`);
+
+  const impactByTitle = source.includes("informe de impacto") ||
+    source.includes("informe del impacto") ||
+    source.includes("medicion de impacto de la capacitacion") ||
+    source.includes("evaluacion de impacto de la capacitacion");
+  const impactByCode = /pro\s*-?\s*135/.test(source) && /(?:impacto|medicion de impacto)/.test(source);
+  if (impactByTitle || impactByCode) return "informe-impacto";
+
+  const instrumentByTitle = source.includes("instrumento de evaluacion") ||
+    source.includes("instrumento para la evaluacion") ||
+    source.includes("ficha de evaluacion de la capacitacion") ||
+    source.includes("encuesta de evaluacion de la capacitacion");
+  const instrumentByCode = /pro\s*-?\s*135/.test(source) && /(?:instrumento|encuesta|ficha)\s+(?:de|para la)?\s*evaluacion/.test(source);
+  if (instrumentByTitle || instrumentByCode) return "instrumento-evaluacion";
 
   const finalReportByTitle = source.includes("informe final de la capacitacion") ||
     source.includes("informe final de capacitacion de") ||
