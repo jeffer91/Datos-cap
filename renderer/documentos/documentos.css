@@ -1,4 +1,4 @@
-.document-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.document-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 .document-tab { text-align: left; border: 1px solid var(--line); background: #fff; color: var(--text); padding: 15px; min-height: 88px; }
 .document-tab strong { display: block; margin-bottom: 6px; font-size: 14px; }
 .document-tab span { display: block; color: var(--muted); font-size: 11px; }
