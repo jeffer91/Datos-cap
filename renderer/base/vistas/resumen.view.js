@@ -16,6 +16,8 @@ window.BaseViews.resumen = function renderResumen(container, data) {
     ["Acuerdos", summary.agreementCount],
     ["Planificaciones", summary.planningCount],
     ["Informes Finales", summary.finalReportCount],
+    ["Instrumentos de Evaluación", summary.evaluationInstrumentCount],
+    ["Informes de Impacto", summary.impactReportCount],
     ["Filas almacenadas", summary.tableRows],
     ["Para revisión", summary.reviewCount],
     ["Páginas OCR", summary.ocrPageCount],
