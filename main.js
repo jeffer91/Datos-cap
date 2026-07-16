@@ -2,8 +2,8 @@
 Nombre completo: main.js
 Ruta o ubicación: /main.js
 Función o funciones:
-- Abrir la página Documentos con menú superior y cuatro secciones.
-- Procesar Planes, Acuerdos, Planificaciones e Informes Finales con lectura digital u OCR.
+- Abrir la página Documentos con menú superior y seis secciones.
+- Procesar Planes, Acuerdos, Planificaciones, Informes Finales, Instrumentos de Evaluación e Informes de Impacto con lectura digital u OCR.
 - Exponer consultas para la página Base independiente.
 ========================================================= */
 "use strict";
@@ -16,6 +16,10 @@ const { processReport } = require("./src/processors/report.processor");
 const { processAgreementReport } = require("./src/processors/acuerdo-patrocinio.processor");
 const { processPlanningReport } = require("./src/processors/planificacion-capacitacion.processor");
 const { processFinalReport } = require("./src/processors/informe-final-capacitacion.processor");
+const {
+  processEvaluationInstrumentReport,
+  processImpactReport
+} = require("./src/processors/seguimiento-capacitacion.processor");
 const { createPersistenceService, createQueryService } = require("./src/database");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
@@ -23,7 +27,9 @@ const DOCUMENT_TYPES = Object.freeze({
   "plan-individual": { label: "Planes Individuales de Formación y Capacitación", dialogTitle: "Seleccionar planes individuales en PDF" },
   "acuerdo-patrocinio": { label: "Acuerdos de Patrocinio Institucional", dialogTitle: "Seleccionar acuerdos de patrocinio en PDF" },
   "planificacion-capacitacion": { label: "Planificaciones de Capacitación", dialogTitle: "Seleccionar planificaciones de capacitación en PDF" },
-  "informe-final-capacitacion": { label: "Informes Finales de Capacitación", dialogTitle: "Seleccionar informes finales de capacitación en PDF" }
+  "informe-final-capacitacion": { label: "Informes Finales de Capacitación", dialogTitle: "Seleccionar informes finales de capacitación en PDF" },
+  "instrumento-evaluacion": { label: "Instrumentos de Evaluación", dialogTitle: "Seleccionar instrumentos de evaluación en PDF" },
+  "informe-impacto": { label: "Informes de Impacto", dialogTitle: "Seleccionar informes de impacto en PDF" }
 });
 
 let mainWindow = null;
@@ -147,6 +153,8 @@ async function generateDocumentReport(payload) {
   if (config.documentType === "acuerdo-patrocinio") return processAgreementReport(processorOptions);
   if (config.documentType === "planificacion-capacitacion") return processPlanningReport(processorOptions);
   if (config.documentType === "informe-final-capacitacion") return processFinalReport(processorOptions);
+  if (config.documentType === "instrumento-evaluacion") return processEvaluationInstrumentReport(processorOptions);
+  if (config.documentType === "informe-impacto") return processImpactReport(processorOptions);
   return processReport(processorOptions);
 }
 
