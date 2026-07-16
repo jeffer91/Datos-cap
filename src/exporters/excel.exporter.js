@@ -2,7 +2,7 @@
 Nombre completo: excel.exporter.js
 Ruta o ubicación: /src/exporters/excel.exporter.js
 Función o funciones:
-- Generar Excel para cuatro tipos documentales.
+- Generar Excel para seis tipos documentales.
 - Mantener orden y nombres seguros de hojas por tipo documental.
 ========================================================= */
 "use strict";
@@ -22,7 +22,15 @@ const DEFAULT_SHEET_ORDER = [
   "anexos_planificacion_capacitacion", "ocr_paginas_planificacion",
   "archivos_informe_final", "datos_generales_informe", "objetivos_informe",
   "participantes_informe", "certificados_informe", "resumen_certificados_informe",
-  "responsables_informe", "anexos_informe", "ocr_paginas_informe"
+  "responsables_informe", "anexos_informe", "ocr_paginas_informe",
+  "archivos_instrumento_evaluacion", "datos_generales_instrumento",
+  "items_instrumento_evaluacion", "resultados_instrumento_evaluacion",
+  "responsables_instrumento_evaluacion", "anexos_instrumento_evaluacion",
+  "ocr_paginas_instrumento_evaluacion",
+  "archivos_informe_impacto", "datos_generales_informe_impacto",
+  "indicadores_informe_impacto", "resultados_informe_impacto",
+  "recomendaciones_informe_impacto", "participantes_informe_impacto",
+  "responsables_informe_impacto", "anexos_informe_impacto", "ocr_paginas_informe_impacto"
 ];
 
 const SHEET_LABELS = {
@@ -51,7 +59,23 @@ const SHEET_LABELS = {
   resumen_certificados_informe: "06_resumen_certificados",
   responsables_informe: "07_responsables",
   anexos_informe: "08_anexos",
-  ocr_paginas_informe: "09_ocr_paginas"
+  ocr_paginas_informe: "09_ocr_paginas",
+  archivos_instrumento_evaluacion: "01_archivos",
+  datos_generales_instrumento: "02_datos_generales",
+  items_instrumento_evaluacion: "03_items",
+  resultados_instrumento_evaluacion: "04_resultados",
+  responsables_instrumento_evaluacion: "05_responsables",
+  anexos_instrumento_evaluacion: "06_anexos",
+  ocr_paginas_instrumento_evaluacion: "07_ocr_paginas",
+  archivos_informe_impacto: "01_archivos",
+  datos_generales_informe_impacto: "02_datos_generales",
+  indicadores_informe_impacto: "03_indicadores",
+  resultados_informe_impacto: "04_resultados",
+  recomendaciones_informe_impacto: "05_recomendaciones",
+  participantes_informe_impacto: "06_participantes",
+  responsables_informe_impacto: "07_responsables",
+  anexos_informe_impacto: "08_anexos",
+  ocr_paginas_informe_impacto: "09_ocr_paginas"
 };
 
 function ensureDirectory(dir) {
