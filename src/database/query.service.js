@@ -11,7 +11,9 @@ const TYPE_COLLECTIONS = Object.freeze({
   "plan-individual": "identificacion_docente",
   "acuerdo-patrocinio": "datos_acuerdo_patrocinio",
   "planificacion-capacitacion": "datos_planificacion_capacitacion",
-  "informe-final-capacitacion": "datos_generales_informe"
+  "informe-final-capacitacion": "datos_generales_informe",
+  "instrumento-evaluacion": "datos_generales_instrumento",
+  "informe-impacto": "datos_generales_informe_impacto"
 });
 
 const TYPE_DETAIL_COLLECTIONS = Object.freeze({
@@ -48,6 +50,26 @@ const TYPE_DETAIL_COLLECTIONS = Object.freeze({
     "responsables_informe",
     "anexos_informe",
     "ocr_paginas_informe"
+  ],
+  "instrumento-evaluacion": [
+    "archivos_instrumento_evaluacion",
+    "datos_generales_instrumento",
+    "items_instrumento_evaluacion",
+    "resultados_instrumento_evaluacion",
+    "responsables_instrumento_evaluacion",
+    "anexos_instrumento_evaluacion",
+    "ocr_paginas_instrumento_evaluacion"
+  ],
+  "informe-impacto": [
+    "archivos_informe_impacto",
+    "datos_generales_informe_impacto",
+    "indicadores_informe_impacto",
+    "resultados_informe_impacto",
+    "recomendaciones_informe_impacto",
+    "participantes_informe_impacto",
+    "responsables_informe_impacto",
+    "anexos_informe_impacto",
+    "ocr_paginas_informe_impacto"
   ]
 });
 
@@ -82,6 +104,8 @@ class QueryService {
       agreementCount: documents.filter((row) => row.tipo_documental === "acuerdo-patrocinio").length,
       planningCount: documents.filter((row) => row.tipo_documental === "planificacion-capacitacion").length,
       finalReportCount: documents.filter((row) => row.tipo_documental === "informe-final-capacitacion").length,
+      evaluationInstrumentCount: documents.filter((row) => row.tipo_documental === "instrumento-evaluacion").length,
+      impactReportCount: documents.filter((row) => row.tipo_documental === "informe-impacto").length,
       reviewCount: documents.filter((row) => row.requiere_revision === "SI").length,
       digitalDocumentCount: documents.filter((row) => row.metodo_extraccion === "digital").length,
       ocrDocumentCount: documents.filter((row) => row.metodo_extraccion === "ocr").length,
