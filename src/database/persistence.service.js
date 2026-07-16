@@ -20,7 +20,9 @@ const TYPE_LABELS = Object.freeze({
   "plan-individual": "Plan Individual de Formación y Capacitación Docente",
   "acuerdo-patrocinio": "Acuerdo de Patrocinio Institucional",
   "planificacion-capacitacion": "Planificación de Capacitación",
-  "informe-final-capacitacion": "Informe Final de Capacitación"
+  "informe-final-capacitacion": "Informe Final de Capacitación",
+  "instrumento-evaluacion": "Instrumento de Evaluación",
+  "informe-impacto": "Informe de Impacto"
 });
 
 function makeId(prefix) {
@@ -44,12 +46,12 @@ function getFileData(parsed) {
     codigo_original: text(file.codigo_original || general.codigo_original),
     codigo_documento: text(file.codigo_documento || general.codigo_documento),
     periodo: text(file.periodo || general.periodo),
-    docente: text(general.nombre_docente || general.docente),
+    docente: text(general.nombre_docente || general.docente || general.evaluador),
     carrera: text(general.carrera || general.carrera_publico || general.publico_dirigido),
     publico_dirigido: text(general.publico_dirigido || general.carrera_publico),
     capacitacion: text(general.nombre_capacitacion || general.capacitacion || general.nombre_curso),
     facilitador: text(general.facilitador),
-    total_participantes: Number(general.total_participantes_detectados || 0),
+    total_participantes: Number(general.total_participantes_detectados || general.total_participantes || 0),
     metodo_extraccion: text(file.metodo_extraccion || source.extraction_method || "digital"),
     total_paginas: Number(file.total_paginas || file.paginas_fisicas || 0),
     paginas_declaradas: Number(file.paginas_declaradas || general.paginas_declaradas || 0),
