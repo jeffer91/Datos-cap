@@ -6,12 +6,12 @@
       "Configurar la aplicación Electron.",
       "Procesar seis tipos documentales con lectura digital u OCR.",
       "Guardar resultados y diferencias relevantes en una base local JSON.",
-      "Separar las páginas Documentos y Base."
+      "Separar las páginas Documentos, Base y Reporte Individual."
     ]
   },
   "name": "gestor-documentos-capacitacion",
-  "version": "1.4.0",
-  "description": "Aplicación Electron para escanear Planes Individuales, Acuerdos, Planificaciones, Informes Finales, Instrumentos de Evaluación e Informes de Impacto, guardar una base local y exportar Excel/JSON.",
+  "version": "1.5.0",
+  "description": "Aplicación Electron para procesar seis tipos documentales, guardar una base local, exportar Excel/JSON y construir reportes individuales por docente.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "start": "electron .",
     "dev": "electron .",
     "selftest": "node src/diagnostics/selftest.js",
-    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check src/document-types/informe-final-capacitacion/parser.js && node --check src/document-types/seguimiento-capacitacion.factory.js && node --check src/processors/seguimiento-capacitacion.processor.js"
+    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check src/document-types/informe-final-capacitacion/parser.js && node --check src/document-types/seguimiento-capacitacion.factory.js && node --check src/processors/seguimiento-capacitacion.processor.js && node --check src/reporte-individual/reporte-individual.builder.js && node --check src/reporte-individual/reporte-individual.service.js"
   },
   "dependencies": {
     "electron": "^31.7.7",
