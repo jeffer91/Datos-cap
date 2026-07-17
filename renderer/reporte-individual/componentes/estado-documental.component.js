@@ -12,7 +12,7 @@ window.IndividualReportComponents.renderReportState = function renderReportState
   const state = String(value || "SIN_ESTADO").toUpperCase();
   const css = state === "COMPLETO" || state === "COMPLETA"
     ? "report-state-complete"
-    : state === "NO_GENERABLE" || state === "FALTA_ACUERDO"
+    : state === "NO_GENERABLE"
       ? "report-state-danger"
       : "report-state-warning";
   return `<span class="report-state ${css}">${ui.escapeHtml(state.replaceAll("_", " "))}</span>`;
