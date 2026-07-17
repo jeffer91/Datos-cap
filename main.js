@@ -5,6 +5,7 @@ Función o funciones:
 - Abrir las páginas Documentos, Base, Reporte Individual e Informe de Cumplimiento.
 - Procesar seis tipos documentales con lectura digital u OCR.
 - Exponer consultas seguras para la base local y los informes derivados.
+- Permitir cargar PDF desde carpetas con rutas largas de Windows.
 ========================================================= */
 "use strict";
 
@@ -12,6 +13,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require("ele
 const path = require("path");
 const { validateOutputRequest } = require("./src/validators/document.validator");
 const { validateDocumentSelection } = require("./src/validators/document-selection.validator");
+const { listPdfFilesRecursive, toDisplayPath } = require("./src/utils/file.utils");
 const { processReport } = require("./src/processors/report.processor");
 const { processAgreementReport } = require("./src/processors/acuerdo-patrocinio.processor");
 const { processPlanningReport } = require("./src/processors/planificacion-capacitacion.processor");
@@ -102,14 +104,53 @@ function createProgressCallbacks(documentType, phase) {
 async function selectPdfFiles(documentType) {
   const definition = assertDocumentType(documentType);
   if (!mainWindow) return { canceled: true, documentType, filePaths: [] };
-  const result = await dialog.showOpenDialog(mainWindow, { title: definition.dialogTitle, buttonLabel: "Cargar PDF", properties: ["openFile", "multiSelections"], filters: [{ name: "Documentos PDF", extensions: ["pdf"] }] });
-  return { canceled: result.canceled, documentType, filePaths: result.canceled ? [] : (result.filePaths || []) };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: definition.dialogTitle,
+    buttonLabel: "Cargar PDF",
+    properties: ["openFile", "multiSelections", "dontAddToRecent"],
+    filters: [{ name: "Documentos PDF", extensions: ["pdf"] }]
+  });
+  return {
+    canceled: result.canceled,
+    documentType,
+    filePaths: result.canceled ? [] : (result.filePaths || []).map(toDisplayPath)
+  };
 }
+
+async function selectPdfFolder(documentType) {
+  const definition = assertDocumentType(documentType);
+  if (!mainWindow) return { canceled: true, documentType, folderPath: "", filePaths: [], errors: [] };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: `Seleccionar carpeta con ${definition.label}`,
+    buttonLabel: "Buscar PDF en esta carpeta",
+    properties: ["openDirectory", "dontAddToRecent"]
+  });
+  if (result.canceled || !result.filePaths?.[0]) {
+    return { canceled: true, documentType, folderPath: "", filePaths: [], errors: [] };
+  }
+
+  const folderPath = toDisplayPath(result.filePaths[0]);
+  const scan = listPdfFilesRecursive(folderPath, { maxFiles: 5000, maxDepth: 40 });
+  return {
+    canceled: false,
+    documentType,
+    folderPath,
+    filePaths: scan.files,
+    errors: scan.errors,
+    truncated: scan.truncated,
+    maxFiles: scan.maxFiles,
+    message: scan.files.length
+      ? `Se encontraron ${scan.files.length} PDF en la carpeta y sus subcarpetas.`
+      : "No se encontraron archivos PDF en la carpeta seleccionada."
+  };
+}
+
 async function chooseOutputDirectory() {
   if (!mainWindow) return { canceled: true, outputDir: "" };
-  const result = await dialog.showOpenDialog(mainWindow, { title: "Seleccionar carpeta de salida", buttonLabel: "Usar esta carpeta", properties: ["openDirectory", "createDirectory"] });
-  return { canceled: result.canceled || !result.filePaths?.[0], outputDir: result.canceled ? "" : (result.filePaths?.[0] || "") };
+  const result = await dialog.showOpenDialog(mainWindow, { title: "Seleccionar carpeta de salida", buttonLabel: "Usar esta carpeta", properties: ["openDirectory", "createDirectory", "dontAddToRecent"] });
+  return { canceled: result.canceled || !result.filePaths?.[0], outputDir: result.canceled ? "" : toDisplayPath(result.filePaths?.[0] || "") };
 }
+
 async function generateDocumentReport(payload) {
   const config = payload || {};
   assertDocumentType(config.documentType);
@@ -129,6 +170,7 @@ async function generateDocumentReport(payload) {
 function registerIpcHandlers() {
   ipcMain.handle("app:get-info", async () => ({ appName: APP_NAME, version: app.getVersion(), platform: process.platform, databaseAvailable: Boolean(persistenceService), documentTypes: Object.keys(DOCUMENT_TYPES) }));
   ipcMain.handle("dialog:select-document-pdfs", async (_event, documentType) => selectPdfFiles(documentType));
+  ipcMain.handle("dialog:select-document-folder", async (_event, documentType) => selectPdfFolder(documentType));
   ipcMain.handle("files:validate-document-pdfs", async (_event, payload) => { const config = payload || {}; assertDocumentType(config.documentType); return validateDocumentSelection(config.filePaths || [], config.documentType, createProgressCallbacks(config.documentType, "validation")); });
   ipcMain.handle("dialog:choose-output-dir", async () => chooseOutputDirectory());
   ipcMain.handle("reports:generate-document-report", async (_event, payload) => { try { return await generateDocumentReport(payload); } catch (error) { console.error("Error al generar reporte:", error); return createErrorResponse(error, "Error desconocido al generar el reporte."); } });
