@@ -2,9 +2,9 @@
 Nombre completo: main.js
 Ruta o ubicación: /main.js
 Función o funciones:
-- Abrir la página Documentos con menú superior y seis secciones.
-- Procesar Planes, Acuerdos, Planificaciones, Informes Finales, Instrumentos de Evaluación e Informes de Impacto con lectura digital u OCR.
-- Exponer consultas para Base y Reporte Individual.
+- Abrir las páginas Documentos, Base, Reporte Individual e Informe de Cumplimiento.
+- Procesar seis tipos documentales con lectura digital u OCR.
+- Exponer consultas seguras para la base local y los informes derivados.
 ========================================================= */
 "use strict";
 
@@ -22,6 +22,7 @@ const {
 } = require("./src/processors/seguimiento-capacitacion.processor");
 const { createPersistenceService, createQueryService } = require("./src/database");
 const { createIndividualReportService } = require("./src/reporte-individual");
+const { createComplianceReportService } = require("./src/informe-cumplimiento");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
 const DOCUMENT_TYPES = Object.freeze({
@@ -37,6 +38,7 @@ let mainWindow = null;
 let persistenceService = null;
 let queryService = null;
 let individualReportService = null;
+let complianceReportService = null;
 
 function assertDocumentType(documentType) {
   const definition = DOCUMENT_TYPES[documentType];
@@ -78,6 +80,10 @@ function requireQueryService() {
 function requireIndividualReportService() {
   if (!individualReportService) throw new Error("El servicio de Reporte Individual no está disponible. Reinicia la aplicación.");
   return individualReportService;
+}
+function requireComplianceReportService() {
+  if (!complianceReportService) throw new Error("El servicio de Informe de Cumplimiento no está disponible. Reinicia la aplicación.");
+  return complianceReportService;
 }
 function emitOcrProgress(documentType, phase, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -210,12 +216,22 @@ function registerIpcHandlers() {
     report: requireIndividualReportService().getTeacherReport(key)
   }));
   ipcMain.handle("reportes-individuales:preparar", async (_event, key) => requireIndividualReportService().prepareReport(key));
+
+  ipcMain.handle("informe-cumplimiento:obtener-filtros", async () => ({
+    ok: true,
+    options: requireComplianceReportService().getFilters()
+  }));
+  ipcMain.handle("informe-cumplimiento:consultar-resumen", async (_event, filters) => requireComplianceReportService().getDashboard(filters || {}));
+  ipcMain.handle("informe-cumplimiento:ejecutar-analisis", async (_event, filters) => requireComplianceReportService().runInternalAnalysis(filters || {}));
+  ipcMain.handle("informe-cumplimiento:refinar-ia", async (_event, filters) => requireComplianceReportService().refineWithAi(filters || {}));
+  ipcMain.handle("informe-cumplimiento:preparar", async (_event, filters) => requireComplianceReportService().prepareReport(filters || {}));
 }
 
 app.whenReady().then(() => {
   persistenceService = createPersistenceService(path.join(app.getPath("userData"), "local-database"));
   queryService = createQueryService(persistenceService.database);
   individualReportService = createIndividualReportService(persistenceService.database);
+  complianceReportService = createComplianceReportService(persistenceService.database);
   registerIpcHandlers();
   createMainWindow();
   app.on("activate", () => {
