@@ -19,8 +19,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "selftest": "node src/diagnostics/selftest.js",
-    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check src/document-types/informe-final-capacitacion/parser.js && node --check src/document-types/seguimiento-capacitacion.factory.js && node --check src/processors/seguimiento-capacitacion.processor.js && node --check src/reporte-individual/reporte-individual.builder.js && node --check src/reporte-individual/reporte-individual.service.js"
+    "selftest": "node src/diagnostics/selftest.js && node src/diagnostics/reporte-individual.selftest.js",
+    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check src/document-types/informe-final-capacitacion/parser.js && node --check src/document-types/seguimiento-capacitacion.factory.js && node --check src/processors/seguimiento-capacitacion.processor.js && node --check src/reporte-individual/reporte-individual.builder.js && node --check src/reporte-individual/reporte-individual.service.js && node --check src/diagnostics/reporte-individual.selftest.js"
   },
   "dependencies": {
     "electron": "^31.7.7",
