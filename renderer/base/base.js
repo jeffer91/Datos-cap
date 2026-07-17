@@ -4,6 +4,7 @@ Ruta o ubicación: /renderer/base/base.js
 Función o funciones:
 - Controlar la página Base independiente.
 - Consultar resumen, documentos, tipos, detalles y procesamientos.
+- Permitir filtrar los registros por periodo académico.
 ========================================================= */
 "use strict";
 
@@ -18,6 +19,7 @@ Función o funciones:
     view: documentObject.getElementById("baseView"),
     status: documentObject.getElementById("baseStatus"),
     search: documentObject.getElementById("baseSearch"),
+    period: documentObject.getElementById("basePeriod"),
     type: documentObject.getElementById("baseDocumentType"),
     reviewOnly: documentObject.getElementById("baseReviewOnly"),
     apply: documentObject.getElementById("btnApplyBaseFilters"),
@@ -32,14 +34,24 @@ Función o funciones:
   function filters() {
     return {
       query: elements.search.value.trim(),
+      period: elements.period.value,
       documentType: elements.type.value,
       reviewOnly: elements.reviewOnly.checked,
       limit: 500
     };
   }
+  function populatePeriods(periods) {
+    const current = elements.period.value;
+    const values = [...new Set((Array.isArray(periods) ? periods : []).filter(Boolean))];
+    elements.period.innerHTML = '<option value="">Todos los periodos</option>' + values
+      .map((period) => `<option value="${ui.escapeHtml(period)}">${ui.escapeHtml(period)}</option>`)
+      .join("");
+    if (values.includes(current)) elements.period.value = current;
+  }
   function configureToolbar() {
     const summary = activeView === "resumen";
     elements.search.disabled = summary;
+    elements.period.disabled = summary;
     elements.type.disabled = summary;
     elements.reviewOnly.disabled = summary || activeView !== "documentos";
     if (activeView === "tipos" && !elements.type.value) elements.type.value = "plan-individual";
@@ -57,6 +69,7 @@ Función o funciones:
       const currentFilters = filters();
       if (activeView === "resumen") {
         const data = await windowObject.documentAppAPI.getDatabaseOverview();
+        populatePeriods(data?.summary?.periods || []);
         views.resumen(elements.view, data);
       } else if (activeView === "documentos") {
         const result = await windowObject.documentAppAPI.queryDatabaseDocuments(currentFilters);
@@ -106,6 +119,9 @@ Función o funciones:
     elements.open.addEventListener("click", openFolder);
     elements.search.addEventListener("keydown", (event) => {
       if (event.key === "Enter") loadView();
+    });
+    elements.period.addEventListener("change", () => {
+      if (activeView !== "resumen") loadView();
     });
     elements.type.addEventListener("change", () => {
       if (activeView === "tipos" || activeView === "detalles") loadView();
