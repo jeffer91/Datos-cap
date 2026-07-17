@@ -71,7 +71,7 @@ Función o funciones:
         selectedReport = null;
       }
       renderList();
-      if (selectedKey) await selectTeacher(selectedKey, false);
+      if (selectedKey) await selectTeacher(selectedKey, false, true);
       else {
         views.renderTeacherDetail(elements.detail, null);
         views.renderReportPreview(elements.preview, null);
@@ -89,8 +89,8 @@ Función o funciones:
     }
   }
 
-  async function selectTeacher(key, updateStatus = true) {
-    if (!key || loading) return;
+  async function selectTeacher(key, updateStatus = true, allowWhileLoading = false) {
+    if (!key || (loading && !allowWhileLoading)) return;
     selectedKey = key;
     renderList();
     views.renderReportPreview(elements.preview, null);
@@ -99,7 +99,7 @@ Función o funciones:
       const result = await windowObject.documentAppAPI.getIndividualReport(key);
       selectedReport = result?.report || null;
       views.renderTeacherDetail(elements.detail, selectedReport);
-      elements.prepare.disabled = !selectedReport?.puedeGenerar;
+      elements.prepare.disabled = loading || !selectedReport?.puedeGenerar;
       if (updateStatus) {
         setStatus(
           selectedReport?.puedeGenerar
