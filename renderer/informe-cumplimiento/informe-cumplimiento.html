@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Informe de Cumplimiento | Gestor de Capacitación</title>
+  <link rel="stylesheet" href="../shared/menu.css" />
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <link rel="stylesheet" href="./informe-cumplimiento.css" />
+</head>
+<body data-active-menu="informe-cumplimiento">
+  <div data-menu-root></div>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>Informe de Cumplimiento de Capacitación y Formación</h1>
+        <p>Análisis institucional global construido exclusivamente con la base local.</p>
+      </div>
+      <div class="actions">
+        <button class="btn-secondary" id="btnRefreshCompliance">Actualizar datos</button>
+        <button class="btn-secondary" id="btnRunInternalAnalysis">Ejecutar análisis interno</button>
+        <button class="btn-secondary" id="btnRefineComplianceAi">Refinar con IA</button>
+        <button class="btn-primary" id="btnPrepareCompliance">Preparar informe</button>
+      </div>
+    </header>
+
+    <section class="card filters-grid">
+      <label>Periodo<select id="compliancePeriod"><option value="">Todos</option></select></label>
+      <label>Carrera<select id="complianceCareer"><option value="">Todas</option></select></label>
+      <label>Modalidad<select id="complianceModality"><option value="">Todas</option></select></label>
+      <label>Búsqueda<input id="complianceQuery" type="search" placeholder="Docente o capacitación" /></label>
+      <button class="btn-secondary filter-button" id="btnApplyComplianceFilters">Aplicar filtros</button>
+    </section>
+
+    <div class="status-box status-info" id="complianceStatusBox">Consultando la base local...</div>
+    <section id="complianceAnalysisState" class="analysis-state"></section>
+    <section id="complianceMetrics" class="metrics-grid"></section>
+
+    <section class="dashboard-grid">
+      <article class="card"><h2>Cumplimiento documental</h2><div id="chartDocumentaryCoverage"></div></article>
+      <article class="card"><h2>Horas planificadas y ejecutadas</h2><div id="chartHours"></div></article>
+      <article class="card"><h2>Capacitaciones por carrera</h2><div id="chartCareers"></div></article>
+      <article class="card"><h2>Principales brechas</h2><div id="chartGaps"></div></article>
+    </section>
+
+    <section class="report-content-grid">
+      <nav class="card section-nav" id="complianceSectionNav"></nav>
+      <article class="card report-sections" id="complianceSections"><div class="empty">Cargando estructura del informe...</div></article>
+    </section>
+
+    <section class="card"><h2>Alertas y brechas</h2><div id="complianceAlerts"></div></section>
+    <section class="card preview-card"><h2>Vista previa estructurada</h2><div id="compliancePreview"><div class="empty">Prepara el informe para generar su borrador estructurado.</div></div></section>
+  </main>
+
+  <script src="../shared/menu.js"></script>
+  <script src="../shared/ui.js"></script>
+  <script src="./informe-cumplimiento.js"></script>
+</body>
+</html>
