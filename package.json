@@ -6,11 +6,12 @@
       "Configurar la aplicación Electron.",
       "Procesar seis tipos documentales con lectura digital u OCR.",
       "Guardar una base local y construir reportes individuales y globales.",
-      "Administrar guías, tres proveedores de IA y exportación Word/PDF."
+      "Administrar guías, tres proveedores de IA y exportación Word/PDF.",
+      "Admitir documentos almacenados en rutas largas de Windows."
     ]
   },
   "name": "gestor-documentos-capacitacion",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Aplicación Electron para procesar documentos de capacitación, guardar una base local y construir informes individuales y globales con análisis interno, guías e IA opcional.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
@@ -20,7 +21,7 @@
     "start": "electron .",
     "dev": "electron .",
     "selftest": "node src/diagnostics/selftest.js && node src/diagnostics/reporte-individual.selftest.js && node src/diagnostics/informe-cumplimiento.selftest.js && node src/diagnostics/informe-cumplimiento-config.selftest.js",
-    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check renderer/informe-cumplimiento/informe-cumplimiento.js && node --check renderer/informe-cumplimiento/componentes/panel-guias.component.js && node --check renderer/informe-cumplimiento/componentes/estado-secciones.component.js && node --check renderer/informe-cumplimiento/componentes/centro-exportacion.component.js && node --check renderer/informe-cumplimiento/componentes/modal-ia.component.js && node --check src/informe-cumplimiento/ipc.js && node --check src/informe-cumplimiento/informe-cumplimiento.engine.js && node --check src/informe-cumplimiento/informe-cumplimiento.service.js && node --check src/informe-cumplimiento/guias/guias.repository.js && node --check src/informe-cumplimiento/secciones/seccion-generator.service.js && node --check src/informe-cumplimiento/ia/ia-orchestrator.js && node --check src/informe-cumplimiento/exportadores/export.service.js && node --check src/diagnostics/informe-cumplimiento.selftest.js && node --check src/diagnostics/informe-cumplimiento-config.selftest.js"
+    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check renderer/informe-cumplimiento/informe-cumplimiento.js && node --check renderer/informe-cumplimiento/componentes/panel-guias.component.js && node --check renderer/informe-cumplimiento/componentes/estado-secciones.component.js && node --check renderer/informe-cumplimiento/componentes/centro-exportacion.component.js && node --check renderer/informe-cumplimiento/componentes/modal-ia.component.js && node --check src/utils/file.utils.js && node --check src/utils/hash.utils.js && node --check src/extractor/pdf.reader.js && node --check src/ocr/index.js && node --check src/ocr/pdf-image.service.js && node --check src/informe-cumplimiento/ipc.js && node --check src/informe-cumplimiento/informe-cumplimiento.engine.js && node --check src/informe-cumplimiento/informe-cumplimiento.service.js && node --check src/informe-cumplimiento/guias/guias.repository.js && node --check src/informe-cumplimiento/secciones/seccion-generator.service.js && node --check src/informe-cumplimiento/ia/ia-orchestrator.js && node --check src/informe-cumplimiento/exportadores/export.service.js && node --check src/diagnostics/informe-cumplimiento.selftest.js && node --check src/diagnostics/informe-cumplimiento-config.selftest.js"
   },
   "dependencies": {
     "docx": "^9.5.1",
