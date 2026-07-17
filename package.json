@@ -6,12 +6,12 @@
       "Configurar la aplicación Electron.",
       "Procesar seis tipos documentales con lectura digital u OCR.",
       "Guardar una base local y construir reportes individuales y globales.",
-      "Separar Documentos, Base, Reporte Individual e Informe de Cumplimiento."
+      "Administrar guías, tres proveedores de IA y exportación Word/PDF."
     ]
   },
   "name": "gestor-documentos-capacitacion",
-  "version": "1.6.0",
-  "description": "Aplicación Electron para procesar documentos de capacitación, guardar una base local y construir informes individuales y globales con análisis interno.",
+  "version": "1.7.0",
+  "description": "Aplicación Electron para procesar documentos de capacitación, guardar una base local y construir informes individuales y globales con análisis interno, guías e IA opcional.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
@@ -20,13 +20,15 @@
     "start": "electron .",
     "dev": "electron .",
     "selftest": "node src/diagnostics/selftest.js && node src/diagnostics/reporte-individual.selftest.js && node src/diagnostics/informe-cumplimiento.selftest.js",
-    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check renderer/informe-cumplimiento/informe-cumplimiento.js && node --check src/document-types/informe-final-capacitacion/parser.js && node --check src/document-types/seguimiento-capacitacion.factory.js && node --check src/processors/seguimiento-capacitacion.processor.js && node --check src/reporte-individual/reporte-individual.builder.js && node --check src/reporte-individual/reporte-individual.service.js && node --check src/informe-cumplimiento/informe-cumplimiento.engine.js && node --check src/informe-cumplimiento/informe-cumplimiento.service.js && node --check src/diagnostics/informe-cumplimiento.selftest.js"
+    "check": "node --check main.js && node --check preload.js && node --check renderer/documentos/documentos.js && node --check renderer/base/base.js && node --check renderer/reporte-individual/reporte-individual.js && node --check renderer/informe-cumplimiento/informe-cumplimiento.js && node --check renderer/informe-cumplimiento/componentes/panel-guias.component.js && node --check renderer/informe-cumplimiento/componentes/estado-secciones.component.js && node --check renderer/informe-cumplimiento/componentes/centro-exportacion.component.js && node --check renderer/informe-cumplimiento/componentes/modal-ia.component.js && node --check src/informe-cumplimiento/ipc.js && node --check src/informe-cumplimiento/informe-cumplimiento.engine.js && node --check src/informe-cumplimiento/informe-cumplimiento.service.js && node --check src/diagnostics/informe-cumplimiento.selftest.js"
   },
   "dependencies": {
+    "docx": "^9.5.1",
     "electron": "^31.7.7",
     "fs-extra": "^11.2.0",
     "pdf-parse": "^1.1.1",
     "pdf-to-img": "^4.2.0",
+    "pdfkit": "^0.17.2",
     "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5"
   },
