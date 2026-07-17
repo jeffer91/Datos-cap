@@ -4,7 +4,7 @@ Ruta o ubicación: /main.js
 Función o funciones:
 - Abrir la página Documentos con menú superior y seis secciones.
 - Procesar Planes, Acuerdos, Planificaciones, Informes Finales, Instrumentos de Evaluación e Informes de Impacto con lectura digital u OCR.
-- Exponer consultas para la página Base independiente.
+- Exponer consultas para Base y Reporte Individual.
 ========================================================= */
 "use strict";
 
@@ -21,6 +21,7 @@ const {
   processImpactReport
 } = require("./src/processors/seguimiento-capacitacion.processor");
 const { createPersistenceService, createQueryService } = require("./src/database");
+const { createIndividualReportService } = require("./src/reporte-individual");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
 const DOCUMENT_TYPES = Object.freeze({
@@ -35,6 +36,7 @@ const DOCUMENT_TYPES = Object.freeze({
 let mainWindow = null;
 let persistenceService = null;
 let queryService = null;
+let individualReportService = null;
 
 function assertDocumentType(documentType) {
   const definition = DOCUMENT_TYPES[documentType];
@@ -72,6 +74,10 @@ function requirePersistence() {
 function requireQueryService() {
   if (!queryService) throw new Error("El servicio de consultas no está disponible. Reinicia la aplicación.");
   return queryService;
+}
+function requireIndividualReportService() {
+  if (!individualReportService) throw new Error("El servicio de Reporte Individual no está disponible. Reinicia la aplicación.");
+  return individualReportService;
 }
 function emitOcrProgress(documentType, phase, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -194,11 +200,22 @@ function registerIpcHandlers() {
     if (errorMessage) throw new Error(errorMessage);
     return { ok: true, databasePath };
   });
+
+  ipcMain.handle("reportes-individuales:listar-docentes", async (_event, options) => ({
+    ok: true,
+    teachers: requireIndividualReportService().listTeachers(options || {})
+  }));
+  ipcMain.handle("reportes-individuales:consultar-docente", async (_event, key) => ({
+    ok: true,
+    report: requireIndividualReportService().getTeacherReport(key)
+  }));
+  ipcMain.handle("reportes-individuales:preparar", async (_event, key) => requireIndividualReportService().prepareReport(key));
 }
 
 app.whenReady().then(() => {
   persistenceService = createPersistenceService(path.join(app.getPath("userData"), "local-database"));
   queryService = createQueryService(persistenceService.database);
+  individualReportService = createIndividualReportService(persistenceService.database);
   registerIpcHandlers();
   createMainWindow();
   app.on("activate", () => {
