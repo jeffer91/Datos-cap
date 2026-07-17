@@ -2,8 +2,8 @@
 Nombre completo: menu.js
 Ruta o ubicación: /renderer/shared/menu.js
 Función o funciones:
-- Construir el menú superior compartido entre Documentos, Base y Reporte Individual.
-- Marcar la página activa y mostrar la versión de la app.
+- Construir el menú superior compartido entre los cuatro módulos de la aplicación.
+- Marcar la página activa y mostrar la versión instalada.
 ========================================================= */
 "use strict";
 
@@ -22,6 +22,7 @@ Función o funciones:
           <a class="${active === "documentos" ? "active" : ""}" href="../documentos/documentos.html">Documentos</a>
           <a class="${active === "base" ? "active" : ""}" href="../base/base.html">Base</a>
           <a class="${active === "reporte-individual" ? "active" : ""}" href="../reporte-individual/reporte-individual.html">Reporte Individual</a>
+          <a class="${active === "informe-cumplimiento" ? "active" : ""}" href="../informe-cumplimiento/informe-cumplimiento.html">Informe de Cumplimiento</a>
         </nav>
         <div class="app-version" id="sharedAppVersion">Cargando...</div>
       </header>`;
@@ -36,9 +37,6 @@ Función o funciones:
     }
   }
 
-  if (documentObject.readyState === "loading") {
-    documentObject.addEventListener("DOMContentLoaded", renderMenu, { once: true });
-  } else {
-    renderMenu();
-  }
+  if (documentObject.readyState === "loading") documentObject.addEventListener("DOMContentLoaded", renderMenu, { once: true });
+  else renderMenu();
 })(window, document);
