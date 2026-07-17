@@ -4,22 +4,24 @@ Ruta o ubicación: /src/ocr/index.js
 Función o funciones:
 - Coordinar conversión de PDF y reconocimiento OCR.
 - Entregar un resultado compatible con el lector digital.
+- Leer documentos ubicados en rutas largas de Windows.
 ========================================================= */
 "use strict";
 
 const fs = require("fs");
-const path = require("path");
 const { calculateBufferHash } = require("../utils/hash.utils");
+const { toDisplayPath, toLongPath, getFileName, getExtension } = require("../utils/file.utils");
 const { renderPdfPages } = require("./pdf-image.service");
 const { recognizeRenderedPages } = require("./ocr.service");
 
 async function readPdfWithOcr(filePath, options = {}) {
-  const cleanPath = String(filePath || "").trim();
+  const cleanPath = toDisplayPath(filePath);
+  const nativePath = toLongPath(cleanPath);
   const output = {
     index: Number(options.index || 0),
     filePath: cleanPath,
-    fileName: cleanPath ? path.basename(cleanPath) : "",
-    extension: cleanPath ? path.extname(cleanPath).toLowerCase() : "",
+    fileName: cleanPath ? getFileName(cleanPath) : "",
+    extension: cleanPath ? getExtension(cleanPath) : "",
     sizeBytes: 0,
     fileHash: "",
     pageCount: 0,
@@ -36,13 +38,13 @@ async function readPdfWithOcr(filePath, options = {}) {
     warnings: []
   };
 
-  if (!cleanPath || !fs.existsSync(cleanPath)) {
+  if (!cleanPath || !fs.existsSync(nativePath)) {
     output.errors.push("El archivo PDF no existe.");
     return output;
   }
 
   try {
-    const buffer = await fs.promises.readFile(cleanPath);
+    const buffer = await fs.promises.readFile(nativePath);
     output.sizeBytes = buffer.length;
     output.fileHash = calculateBufferHash(buffer);
 
