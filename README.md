@@ -4,15 +4,15 @@ Aplicación de escritorio desarrollada con Electron para leer PDF digitales o es
 
 ## Navegación principal
 
-La aplicación tiene un menú superior con dos módulos separados:
+La aplicación tiene un menú superior con tres módulos:
 
 ```text
-Documentos | Base
+Documentos | Base | Reporte Individual
 ```
 
 ### Documentos
 
-Página inicial ubicada en:
+Página ubicada en:
 
 ```text
 renderer/documentos/documentos.html
@@ -22,13 +22,23 @@ Aquí se seleccionan, validan, escanean, entienden, guardan y exportan los PDF.
 
 ### Base
 
-Página independiente ubicada en:
+Página ubicada en:
 
 ```text
 renderer/base/base.html
 ```
 
 Aquí se consulta lo guardado en la base local. No procesa PDF.
+
+### Reporte Individual
+
+Página ubicada en:
+
+```text
+renderer/reporte-individual/reporte-individual.html
+```
+
+Esta pantalla no vuelve a leer carpetas ni PDF. Consulta directamente la base local y construye un reporte por docente.
 
 ## Seis tipos documentales
 
@@ -118,7 +128,7 @@ La estructura queda preparada para extraer:
 07_ocr_paginas
 ```
 
-El parser inicial es flexible: detecta datos generales, ítems numerados, respuestas marcadas, puntajes, resultados, observaciones y recomendaciones. La lógica específica se ajustará cuando se incorporen formatos institucionales reales.
+El parser inicial es flexible y se ajustará cuando se incorporen formatos institucionales reales.
 
 ### 6. Informes de Impacto
 
@@ -145,7 +155,7 @@ La estructura queda preparada para extraer:
 09_ocr_paginas
 ```
 
-El parser inicial detecta indicadores, líneas base, metas, resultados porcentuales, hallazgos, cambios observados, conclusiones y recomendaciones. La lógica específica se ajustará con documentos reales.
+El parser inicial detecta indicadores, líneas base, metas, resultados porcentuales, hallazgos, cambios observados, conclusiones y recomendaciones.
 
 ## Lectura digital y OCR
 
@@ -160,13 +170,11 @@ PDF
 → ejecutar el parser correspondiente
 ```
 
-El OCR utiliza `pdf-to-img` para convertir páginas y `tesseract.js` para reconocer texto en español e inglés.
-
-Durante la validación solo se escanean las primeras páginas para identificar el documento. Durante el procesamiento se escanea el documento completo cuando hace falta.
+El OCR utiliza `pdf-to-img` y `tesseract.js`.
 
 ## Base local
 
-La base utiliza colecciones JSON con escrituras atómicas y respaldo temporal. Se crea dentro de la carpeta de datos de Electron:
+La base utiliza colecciones JSON con escrituras atómicas y respaldo temporal:
 
 ```text
 local-database/
@@ -174,22 +182,100 @@ local-database/
 └─ collections/
 ```
 
-La página Base permite consultar:
+Cada PDF recibe una huella SHA-256 para evitar duplicados.
 
-- resumen general;
-- documentos guardados;
-- los seis tipos documentales;
-- detalles completos relacionados por `id_documento`;
-- método de extracción;
-- páginas y confianza OCR;
-- documentos para revisión;
-- procesamientos y duplicados.
+## Reporte Individual
 
-Cada PDF recibe una huella SHA-256. Si el mismo archivo se procesa nuevamente, puede volver a exportarse, pero no se duplican sus registros locales.
+El reporte se construye por docente, utilizando como punto de partida su Plan Individual y las capacitaciones guardadas en `capacitaciones_propuestas`.
 
-## Nuevas colecciones
+### Requisitos para generar
 
-### Instrumentos de Evaluación
+El reporte solo puede prepararse cuando:
+
+```text
+Existe el Plan Individual.
+Existe al menos una capacitación reconocida.
+Existe un Acuerdo de Patrocinio por cada capacitación.
+```
+
+La ausencia de una Planificación, Informe Final, Instrumento de Evaluación o Informe de Impacto no bloquea la preparación. Esos documentos funcionan como comprobación y generan advertencias.
+
+### Cruce del docente
+
+La cédula es el identificador principal para comprobar que el docente aparece dentro de:
+
+```text
+Informe Final
+Instrumento de Evaluación
+Informe de Impacto
+```
+
+Cuando todavía no existe una cédula disponible, el nombre normalizado se utiliza como respaldo y el resultado puede marcarse para revisión.
+
+### Cruce de capacitaciones
+
+Los nombres se normalizan para tolerar diferencias como:
+
+```text
+Planificación DUA
+Planificación de DUA
+Curso de Planificación DUA
+```
+
+El comparador elimina tildes, signos, artículos y preposiciones poco relevantes. Después calcula una coincidencia:
+
+```text
+EXACTA
+ALTA
+DUDOSA
+SIN_COINCIDENCIA
+```
+
+### Estados
+
+```text
+COMPLETO
+GENERABLE_CON_ADVERTENCIAS
+NO_GENERABLE
+```
+
+- `COMPLETO`: existen los requisitos individuales y todas las comprobaciones.
+- `GENERABLE_CON_ADVERTENCIAS`: existen Plan y acuerdos, pero falta alguna comprobación.
+- `NO_GENERABLE`: falta el Plan, una capacitación reconocida o un acuerdo requerido.
+
+### Estructura del módulo
+
+```text
+renderer/reporte-individual/
+├─ reporte-individual.html
+├─ reporte-individual.css
+├─ reporte-individual.js
+├─ componentes/
+│  ├─ filtros.component.js
+│  ├─ resumen-docente.component.js
+│  ├─ capacitaciones.component.js
+│  ├─ estado-documental.component.js
+│  └─ alertas.component.js
+└─ vistas/
+   ├─ listado-docentes.view.js
+   ├─ detalle-docente.view.js
+   └─ vista-previa-reporte.view.js
+
+src/reporte-individual/
+├─ index.js
+├─ reporte-individual.service.js
+├─ reporte-individual.query.js
+├─ docente.matcher.js
+├─ capacitacion.matcher.js
+├─ reporte-individual.rules.js
+├─ reporte-individual.builder.js
+├─ reporte-individual.validator.js
+└─ reporte-individual.exporter.js
+```
+
+La salida actual es un borrador estructurado. El diseño definitivo se conectará cuando se incorpore la plantilla institucional.
+
+## Colecciones de Instrumentos de Evaluación
 
 ```text
 archivos_instrumento_evaluacion
@@ -201,7 +287,13 @@ anexos_instrumento_evaluacion
 ocr_paginas_instrumento_evaluacion
 ```
 
-### Informes de Impacto
+La consulta del Reporte Individual también queda preparada para la colección futura:
+
+```text
+participantes_instrumento_evaluacion
+```
+
+## Colecciones de Informes de Impacto
 
 ```text
 archivos_informe_impacto
@@ -216,29 +308,6 @@ ocr_paginas_informe_impacto
 ```
 
 Todas las colecciones se relacionan mediante `id_documento`.
-
-## Estructura visual
-
-```text
-renderer/
-├─ shared/
-├─ documentos/
-│  ├─ documentos.html
-│  ├─ documentos.js
-│  ├─ documentos.css
-│  └─ secciones/
-│     ├─ planes.section.js
-│     ├─ acuerdos.section.js
-│     ├─ planificaciones.section.js
-│     ├─ informes-finales.section.js
-│     ├─ instrumentos-evaluacion.section.js
-│     └─ informes-impacto.section.js
-└─ base/
-   ├─ base.html
-   ├─ base.js
-   ├─ base.css
-   └─ vistas/
-```
 
 ## Instalar
 
@@ -258,14 +327,14 @@ npm start
 npm run check
 ```
 
-## Ejecutar diagnóstico
+## Ejecutar diagnósticos
 
 ```powershell
 npm run selftest
 ```
 
-La prueba comprueba los seis tipos documentales, exportación Excel/JSON, almacenamiento, consultas y detalles de Base.
+Las pruebas comprueban los seis tipos documentales y el cruce preliminar del Reporte Individual por cédula y nombre de capacitación normalizado.
 
 ## Consideración del primer OCR
 
-La primera ejecución de Tesseract puede tardar más mientras prepara los recursos de reconocimiento. Los documentos extensos también pueden tardar varios minutos porque se procesan página por página para conservar estabilidad y mostrar progreso.
+La primera ejecución de Tesseract puede tardar más mientras prepara los recursos de reconocimiento. Los documentos extensos también pueden tardar varios minutos porque se procesan página por página.
