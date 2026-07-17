@@ -8,7 +8,7 @@ Función o funciones:
 ========================================================= */
 "use strict";
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require("electron");
 const path = require("path");
 const { validateOutputRequest } = require("./src/validators/document.validator");
 const { validateDocumentSelection } = require("./src/validators/document-selection.validator");
@@ -64,6 +64,22 @@ function createErrorResponse(error, fallbackMessage) {
   const message = error?.message || fallbackMessage;
   return { ok: false, message, files: {}, summary: {}, warnings: [], errors: [{ message }] };
 }
+
+function createSecretStore() {
+  return {
+    encrypt(value) {
+      const clean = String(value || "");
+      if (!clean || !safeStorage.isEncryptionAvailable()) return "";
+      return safeStorage.encryptString(clean).toString("base64");
+    },
+    decrypt(value) {
+      const clean = String(value || "");
+      if (!clean || !safeStorage.isEncryptionAvailable()) return "";
+      return safeStorage.decryptString(Buffer.from(clean, "base64"));
+    }
+  };
+}
+
 function requirePersistence() { if (!persistenceService) throw new Error("La base local no está disponible. Reinicia la aplicación."); return persistenceService; }
 function requireQueryService() { if (!queryService) throw new Error("El servicio de consultas no está disponible. Reinicia la aplicación."); return queryService; }
 function requireIndividualReportService() { if (!individualReportService) throw new Error("El servicio de Reporte Individual no está disponible. Reinicia la aplicación."); return individualReportService; }
@@ -137,7 +153,7 @@ app.whenReady().then(() => {
   persistenceService = createPersistenceService(path.join(app.getPath("userData"), "local-database"));
   queryService = createQueryService(persistenceService.database);
   individualReportService = createIndividualReportService(persistenceService.database);
-  complianceReportService = createComplianceReportService(persistenceService.database);
+  complianceReportService = createComplianceReportService(persistenceService.database, { secretStore: createSecretStore() });
   registerIpcHandlers();
   createMainWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createMainWindow(); });
