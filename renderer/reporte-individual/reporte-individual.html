@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reporte Individual | Gestor de Capacitación</title>
+  <link rel="stylesheet" href="../shared/menu.css" />
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <link rel="stylesheet" href="./reporte-individual.css" />
+</head>
+<body data-active-menu="reporte-individual">
+  <div data-menu-root></div>
+
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>Reporte Individual</h1>
+        <p>Consulta la base local, verifica cada capacitación del docente y prepara su reporte.</p>
+      </div>
+      <div class="actions">
+        <button class="btn-secondary" id="btnRefreshIndividualReport">Actualizar</button>
+        <button class="btn-primary" id="btnPrepareIndividualReport" disabled>Preparar reporte</button>
+      </div>
+    </header>
+
+    <section class="card report-filters">
+      <input type="search" id="individualReportSearch" placeholder="Buscar por docente, cédula, carrera o capacitación" />
+      <select id="individualReportStatus">
+        <option value="">Todos los estados</option>
+        <option value="COMPLETO">Completo</option>
+        <option value="GENERABLE_CON_ADVERTENCIAS">Generable con advertencias</option>
+        <option value="NO_GENERABLE">No generable</option>
+      </select>
+      <button class="btn-secondary" id="btnApplyIndividualFilters">Aplicar filtros</button>
+    </section>
+
+    <div class="status-box status-info" id="individualReportStatusBox">Consultando la base local...</div>
+
+    <section class="report-summary-grid" id="individualReportSummary">
+      <div class="summary-item"><span>Docentes</span><strong id="reportSummaryTeachers">0</strong></div>
+      <div class="summary-item"><span>Completos</span><strong id="reportSummaryComplete">0</strong></div>
+      <div class="summary-item"><span>Con advertencias</span><strong id="reportSummaryWarnings">0</strong></div>
+      <div class="summary-item"><span>No generables</span><strong id="reportSummaryBlocked">0</strong></div>
+    </section>
+
+    <section class="report-layout">
+      <aside class="card report-list-panel">
+        <div class="panel-title"><h2>Docentes</h2><span id="individualReportCount">0 registros</span></div>
+        <div id="individualReportTeacherList"><div class="empty">Cargando docentes...</div></div>
+      </aside>
+
+      <section class="card report-detail-panel">
+        <div id="individualReportDetail"><div class="empty">Selecciona un docente para revisar su reporte.</div></div>
+        <div id="individualReportPreview"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="../shared/menu.js"></script>
+  <script src="../shared/ui.js"></script>
+  <script src="./componentes/filtros.component.js"></script>
+  <script src="./componentes/estado-documental.component.js"></script>
+  <script src="./componentes/resumen-docente.component.js"></script>
+  <script src="./componentes/capacitaciones.component.js"></script>
+  <script src="./componentes/alertas.component.js"></script>
+  <script src="./vistas/listado-docentes.view.js"></script>
+  <script src="./vistas/detalle-docente.view.js"></script>
+  <script src="./vistas/vista-previa-reporte.view.js"></script>
+  <script src="./reporte-individual.js"></script>
+</body>
+</html>
