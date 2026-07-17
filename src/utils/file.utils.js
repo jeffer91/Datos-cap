@@ -5,7 +5,7 @@ Función o funciones:
 - Centralizar utilidades de rutas, extensiones y carpetas.
 - Convertir rutas de Windows al formato extendido \\?\ para superar MAX_PATH.
 - Validar existencia de archivos y carpetas locales.
-- Buscar PDF de forma recursiva desde una carpeta superior.
+- Buscar PDF de forma recursiva conservando su carpeta raíz y ruta relativa.
 ========================================================= */
 
 "use strict";
@@ -123,13 +123,47 @@ function createFileInfo(filePath) {
   };
 }
 
+function createFolderFileEntry(rootPath, filePath) {
+  const cleanRoot = toDisplayPath(rootPath);
+  const cleanFile = toDisplayPath(filePath);
+  const pathApi = pathApiFor(cleanRoot || cleanFile);
+  const relativePath = cleanRoot ? pathApi.relative(cleanRoot, cleanFile) : getFileName(cleanFile);
+  const relativeDirectory = relativePath ? pathApi.dirname(relativePath) : ".";
+  const directorySegments = relativeDirectory && relativeDirectory !== "."
+    ? relativeDirectory.split(/[\\/]+/).filter(Boolean)
+    : [];
+
+  return {
+    path: cleanFile,
+    sourceType: "folder",
+    rootPath: cleanRoot,
+    relativePath,
+    directorySegments,
+    depth: directorySegments.length,
+    parentFolder: directorySegments[directorySegments.length - 1] || pathApi.basename(cleanRoot || pathApi.dirname(cleanFile))
+  };
+}
+
+function createIndividualFileEntry(filePath) {
+  const cleanFile = toDisplayPath(filePath);
+  return {
+    path: cleanFile,
+    sourceType: "individual",
+    rootPath: "",
+    relativePath: getFileName(cleanFile),
+    directorySegments: [],
+    depth: 0,
+    parentFolder: ""
+  };
+}
+
 function listPdfFilesRecursive(directoryPath, options = {}) {
   const rootPath = toDisplayPath(directoryPath);
   if (!rootPath || !isDirectory(rootPath)) throw new Error("La carpeta seleccionada no existe o no se puede leer.");
 
   const maxFiles = Number.isFinite(options.maxFiles) ? Math.max(1, options.maxFiles) : 5000;
   const maxDepth = Number.isFinite(options.maxDepth) ? Math.max(0, options.maxDepth) : 30;
-  const files = [];
+  const entries = [];
   const errors = [];
   const stack = [{ directory: rootPath, depth: 0 }];
   const joinApi = pathApiFor(rootPath);
@@ -137,31 +171,39 @@ function listPdfFilesRecursive(directoryPath, options = {}) {
 
   while (stack.length && !truncated) {
     const current = stack.pop();
-    let entries;
+    let directoryEntries;
     try {
-      entries = fs.readdirSync(toLongPath(current.directory), { withFileTypes: true });
+      directoryEntries = fs.readdirSync(toLongPath(current.directory), { withFileTypes: true });
     } catch (error) {
       errors.push({ path: current.directory, message: error.message || "No se pudo leer la carpeta." });
       continue;
     }
 
-    for (const entry of entries) {
+    for (const entry of directoryEntries) {
       const childPath = joinApi.join(current.directory, entry.name);
       if (entry.isDirectory()) {
         if (current.depth < maxDepth) stack.push({ directory: childPath, depth: current.depth + 1 });
         continue;
       }
       if (!entry.isFile() || getExtension(entry.name) !== ".pdf") continue;
-      files.push(toDisplayPath(childPath));
-      if (files.length >= maxFiles) {
+      entries.push(createFolderFileEntry(rootPath, childPath));
+      if (entries.length >= maxFiles) {
         truncated = true;
         break;
       }
     }
   }
 
-  files.sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" }));
-  return { rootPath, files, errors, truncated, maxFiles, maxDepth };
+  entries.sort((left, right) => left.path.localeCompare(right.path, "es", { sensitivity: "base" }));
+  return {
+    rootPath,
+    files: entries.map((entry) => entry.path),
+    entries,
+    errors,
+    truncated,
+    maxFiles,
+    maxDepth
+  };
 }
 
 function sanitizeFileName(value, fallback = "archivo") {
@@ -180,6 +222,7 @@ module.exports = {
   isWindowsStylePath,
   toDisplayPath,
   toLongPath,
+  pathApiFor,
   getFileName,
   getExtension,
   pathExists,
@@ -190,6 +233,8 @@ module.exports = {
   isDirectory,
   ensureDirectory,
   createFileInfo,
+  createFolderFileEntry,
+  createIndividualFileEntry,
   listPdfFilesRecursive,
   sanitizeFileName
 };
