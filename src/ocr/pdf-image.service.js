@@ -5,8 +5,11 @@ Función o funciones:
 - Convertir páginas de PDF en imágenes PNG para OCR.
 - Permitir limitar páginas durante validaciones rápidas.
 - Liberar correctamente los recursos del documento PDF.
+- Admitir rutas largas de Windows.
 ========================================================= */
 "use strict";
+
+const { toDisplayPath, toLongPath } = require("../utils/file.utils");
 
 async function loadPdfRenderer() {
   try {
@@ -17,13 +20,13 @@ async function loadPdfRenderer() {
 }
 
 async function renderPdfPages(filePath, options = {}) {
-  const cleanPath = String(filePath || "").trim();
+  const cleanPath = toDisplayPath(filePath);
   if (!cleanPath) throw new Error("No se recibió la ruta del PDF para convertirlo a imágenes.");
 
   const { pdf } = await loadPdfRenderer();
   const scale = Number.isFinite(options.scale) ? options.scale : 2.2;
   const maxPages = Number.isFinite(options.maxPages) ? Math.max(1, options.maxPages) : 40;
-  const document = await pdf(cleanPath, { scale });
+  const document = await pdf(toLongPath(cleanPath), { scale });
   const pages = [];
 
   try {
