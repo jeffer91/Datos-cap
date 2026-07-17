@@ -10,25 +10,12 @@ Función o funciones:
 const { contextBridge, ipcRenderer } = require("electron");
 
 const INVOKE_CHANNELS = new Set([
-  "app:get-info",
-  "dialog:select-document-pdfs",
-  "files:validate-document-pdfs",
-  "dialog:choose-output-dir",
-  "reports:generate-document-report",
-  "database:get-overview",
-  "database:query-documents",
-  "database:query-type-records",
-  "database:query-document-details",
-  "database:query-runs",
-  "database:open-folder",
-  "reportes-individuales:listar-docentes",
-  "reportes-individuales:consultar-docente",
-  "reportes-individuales:preparar",
-  "informe-cumplimiento:obtener-filtros",
-  "informe-cumplimiento:consultar-resumen",
-  "informe-cumplimiento:ejecutar-analisis",
-  "informe-cumplimiento:refinar-ia",
-  "informe-cumplimiento:preparar"
+  "app:get-info", "dialog:select-document-pdfs", "files:validate-document-pdfs", "dialog:choose-output-dir", "reports:generate-document-report",
+  "database:get-overview", "database:query-documents", "database:query-type-records", "database:query-document-details", "database:query-runs", "database:open-folder",
+  "reportes-individuales:listar-docentes", "reportes-individuales:consultar-docente", "reportes-individuales:preparar",
+  "informe-cumplimiento:obtener-filtros", "informe-cumplimiento:consultar-resumen", "informe-cumplimiento:ejecutar-analisis", "informe-cumplimiento:refinar-ia", "informe-cumplimiento:preparar",
+  "informe-cumplimiento:listar-guias", "informe-cumplimiento:guardar-guia", "informe-cumplimiento:restaurar-guia", "informe-cumplimiento:versiones-guia", "informe-cumplimiento:probar-guia", "informe-cumplimiento:generar-seccion",
+  "informe-cumplimiento:configuracion-ia", "informe-cumplimiento:guardar-configuracion-ia", "informe-cumplimiento:probar-proveedor-ia", "informe-cumplimiento:probar-cadena-ia", "informe-cumplimiento:exportar"
 ]);
 const EVENT_CHANNELS = new Set(["ocr:progress"]);
 
@@ -63,5 +50,16 @@ contextBridge.exposeInMainWorld("documentAppAPI", {
   getComplianceDashboard: (filters) => invoke("informe-cumplimiento:consultar-resumen", filters),
   runComplianceInternalAnalysis: (filters) => invoke("informe-cumplimiento:ejecutar-analisis", filters),
   refineComplianceWithAi: (filters) => invoke("informe-cumplimiento:refinar-ia", filters),
-  prepareComplianceReport: (filters) => invoke("informe-cumplimiento:preparar", filters)
+  prepareComplianceReport: (filters) => invoke("informe-cumplimiento:preparar", filters),
+  listComplianceGuides: () => invoke("informe-cumplimiento:listar-guias"),
+  saveComplianceGuide: (guide) => invoke("informe-cumplimiento:guardar-guia", guide),
+  restoreComplianceGuide: (guideId) => invoke("informe-cumplimiento:restaurar-guia", guideId),
+  listComplianceGuideVersions: (guideId) => invoke("informe-cumplimiento:versiones-guia", guideId),
+  testComplianceGuide: (payload) => invoke("informe-cumplimiento:probar-guia", payload),
+  generateComplianceSection: (payload) => invoke("informe-cumplimiento:generar-seccion", payload),
+  getComplianceAiConfiguration: () => invoke("informe-cumplimiento:configuracion-ia"),
+  saveComplianceAiConfiguration: (config) => invoke("informe-cumplimiento:guardar-configuracion-ia", config),
+  testComplianceAiProvider: (role) => invoke("informe-cumplimiento:probar-proveedor-ia", role),
+  testComplianceAiChain: () => invoke("informe-cumplimiento:probar-cadena-ia"),
+  exportComplianceReport: (payload) => invoke("informe-cumplimiento:exportar", payload)
 });
