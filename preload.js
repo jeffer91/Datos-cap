@@ -2,7 +2,7 @@
 Nombre completo: preload.js
 Ruta o ubicación: /preload.js
 Función o funciones:
-- Exponer una API segura para Documentos, OCR y Base.
+- Exponer una API segura para Documentos, OCR, Base y Reporte Individual.
 - Permitir escuchar progreso OCR sin exponer Node.js al renderer.
 ========================================================= */
 "use strict";
@@ -20,7 +20,10 @@ const INVOKE_CHANNELS = new Set([
   "database:query-type-records",
   "database:query-document-details",
   "database:query-runs",
-  "database:open-folder"
+  "database:open-folder",
+  "reportes-individuales:listar-docentes",
+  "reportes-individuales:consultar-docente",
+  "reportes-individuales:preparar"
 ]);
 const EVENT_CHANNELS = new Set(["ocr:progress"]);
 
@@ -50,5 +53,9 @@ contextBridge.exposeInMainWorld("documentAppAPI", {
   queryDatabaseTypeRecords: (documentType, options) => invoke("database:query-type-records", { documentType, options }),
   queryDatabaseDocumentDetails: (documentId) => invoke("database:query-document-details", documentId),
   queryDatabaseRuns: (options) => invoke("database:query-runs", options),
-  openDatabaseFolder: () => invoke("database:open-folder")
+  openDatabaseFolder: () => invoke("database:open-folder"),
+
+  listIndividualReportTeachers: (options) => invoke("reportes-individuales:listar-docentes", options),
+  getIndividualReport: (key) => invoke("reportes-individuales:consultar-docente", key),
+  prepareIndividualReport: (key) => invoke("reportes-individuales:preparar", key)
 });
