@@ -5,6 +5,7 @@ Función o funciones:
 - Leer PDF digitales con pdf-parse.
 - Calcular huella SHA-256 y metadatos básicos.
 - Mantener un resultado compatible con lectura OCR e híbrida.
+- Acceder a archivos ubicados en rutas largas de Windows.
 ========================================================= */
 "use strict";
 
@@ -13,14 +14,15 @@ const path = require("path");
 const pdfParse = require("pdf-parse");
 const { normalizeLineBreaks } = require("./normalizer");
 const { calculateBufferHash } = require("../utils/hash.utils");
+const { toDisplayPath, toLongPath, getFileName, getExtension } = require("../utils/file.utils");
 
 function createEmptyPdfResult(filePath, index = 0) {
-  const cleanPath = String(filePath || "").trim();
+  const cleanPath = toDisplayPath(filePath);
   return {
     index,
     filePath: cleanPath,
-    fileName: cleanPath ? path.basename(cleanPath) : "",
-    extension: cleanPath ? path.extname(cleanPath).toLowerCase() : "",
+    fileName: cleanPath ? getFileName(cleanPath) : "",
+    extension: cleanPath ? getExtension(cleanPath) : "",
     sizeBytes: 0,
     fileHash: "",
     pageCount: 0,
@@ -40,16 +42,17 @@ function createEmptyPdfResult(filePath, index = 0) {
 
 function validateReadablePdf(filePath) {
   const result = { ok: false, sizeBytes: 0, errors: [] };
-  const cleanPath = String(filePath || "").trim();
+  const cleanPath = toDisplayPath(filePath);
+  const nativePath = toLongPath(cleanPath);
   if (!cleanPath) { result.errors.push("Ruta vacía."); return result; }
-  if (!fs.existsSync(cleanPath)) { result.errors.push("El archivo no existe."); return result; }
-  if (path.extname(cleanPath).toLowerCase() !== ".pdf") {
+  if (!fs.existsSync(nativePath)) { result.errors.push("El archivo no existe."); return result; }
+  if (getExtension(cleanPath) !== ".pdf") {
     result.errors.push("El archivo no tiene extensión PDF.");
     return result;
   }
 
   try {
-    const stat = fs.statSync(cleanPath);
+    const stat = fs.statSync(nativePath);
     if (!stat.isFile()) result.errors.push("La ruta no corresponde a un archivo.");
     if (stat.size <= 0) result.errors.push("El PDF está vacío.");
     if (!result.errors.length) {
@@ -72,7 +75,7 @@ async function readPdfFile(filePath, index = 0) {
   }
 
   try {
-    const buffer = await fs.promises.readFile(filePath);
+    const buffer = await fs.promises.readFile(toLongPath(output.filePath));
     output.fileHash = calculateBufferHash(buffer);
     const parsed = await pdfParse(buffer);
     const text = normalizeLineBreaks(parsed.text || "");
