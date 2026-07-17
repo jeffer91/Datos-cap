@@ -2,8 +2,9 @@
 Nombre completo: documentos.js
 Ruta o ubicación: /renderer/documentos/documentos.js
 Función o funciones:
-- Controlar tres secciones documentales sin mezclar sus estados.
+- Controlar seis secciones documentales sin mezclar sus estados.
 - Mostrar validación, OCR, resultados, guardado y exportación.
+- Cargar PDF individuales o buscar PDF dentro de carpetas con rutas largas.
 ========================================================= */
 "use strict";
 
@@ -25,6 +26,7 @@ Función o funciones:
     description: documentObject.getElementById("workspaceDescription"),
     code: documentObject.getElementById("workspaceCode"),
     select: documentObject.getElementById("btnSelectDocuments"),
+    selectFolder: documentObject.getElementById("btnSelectDocumentFolder"),
     validate: documentObject.getElementById("btnValidateDocuments"),
     output: documentObject.getElementById("btnChooseOutput"),
     generate: documentObject.getElementById("btnGenerateDocuments"),
@@ -68,10 +70,37 @@ Función o funciones:
     elements.progressBar.style.width = `${percent}%`;
   }
 
+  function pathKey(filePath) {
+    return String(filePath || "").replace(/^\\\\\?\\UNC\\/i, "\\\\").replace(/^\\\\\?\\/i, "").replace(/\//g, "\\").toLowerCase();
+  }
+
+  function mergeFilePaths(currentPaths, incomingPaths) {
+    const output = [];
+    const seen = new Set();
+    [...(currentPaths || []), ...(incomingPaths || [])].forEach((filePath) => {
+      const cleanPath = String(filePath || "").trim();
+      const key = pathKey(cleanPath);
+      if (!cleanPath || seen.has(key)) return;
+      seen.add(key);
+      output.push(cleanPath);
+    });
+    return output;
+  }
+
+  function resetAfterSelection(current) {
+    current.validation = null;
+    current.result = null;
+    updateSummary();
+    updateButtons();
+    renderFiles();
+    renderResult();
+  }
+
   function updateButtons() {
     const current = state();
     const hasFiles = current.filePaths.length > 0;
     elements.select.disabled = current.busy;
+    elements.selectFolder.disabled = current.busy;
     elements.validate.disabled = !hasFiles || current.busy;
     elements.output.disabled = current.busy;
     elements.generate.disabled = !current.validation?.canContinue || !current.outputDir || current.busy;
@@ -170,13 +199,39 @@ Función o funciones:
       const result = await windowObject.documentAppAPI.selectDocumentFiles(activeType);
       if (result.canceled) return;
       const current = state();
-      current.filePaths = Array.isArray(result.filePaths) ? result.filePaths : [];
-      current.validation = null;
-      current.result = null;
-      setStatus(`Se seleccionaron ${current.filePaths.length} documento(s). Ejecuta la validación.`, current.filePaths.length ? "success" : "warning");
-      updateSummary(); updateButtons(); renderFiles(); renderResult();
+      const previousCount = current.filePaths.length;
+      current.filePaths = mergeFilePaths(current.filePaths, Array.isArray(result.filePaths) ? result.filePaths : []);
+      const added = current.filePaths.length - previousCount;
+      resetAfterSelection(current);
+      setStatus(`Se agregaron ${added} PDF. Total seleccionado: ${current.filePaths.length}. Ejecuta la validación.`, current.filePaths.length ? "success" : "warning");
     } catch (error) {
       setStatus(`No se pudieron seleccionar archivos: ${error.message}`, "danger");
+    }
+  }
+
+  async function selectFolder() {
+    try {
+      const result = await windowObject.documentAppAPI.selectDocumentFolder(activeType);
+      if (result.canceled) return;
+      const current = state();
+      const previousCount = current.filePaths.length;
+      current.filePaths = mergeFilePaths(current.filePaths, Array.isArray(result.filePaths) ? result.filePaths : []);
+      const added = current.filePaths.length - previousCount;
+      resetAfterSelection(current);
+
+      const inaccessible = Array.isArray(result.errors) ? result.errors.length : 0;
+      const notes = [];
+      if (result.truncated) notes.push(`Se alcanzó el límite de ${result.maxFiles || 5000} archivos.`);
+      if (inaccessible) notes.push(`${inaccessible} carpeta(s) no pudieron leerse.`);
+      const suffix = notes.length ? ` ${notes.join(" ")}` : "";
+      setStatus(
+        added
+          ? `Se agregaron ${added} PDF desde la carpeta. Total seleccionado: ${current.filePaths.length}.${suffix}`
+          : `No se agregaron PDF nuevos desde la carpeta seleccionada.${suffix}`,
+        added ? (notes.length ? "warning" : "success") : "warning"
+      );
+    } catch (error) {
+      setStatus(`No se pudo buscar PDF en la carpeta: ${error.message}`, "danger");
     }
   }
 
@@ -274,6 +329,7 @@ Función o funciones:
       renderActiveSection();
     }));
     elements.select.addEventListener("click", selectFiles);
+    elements.selectFolder.addEventListener("click", selectFolder);
     elements.validate.addEventListener("click", validateFiles);
     elements.output.addEventListener("click", chooseOutput);
     elements.generate.addEventListener("click", generate);
