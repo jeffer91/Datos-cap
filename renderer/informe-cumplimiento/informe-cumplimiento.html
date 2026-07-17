@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Informe de Cumplimiento | Gestor de Capacitación</title>
   <link rel="stylesheet" href="../shared/menu.css" />
@@ -19,9 +19,9 @@
       </div>
       <div class="actions">
         <button class="btn-secondary" id="btnRefreshCompliance">Actualizar datos</button>
-        <button class="btn-secondary" id="btnRunInternalAnalysis">Ejecutar análisis interno</button>
-        <button class="btn-secondary" id="btnRefineComplianceAi">Refinar con IA</button>
-        <button class="btn-primary" id="btnPrepareCompliance">Preparar informe</button>
+        <button class="btn-secondary" id="btnRunInternalAnalysis">Ejecutar motor interno</button>
+        <button class="btn-secondary" id="btnOpenAiConfiguration">Configurar IA</button>
+        <button class="btn-primary" id="btnGoToExport">Generar documento</button>
       </div>
     </header>
 
@@ -44,17 +44,90 @@
       <article class="card"><h2>Principales brechas</h2><div id="chartGaps"></div></article>
     </section>
 
-    <section class="report-content-grid">
-      <nav class="card section-nav" id="complianceSectionNav"></nav>
-      <article class="card report-sections" id="complianceSections"><div class="empty">Cargando estructura del informe...</div></article>
+    <section class="compliance-workspace">
+      <aside class="card guides-panel" id="guidesPanel">
+        <div class="panel-heading">
+          <div><h2>Guías del informe</h2><p>Configura y prueba cada sección.</p></div>
+          <button class="icon-button" id="btnToggleGuides" title="Ocultar panel">‹</button>
+        </div>
+        <div id="guideList" class="guide-list"></div>
+        <div class="guide-editor" id="guideEditor">
+          <h3 id="guideEditorHeading">Configuración de guía</h3>
+          <label>Título<input id="guideTitle" /></label>
+          <label>Instrucciones<textarea id="guideInstructions" rows="7"></textarea></label>
+          <label>Datos permitidos<input id="guideDataScope" placeholder="metrics, gaps, analysis" /></label>
+          <label>Tono institucional<input id="guideTone" /></label>
+          <div class="guide-form-row">
+            <label>Máximo de palabras<input id="guideMaxWords" type="number" min="50" max="5000" /></label>
+            <label>Proveedor preferido<select id="guideProviderPreference">
+              <option value="AUTO">Cadena automática</option>
+              <option value="PRIMARY">IA principal</option>
+              <option value="SECONDARY">IA secundaria</option>
+              <option value="BACKUP">IA de respaldo</option>
+              <option value="INTERNAL">Solo motor interno</option>
+            </select></label>
+          </div>
+          <label class="checkbox-line"><input id="guideEnabled" type="checkbox" checked /> Sección activa</label>
+          <label>Modo de prueba<select id="guideTestMode"><option value="INTERNAL">Motor interno</option><option value="AI">Cadena de IA</option></select></label>
+          <label class="checkbox-line"><input id="guideUseAiGeneration" type="checkbox" /> Usar IA al regenerar</label>
+          <div class="guide-actions">
+            <button class="btn-primary btn-small" id="btnSaveGuide">Guardar guía</button>
+            <button class="btn-secondary btn-small" id="btnTestGuide">Probar guía</button>
+            <button class="btn-secondary btn-small" id="btnRestoreGuide">Restaurar</button>
+          </div>
+          <div id="guideTestResult" class="guide-test-result"><div class="empty compact">Aquí aparecerá el resultado temporal de la prueba.</div></div>
+        </div>
+      </aside>
+
+      <section class="workspace-main">
+        <article class="card">
+          <div class="panel-heading"><div><h2>Estado de las secciones</h2><p>Genera y descarga cada sección por separado.</p></div><span id="sectionCountBadge" class="count-badge">0</span></div>
+          <div id="complianceSections" class="section-cards"><div class="empty">Cargando secciones...</div></div>
+        </article>
+        <article class="card"><h2>Alertas y brechas</h2><div id="complianceAlerts"></div></article>
+      </section>
     </section>
 
-    <section class="card"><h2>Alertas y brechas</h2><div id="complianceAlerts"></div></section>
-    <section class="card preview-card"><h2>Vista previa estructurada</h2><div id="compliancePreview"><div class="empty">Prepara el informe para generar su borrador estructurado.</div></div></section>
+    <section class="card export-center" id="complianceExportCenter">
+      <div class="panel-heading"><div><h2>Centro de generación y descarga</h2><p>Descarga una sección, varias secciones o el informe completo.</p></div></div>
+      <div class="export-grid">
+        <fieldset><legend>Alcance</legend>
+          <label><input type="radio" name="exportScope" value="SELECTED" checked /> Secciones seleccionadas</label>
+          <label><input type="radio" name="exportScope" value="FULL" /> Informe completo</label>
+        </fieldset>
+        <fieldset><legend>Formato</legend>
+          <label><input type="radio" name="exportFormat" value="DOCX" /> Word</label>
+          <label><input type="radio" name="exportFormat" value="PDF" /> PDF</label>
+          <label><input type="radio" name="exportFormat" value="BOTH" checked /> Word y PDF</label>
+        </fieldset>
+        <fieldset class="export-options"><legend>Contenido adicional</legend>
+          <label><input id="exportIncludeCharts" type="checkbox" checked /> Incluir gráficos</label>
+          <label><input id="exportIncludeTables" type="checkbox" checked /> Incluir tablas y evidencias</label>
+          <label><input id="exportIncludeAnnexes" type="checkbox" checked /> Incluir anexos</label>
+          <label><input id="exportIncludeCareerDetail" type="checkbox" checked /> Detalle por carrera</label>
+          <label><input id="exportIncludeTrainingDetail" type="checkbox" checked /> Detalle por capacitación</label>
+          <label><input id="exportIncludeAlerts" type="checkbox" checked /> Alertas documentales</label>
+        </fieldset>
+      </div>
+      <div class="export-actions"><span id="exportSelectionSummary">0 secciones seleccionadas</span><button class="btn-primary" id="btnExportCompliance">Generar y guardar</button></div>
+    </section>
   </main>
+
+  <div class="modal-backdrop" id="aiConfigurationModal" aria-hidden="true">
+    <section class="modal-window" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+      <header class="modal-header"><div><h2 id="aiModalTitle">Configuración de Inteligencias Artificiales</h2><p>Configura la principal, secundaria y de respaldo. Las credenciales se cifran cuando el sistema operativo lo permite.</p></div><button class="icon-button" id="btnCloseAiConfiguration" aria-label="Cerrar">×</button></header>
+      <div id="aiProvidersContainer" class="ai-providers"></div>
+      <div class="modal-status" id="aiModalStatus">Configura los proveedores y prueba su conexión.</div>
+      <footer class="modal-footer"><button class="btn-secondary" id="btnTestAiChain">Probar cadena completa</button><div><button class="btn-secondary" id="btnCancelAiConfiguration">Cerrar</button><button class="btn-primary" id="btnSaveAiConfiguration">Guardar configuración</button></div></footer>
+    </section>
+  </div>
 
   <script src="../shared/menu.js"></script>
   <script src="../shared/ui.js"></script>
+  <script src="./componentes/panel-guias.component.js"></script>
+  <script src="./componentes/estado-secciones.component.js"></script>
+  <script src="./componentes/centro-exportacion.component.js"></script>
+  <script src="./componentes/modal-ia.component.js"></script>
   <script src="./informe-cumplimiento.js"></script>
 </body>
 </html>
