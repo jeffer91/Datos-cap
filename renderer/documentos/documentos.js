@@ -5,19 +5,26 @@ Función o funciones:
 - Controlar seis secciones documentales sin mezclar sus estados.
 - Mostrar validación, OCR, resultados, guardado y exportación.
 - Cargar PDF individuales o buscar PDF dentro de carpetas con rutas largas.
+- Conservar el origen y la carpeta de capacitación de los acuerdos.
 ========================================================= */
 "use strict";
 
 (function initializeDocumentsPage(windowObject, documentObject) {
   const ui = windowObject.AppUI;
   const sections = windowObject.DocumentSections || {};
-  const states = Object.fromEntries(Object.keys(sections).map((id) => [id, {
-    filePaths: [],
-    validation: null,
-    outputDir: "",
-    result: null,
-    busy: false
-  }]));
+
+  function createSectionState() {
+    return {
+      filePaths: [],
+      fileEntries: [],
+      validation: null,
+      outputDir: "",
+      result: null,
+      busy: false
+    };
+  }
+
+  const states = Object.fromEntries(Object.keys(sections).map((id) => [id, createSectionState()]));
   let activeType = "plan-individual";
 
   const elements = {
@@ -71,23 +78,52 @@ Función o funciones:
   }
 
   function pathKey(filePath) {
-    return String(filePath || "").replace(/^\\\\\?\\UNC\\/i, "\\\\").replace(/^\\\\\?\\/i, "").replace(/\//g, "\\").toLowerCase();
+    return String(filePath || "")
+      .replace(/^\\\\\?\\UNC\\/i, "\\\\")
+      .replace(/^\\\\\?\\/i, "")
+      .replace(/\//g, "\\")
+      .toLowerCase();
   }
 
-  function mergeFilePaths(currentPaths, incomingPaths) {
+  function entriesFromResult(result) {
+    if (Array.isArray(result?.fileEntries) && result.fileEntries.length) return result.fileEntries;
+    return (Array.isArray(result?.filePaths) ? result.filePaths : []).map((filePath) => ({
+      path: filePath,
+      sourceType: "individual",
+      rootPath: "",
+      relativePath: ui.fileName(filePath),
+      directorySegments: [],
+      depth: 0,
+      parentFolder: ""
+    }));
+  }
+
+  function mergeFileEntries(currentEntries, incomingEntries) {
     const output = [];
-    const seen = new Set();
-    [...(currentPaths || []), ...(incomingPaths || [])].forEach((filePath) => {
-      const cleanPath = String(filePath || "").trim();
+    const positions = new Map();
+    [...(currentEntries || []), ...(incomingEntries || [])].forEach((entry) => {
+      const cleanEntry = typeof entry === "string" ? { path: entry, sourceType: "individual" } : { ...(entry || {}) };
+      const cleanPath = String(cleanEntry.path || "").trim();
       const key = pathKey(cleanPath);
-      if (!cleanPath || seen.has(key)) return;
-      seen.add(key);
-      output.push(cleanPath);
+      if (!cleanPath) return;
+      cleanEntry.path = cleanPath;
+      if (positions.has(key)) {
+        const index = positions.get(key);
+        output[index] = { ...output[index], ...cleanEntry, path: cleanPath };
+        return;
+      }
+      positions.set(key, output.length);
+      output.push(cleanEntry);
     });
     return output;
   }
 
+  function syncFilePaths(current) {
+    current.filePaths = (current.fileEntries || []).map((entry) => entry.path).filter(Boolean);
+  }
+
   function resetAfterSelection(current) {
+    syncFilePaths(current);
     current.validation = null;
     current.result = null;
     updateSummary();
@@ -119,35 +155,67 @@ Función o funciones:
     elements.ready.textContent = validation.canContinue ? "Sí" : "No";
   }
 
-  function renderFiles() {
-    const current = state();
-    if (current.validation?.files?.length) {
-      const rows = current.validation.files.map((file, index) => `<tr>
+  function agreementFolderName(file) {
+    return file?.folderContext?.detectedTraining || file?.folderContext?.originalTrainingFolder || "";
+  }
+
+  function sourceLabel(file) {
+    return file?.sourceType === "folder" ? "Carpeta" : "PDF individual";
+  }
+
+  function renderValidatedFiles(files) {
+    const isAgreement = activeType === "acuerdo-patrocinio";
+    const rows = files.map((file, index) => {
+      const folderCells = isAgreement
+        ? `<td>${ui.escapeHtml(sourceLabel(file))}</td><td>${ui.escapeHtml(agreementFolderName(file) || "—")}</td>`
+        : "";
+      return `<tr>
         <td>${index + 1}</td>
         <td>${ui.escapeHtml(file.name)}</td>
+        ${folderCells}
         <td>${ui.escapeHtml(file.detectedType || "No identificado")}</td>
         <td>${ui.escapeHtml(file.pageCount || 0)}</td>
         <td>${ui.escapeHtml(file.extractionMethod || "")}</td>
         <td>${ui.escapeHtml(file.ocrConfidence || 0)}%</td>
         <td>${ui.badge(file.valid ? "Válido" : "Revisar")}</td>
-        <td>${ui.escapeHtml((file.errors || []).join(" | ") || (file.warnings || []).join(" | ") || "Listo para procesar.")}</td>
-      </tr>`).join("");
-      elements.selected.innerHTML = `<div class="table-scroll"><table><thead><tr>
-        <th>#</th><th>Archivo</th><th>Tipo detectado</th><th>Páginas</th><th>Lectura</th><th>Confianza OCR</th><th>Estado</th><th>Observación</th>
-      </tr></thead><tbody>${rows}</tbody></table></div>`;
+        <td>${ui.escapeHtml((file.errors || []).join(" | ") || (file.warnings || []).join(" | ") || file.detectionReason || "Listo para procesar.")}</td>
+      </tr>`;
+    }).join("");
+    const folderHeaders = isAgreement ? "<th>Origen</th><th>Capacitación según carpeta</th>" : "";
+    elements.selected.innerHTML = `<div class="table-scroll"><table><thead><tr>
+      <th>#</th><th>Archivo</th>${folderHeaders}<th>Tipo detectado</th><th>Páginas</th><th>Lectura</th><th>Confianza OCR</th><th>Estado</th><th>Observación</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  function renderPendingFiles(entries) {
+    const isAgreement = activeType === "acuerdo-patrocinio";
+    const rows = entries.map((entry, index) => {
+      const folderCells = isAgreement
+        ? `<td>${ui.escapeHtml(sourceLabel(entry))}</td><td>${ui.escapeHtml(agreementFolderName(entry) || "—")}</td>`
+        : "";
+      return `<tr>
+        <td>${index + 1}</td>
+        <td>${ui.escapeHtml(ui.fileName(entry.path))}</td>
+        ${folderCells}
+        <td>${ui.escapeHtml(entry.relativePath || entry.path)}</td>
+        <td>${ui.badge("Pendiente")}</td>
+      </tr>`;
+    }).join("");
+    const folderHeaders = isAgreement ? "<th>Origen</th><th>Capacitación según carpeta</th>" : "";
+    elements.selected.innerHTML = `<div class="table-scroll"><table><thead><tr><th>#</th><th>Archivo</th>${folderHeaders}<th>Ruta</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  function renderFiles() {
+    const current = state();
+    if (current.validation?.files?.length) {
+      renderValidatedFiles(current.validation.files);
       return;
     }
-
-    if (!current.filePaths.length) {
+    if (!current.fileEntries.length) {
       elements.selected.innerHTML = '<div class="empty">Aquí aparecerán los PDF seleccionados.</div>';
       return;
     }
-
-    const rows = current.filePaths.map((filePath, index) => `<tr>
-      <td>${index + 1}</td><td>${ui.escapeHtml(ui.fileName(filePath))}</td>
-      <td>${ui.escapeHtml(filePath)}</td><td>${ui.badge("Pendiente")}</td>
-    </tr>`).join("");
-    elements.selected.innerHTML = `<div class="table-scroll"><table><thead><tr><th>#</th><th>Archivo</th><th>Ruta</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    renderPendingFiles(current.fileEntries);
   }
 
   function renderResult() {
@@ -159,6 +227,12 @@ Función o funciones:
     }
     const persistence = result.persistence || {};
     const tableRows = Object.entries(result.summary?.rows_by_table || {}).map(([name, count]) => `<tr><td>${ui.escapeHtml(name)}</td><td>${ui.escapeHtml(count)}</td></tr>`).join("");
+    const agreementSummary = activeType === "acuerdo-patrocinio" ? `
+      <strong>Capacitaciones detectadas:</strong> ${ui.escapeHtml(result.summary?.total_capacitaciones_detectadas || 0)}<br>
+      <strong>Coincidencias carpeta/PDF:</strong> ${ui.escapeHtml(result.summary?.coincidencias_confirmadas || 0)}<br>
+      <strong>Coincidencias probables:</strong> ${ui.escapeHtml(result.summary?.coincidencias_probables || 0)}<br>
+      <strong>Conflictos carpeta/PDF:</strong> ${ui.escapeHtml(result.summary?.conflictos_carpeta_pdf || 0)}<br>
+    ` : "";
     elements.result.innerHTML = `
       <div class="status-box status-success">Proceso terminado correctamente.</div>
       <div class="result-files">
@@ -167,7 +241,8 @@ Función o funciones:
         <strong>Documentos nuevos:</strong> ${ui.escapeHtml(persistence.documentsSaved || 0)}<br>
         <strong>Duplicados omitidos:</strong> ${ui.escapeHtml(persistence.duplicateDocumentsSkipped || 0)}<br>
         <strong>Filas guardadas:</strong> ${ui.escapeHtml(persistence.rowsSaved || 0)}<br>
-        <strong>Páginas OCR:</strong> ${ui.escapeHtml(result.readResult?.ocrCount || 0)} documento(s) con OCR
+        <strong>Páginas OCR:</strong> ${ui.escapeHtml(result.readResult?.ocrCount || 0)} documento(s) con OCR<br>
+        ${agreementSummary}
       </div>
       <div class="table-scroll"><table><thead><tr><th>Tabla</th><th>Filas</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
   }
@@ -199,11 +274,11 @@ Función o funciones:
       const result = await windowObject.documentAppAPI.selectDocumentFiles(activeType);
       if (result.canceled) return;
       const current = state();
-      const previousCount = current.filePaths.length;
-      current.filePaths = mergeFilePaths(current.filePaths, Array.isArray(result.filePaths) ? result.filePaths : []);
-      const added = current.filePaths.length - previousCount;
+      const previousCount = current.fileEntries.length;
+      current.fileEntries = mergeFileEntries(current.fileEntries, entriesFromResult(result));
+      const added = current.fileEntries.length - previousCount;
       resetAfterSelection(current);
-      setStatus(`Se agregaron ${added} PDF. Total seleccionado: ${current.filePaths.length}. Ejecuta la validación.`, current.filePaths.length ? "success" : "warning");
+      setStatus(`Se agregaron ${added} PDF individuales. Total seleccionado: ${current.filePaths.length}. Ejecuta la validación.`, current.filePaths.length ? "success" : "warning");
     } catch (error) {
       setStatus(`No se pudieron seleccionar archivos: ${error.message}`, "danger");
     }
@@ -214,21 +289,24 @@ Función o funciones:
       const result = await windowObject.documentAppAPI.selectDocumentFolder(activeType);
       if (result.canceled) return;
       const current = state();
-      const previousCount = current.filePaths.length;
-      current.filePaths = mergeFilePaths(current.filePaths, Array.isArray(result.filePaths) ? result.filePaths : []);
-      const added = current.filePaths.length - previousCount;
+      const incomingEntries = entriesFromResult(result);
+      const previousCount = current.fileEntries.length;
+      current.fileEntries = mergeFileEntries(current.fileEntries, incomingEntries);
+      const added = current.fileEntries.length - previousCount;
       resetAfterSelection(current);
 
       const inaccessible = Array.isArray(result.errors) ? result.errors.length : 0;
+      const trainingCount = new Set(incomingEntries.map((entry) => agreementFolderName(entry)).filter(Boolean)).size;
       const notes = [];
+      if (activeType === "acuerdo-patrocinio" && trainingCount) notes.push(`${trainingCount} capacitación(es) identificada(s) por carpetas.`);
       if (result.truncated) notes.push(`Se alcanzó el límite de ${result.maxFiles || 5000} archivos.`);
       if (inaccessible) notes.push(`${inaccessible} carpeta(s) no pudieron leerse.`);
       const suffix = notes.length ? ` ${notes.join(" ")}` : "";
       setStatus(
         added
-          ? `Se agregaron ${added} PDF desde la carpeta. Total seleccionado: ${current.filePaths.length}.${suffix}`
+          ? `Se agregaron ${added} PDF desde la carpeta y sus subcarpetas. Total seleccionado: ${current.filePaths.length}.${suffix}`
           : `No se agregaron PDF nuevos desde la carpeta seleccionada.${suffix}`,
-        added ? (notes.length ? "warning" : "success") : "warning"
+        added ? (inaccessible || result.truncated ? "warning" : "success") : "warning"
       );
     } catch (error) {
       setStatus(`No se pudo buscar PDF en la carpeta: ${error.message}`, "danger");
@@ -244,14 +322,20 @@ Función o funciones:
     try {
       current.validation = await windowObject.documentAppAPI.validateDocumentFiles({
         documentType: activeType,
-        filePaths: current.filePaths
+        filePaths: current.filePaths,
+        fileEntries: current.fileEntries
       });
+      current.fileEntries = mergeFileEntries(current.fileEntries, current.validation.files || []);
+      syncFilePaths(current);
       if (!current.validation.canContinue) {
         setStatus("No existen documentos válidos para esta sección.", "danger");
       } else if (current.validation.invalidCount) {
         setStatus(`Validación terminada: ${current.validation.validCount} válido(s) y ${current.validation.invalidCount} para revisar.`, "warning");
       } else {
-        setStatus(`Validación terminada: ${current.validation.validCount} documento(s) listo(s).`, "success");
+        const folderText = activeType === "acuerdo-patrocinio" && current.validation.trainingFolderCount
+          ? ` Se identificaron ${current.validation.trainingFolderCount} capacitación(es) mediante las carpetas.`
+          : "";
+        setStatus(`Validación terminada: ${current.validation.validCount} documento(s) listo(s).${folderText}`, "success");
       }
     } catch (error) {
       setStatus(`Error durante la validación: ${error.message}`, "danger");
@@ -286,13 +370,18 @@ Función o funciones:
       current.result = await windowObject.documentAppAPI.generateDocumentReport({
         documentType: activeType,
         filePaths: current.filePaths,
+        fileEntries: current.fileEntries,
         outputDir: current.outputDir
       });
       if (!current.result.ok) {
         setStatus(current.result.message || "No se pudo completar el procesamiento.", "danger");
       } else {
         const review = Number(current.result.summary?.requiere_revision_rows || 0);
-        setStatus(`Proceso completado. Registros para revisión: ${review}.`, review ? "warning" : "success");
+        const conflicts = Number(current.result.summary?.conflictos_carpeta_pdf || 0);
+        const message = conflicts
+          ? `Proceso completado. Hay ${conflicts} conflicto(s) entre carpeta y PDF para revisar.`
+          : `Proceso completado. Registros para revisión: ${review}.`;
+        setStatus(message, review || conflicts ? "warning" : "success");
       }
     } catch (error) {
       current.result = { ok: false, message: error.message };
@@ -305,7 +394,7 @@ Función o funciones:
   }
 
   function clearSection() {
-    states[activeType] = { filePaths: [], validation: null, outputDir: "", result: null, busy: false };
+    states[activeType] = createSectionState();
     renderActiveSection();
   }
 
