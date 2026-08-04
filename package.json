@@ -1,7 +1,7 @@
 {
   "name": "datos-cap",
-  "version": "0.2.1",
-  "description": "Aplicación de escritorio para extraer hasta 500 planes individuales de formación y capacitación docente desde PDF digitales o escaneados.",
+  "version": "0.3.0",
+  "description": "Aplicación de escritorio para extraer, revisar y corregir hasta 500 planes individuales de formación y capacitación docente desde PDF digitales o escaneados.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
