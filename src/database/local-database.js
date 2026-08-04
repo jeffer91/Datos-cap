@@ -5,6 +5,7 @@ Función o funciones:
 - Implementar una base local rápida mediante colecciones JSON.
 - Aplicar escrituras atómicas con respaldo temporal.
 - Consultar, reemplazar y actualizar colecciones por identificador.
+- Notificar cambios internos sin bloquear las escrituras locales.
 ========================================================= */
 "use strict";
 
@@ -35,6 +36,7 @@ class LocalDatabase {
     this.collectionsDirectory = path.join(this.rootDirectory, "collections");
     this.metadataPath = path.join(this.rootDirectory, "database.meta.json");
     this.initialized = false;
+    this.changeListeners = new Set();
   }
 
   initialize() {
@@ -56,6 +58,19 @@ class LocalDatabase {
 
   assertInitialized() { if (!this.initialized) this.initialize(); }
   collectionPath(name) { return path.join(this.collectionsDirectory, `${safeCollection(name)}.json`); }
+
+  onChange(listener) {
+    if (typeof listener !== "function") return () => {};
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
+
+  emitChange(event = {}) {
+    this.changeListeners.forEach((listener) => {
+      try { listener(clone(event)); }
+      catch (_error) { /* una notificación nunca debe bloquear la base local */ }
+    });
+  }
 
   recoverInterruptedWrites() {
     if (!fs.existsSync(this.collectionsDirectory)) return;
@@ -121,15 +136,21 @@ class LocalDatabase {
   writeCollection(name, records) {
     const collection = safeCollection(name);
     const current = this.readCollectionPayload(collection);
+    const updatedAt = nowIso();
     const payload = {
       collection,
       databaseVersion: DATABASE_VERSION,
-      createdAt: current.createdAt || nowIso(),
-      updatedAt: nowIso(),
+      createdAt: current.createdAt || updatedAt,
+      updatedAt,
       records: clone(Array.isArray(records) ? records : [])
     };
     this.writeJsonAtomic(this.collectionPath(collection), payload);
     this.touchMetadata();
+    this.emitChange({
+      collection,
+      recordCount: payload.records.length,
+      updatedAt
+    });
     return payload;
   }
 
