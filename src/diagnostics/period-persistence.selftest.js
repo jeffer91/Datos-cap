@@ -110,11 +110,11 @@ function runPeriodPersistenceSelfTest() {
   const agreementRows = persistence.database.readCollection("datos_acuerdo_patrocinio");
   const supportRows = persistence.database.readCollection("apoyos_acuerdo_patrocinio");
 
-  assertCondition(planRows[0].periodo === "2025-10", "Identificación del Plan sin periodo.");
-  assertCondition(trainingRows[0].periodo === "2025-10", "Capacitación propuesta sin periodo.");
-  assertCondition(planRows[0].anio_periodo === "2025" && planRows[0].mes_periodo === "10", "Año o mes del Plan incorrectos.");
-  assertCondition(agreementRows[0].periodo === "2026-03", "Datos del Acuerdo sin periodo.");
-  assertCondition(supportRows[0].periodo === "2026-03", "Apoyo del Acuerdo sin periodo.");
+  assertCondition(planRows[0]?.periodo === "2025-10", `Identificación del Plan sin periodo. Fila: ${JSON.stringify(planRows[0] || null)}`);
+  assertCondition(trainingRows[0]?.periodo === "2025-10", `Capacitación propuesta sin periodo. Fila: ${JSON.stringify(trainingRows[0] || null)}`);
+  assertCondition(planRows[0]?.anio_periodo === "2025" && planRows[0]?.mes_periodo === "10", `Año o mes del Plan incorrectos. Fila: ${JSON.stringify(planRows[0] || null)}`);
+  assertCondition(agreementRows[0]?.periodo === "2026-03", `Datos del Acuerdo sin periodo. Fila: ${JSON.stringify(agreementRows[0] || null)}`);
+  assertCondition(supportRows[0]?.periodo === "2026-03", `Apoyo del Acuerdo sin periodo. Fila: ${JSON.stringify(supportRows[0] || null)}`);
 
   const query = createQueryService(persistence.database);
   assertCondition(query.listTypeRecords("plan-individual", { period: "2025-10" }).records.length === 1, "El filtro del Plan por periodo no funciona.");
