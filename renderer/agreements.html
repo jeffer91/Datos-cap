@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acuerdos de patrocinio</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./agreements.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">DC</div>
+        <div><h1>Acuerdos de patrocinio</h1><p>Datos-cap</p></div>
+      </div>
+      <nav class="screen-nav" aria-label="Pantallas">
+        <a href="./index.html">Planes</a>
+        <a class="active" href="./agreements.html">Acuerdos</a>
+      </nav>
+      <div class="top-actions"><span class="version" id="versionLabel">v0.4.0</span></div>
+    </header>
+
+    <main class="main-content">
+      <section class="upload-card">
+        <div class="upload-icon" aria-hidden="true">AP</div>
+        <div class="upload-copy"><h2>Cargar acuerdos</h2><p>PDF digitales o escaneados · máximo 500</p></div>
+        <div class="upload-actions">
+          <button class="button secondary" id="folderButton" type="button">Carpeta</button>
+          <button class="button primary" id="filesButton" type="button">Seleccionar PDF</button>
+        </div>
+      </section>
+
+      <section class="selection-panel hidden" id="selectionPanel">
+        <div><strong id="selectionCount">0 archivos</strong><span id="selectionHint">Listos para procesar</span></div>
+        <div class="selection-actions">
+          <button class="button ghost" id="clearSelectionButton" type="button">Quitar</button>
+          <button class="button primary" id="processButton" type="button">Procesar</button>
+        </div>
+      </section>
+
+      <section class="progress-card hidden" id="progressCard" aria-live="polite">
+        <div class="progress-head"><div><strong id="progressTitle">Procesando</strong><span id="progressFile"></span></div><span id="progressPercent">0%</span></div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        <p id="progressMessage">Preparando archivos...</p>
+      </section>
+
+      <section class="stats-grid" aria-label="Resumen">
+        <article class="stat-card"><span>Acuerdos</span><strong id="statTotal">0</strong></article>
+        <article class="stat-card success"><span>Completos</span><strong id="statComplete">0</strong></article>
+        <article class="stat-card warning"><span>Revisar</span><strong id="statReview">0</strong></article>
+        <article class="stat-card accent"><span>Firmados</span><strong id="statSigned">0</strong></article>
+      </section>
+
+      <section class="results-card">
+        <div class="results-toolbar">
+          <div><h2>Resultados</h2><p id="resultsSubtitle">Todavía no hay acuerdos procesados</p></div>
+          <div class="toolbar-actions">
+            <div class="search-box"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Buscar docente o capacitación"></div>
+            <select id="statusFilter" aria-label="Filtrar por estado">
+              <option value="">Todos</option><option value="COMPLETO">Completos</option><option value="REVISAR">Revisar</option><option value="ERROR">Errores</option>
+            </select>
+            <button class="button secondary" id="excelButton" type="button" disabled>Excel</button>
+            <button class="button secondary" id="jsonButton" type="button" disabled>JSON</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Estado</th><th>Docente</th><th>Cédula</th><th>Capacitación</th><th>Periodo</th><th>Patrocinio</th><th>Acuerdo</th><th></th></tr></thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+          <div class="empty-state" id="emptyState"><div class="empty-icon">PDF</div><strong>Carga tus primeros acuerdos</strong><span>La información extraída aparecerá aquí.</span></div>
+        </div>
+        <div class="results-footer"><span id="visibleCount">0 registros</span><button class="text-button danger" id="clearDataButton" type="button" disabled>Borrar datos</button></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop hidden" id="drawerBackdrop"></div>
+  <aside class="drawer" id="detailDrawer" aria-hidden="true">
+    <header class="drawer-header">
+      <div class="drawer-title-block"><span class="eyebrow">Detalle del acuerdo</span><h2 id="drawerTitle">Docente</h2></div>
+      <div class="drawer-actions">
+        <button class="button secondary compact" id="openPdfButton" type="button">Abrir PDF</button>
+        <button class="button secondary compact" id="editButton" type="button">Editar</button>
+        <button class="button primary compact hidden" id="saveButton" type="button">Guardar</button>
+        <button class="button ghost compact hidden" id="cancelButton" type="button">Cancelar</button>
+        <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar">×</button>
+      </div>
+    </header>
+    <div class="drawer-content" id="drawerContent"></div>
+  </aside>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+  <script src="./agreements.js"></script>
+</body>
+</html>
