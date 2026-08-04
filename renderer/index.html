@@ -19,7 +19,7 @@
       </div>
       <div class="top-actions">
         <button class="button ghost" id="openDataButton" type="button">Datos</button>
-        <span class="version" id="versionLabel">v0.1.0</span>
+        <span class="version" id="versionLabel">v0.3.0</span>
       </div>
     </header>
 
@@ -135,17 +135,19 @@
   <div class="drawer-backdrop hidden" id="drawerBackdrop"></div>
   <aside class="drawer" id="detailDrawer" aria-hidden="true">
     <header class="drawer-header">
-      <div>
+      <div class="drawer-title-block">
         <span class="eyebrow">Detalle del plan</span>
         <h2 id="drawerTitle">Docente</h2>
       </div>
-      <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar">×</button>
+      <div class="drawer-actions">
+        <button class="button secondary compact" id="openPdfButton" type="button">Abrir PDF</button>
+        <button class="button secondary compact" id="editPlanButton" type="button">Editar</button>
+        <button class="button primary compact hidden" id="savePlanButton" type="button">Guardar</button>
+        <button class="button ghost compact hidden" id="cancelEditButton" type="button">Cancelar</button>
+        <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar">×</button>
+      </div>
     </header>
     <div class="drawer-content" id="drawerContent"></div>
-    <footer class="drawer-footer">
-      <button class="button secondary" id="openPdfButton" type="button">Abrir PDF</button>
-      <button class="button primary" id="closeDrawerFooterButton" type="button">Cerrar</button>
-    </footer>
   </aside>
 
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
