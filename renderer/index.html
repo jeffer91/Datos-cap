@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planes docentes</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">DC</div>
+        <div>
+          <h1>Planes docentes</h1>
+          <p>Datos-cap</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="button ghost" id="openDataButton" type="button">Datos</button>
+        <span class="version" id="versionLabel">v0.1.0</span>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="upload-card">
+        <div class="upload-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4L8 8M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+        </div>
+        <div class="upload-copy">
+          <h2>Cargar planes</h2>
+          <p>PDF digitales o escaneados · máximo 500</p>
+        </div>
+        <div class="upload-actions">
+          <button class="button secondary" id="folderButton" type="button">Carpeta</button>
+          <button class="button primary" id="filesButton" type="button">Seleccionar PDF</button>
+        </div>
+      </section>
+
+      <section class="selection-panel hidden" id="selectionPanel">
+        <div>
+          <strong id="selectionCount">0 archivos</strong>
+          <span id="selectionHint">Listos para procesar</span>
+        </div>
+        <div class="selection-actions">
+          <button class="button ghost" id="clearSelectionButton" type="button">Quitar</button>
+          <button class="button primary" id="processButton" type="button">Procesar</button>
+        </div>
+      </section>
+
+      <section class="progress-card hidden" id="progressCard" aria-live="polite">
+        <div class="progress-head">
+          <div>
+            <strong id="progressTitle">Procesando</strong>
+            <span id="progressFile"></span>
+          </div>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        <p id="progressMessage">Preparando archivos...</p>
+      </section>
+
+      <section class="stats-grid" aria-label="Resumen">
+        <article class="stat-card">
+          <span>Planes</span>
+          <strong id="statTotal">0</strong>
+        </article>
+        <article class="stat-card success">
+          <span>Completos</span>
+          <strong id="statComplete">0</strong>
+        </article>
+        <article class="stat-card warning">
+          <span>Revisar</span>
+          <strong id="statReview">0</strong>
+        </article>
+        <article class="stat-card accent">
+          <span>Capacitaciones</span>
+          <strong id="statTrainings">0</strong>
+        </article>
+      </section>
+
+      <section class="results-card">
+        <div class="results-toolbar">
+          <div>
+            <h2>Resultados</h2>
+            <p id="resultsSubtitle">Todavía no hay planes procesados</p>
+          </div>
+          <div class="toolbar-actions">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+              <input id="searchInput" type="search" placeholder="Buscar docente o carrera" />
+            </div>
+            <select id="statusFilter" aria-label="Filtrar por estado">
+              <option value="">Todos</option>
+              <option value="COMPLETO">Completos</option>
+              <option value="REVISAR">Revisar</option>
+              <option value="ERROR">Errores</option>
+            </select>
+            <button class="button secondary" id="excelButton" type="button" disabled>Excel</button>
+            <button class="button secondary" id="jsonButton" type="button" disabled>JSON</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Docente</th>
+                <th>Carrera</th>
+                <th>Periodo</th>
+                <th>Capacitaciones</th>
+                <th>Lectura</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">PDF</div>
+            <strong>Carga tus primeros planes</strong>
+            <span>La información extraída aparecerá aquí.</span>
+          </div>
+        </div>
+
+        <div class="results-footer">
+          <span id="visibleCount">0 registros</span>
+          <button class="text-button danger" id="clearDataButton" type="button" disabled>Borrar datos</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop hidden" id="drawerBackdrop"></div>
+  <aside class="drawer" id="detailDrawer" aria-hidden="true">
+    <header class="drawer-header">
+      <div>
+        <span class="eyebrow">Detalle del plan</span>
+        <h2 id="drawerTitle">Docente</h2>
+      </div>
+      <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar">×</button>
+    </header>
+    <div class="drawer-content" id="drawerContent"></div>
+    <footer class="drawer-footer">
+      <button class="button secondary" id="openPdfButton" type="button">Abrir PDF</button>
+      <button class="button primary" id="closeDrawerFooterButton" type="button">Cerrar</button>
+    </footer>
+  </aside>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
