@@ -1,0 +1,116 @@
+.screen-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.screen-nav a {
+  padding: 8px 13px;
+  border-radius: 9px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.screen-nav a.active {
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 6px 14px rgba(49, 87, 213, 0.18);
+}
+
+.support-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.support-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: #3651a7;
+  background: var(--primary-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.agreement-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.agreement-state.signed { color: var(--success); background: var(--success-soft); }
+.agreement-state.pending { color: var(--warning); background: var(--warning-soft); }
+.agreement-state.cancelled { color: var(--danger); background: var(--danger-soft); }
+
+.link-card {
+  padding: 13px;
+  border: 1px solid #dce5ff;
+  border-radius: 12px;
+  background: #f6f8ff;
+}
+
+.link-card strong { display: block; font-size: 12px; }
+.link-card span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.check-card {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.check-card input { width: 16px; height: 16px; accent-color: var(--primary); }
+
+.edit-field select {
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  font-size: 12px;
+}
+
+.edit-field select:focus {
+  border-color: #94a9ef;
+  box-shadow: 0 0 0 3px rgba(49, 87, 213, .08);
+}
+
+@media (max-width: 900px) {
+  .topbar { height: auto; min-height: 74px; flex-wrap: wrap; gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+  .screen-nav { order: 3; width: 100%; }
+  .screen-nav a { flex: 1; text-align: center; }
+}
+
+@media (max-width: 760px) {
+  .checkbox-grid { grid-template-columns: 1fr; }
+}
