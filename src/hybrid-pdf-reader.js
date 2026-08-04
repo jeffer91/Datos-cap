@@ -2,8 +2,26 @@
 
 const fs = require("fs");
 const pdfParse = require("pdf-parse");
-const { pdf } = require("pdf-to-img");
 const { createWorker } = require("tesseract.js");
+
+let pdfRendererPromise = null;
+
+async function getPdfRenderer() {
+  if (!pdfRendererPromise) {
+    pdfRendererPromise = import("pdf-to-img")
+      .then((module) => {
+        if (typeof module?.pdf !== "function") {
+          throw new Error("pdf-to-img no expuso la función pdf esperada.");
+        }
+        return module.pdf;
+      })
+      .catch((error) => {
+        pdfRendererPromise = null;
+        throw error;
+      });
+  }
+  return pdfRendererPromise;
+}
 
 function assessDigitalText(text) {
   const source = String(text || "");
@@ -36,7 +54,11 @@ class HybridPdfReader {
     if (this.worker) return this.worker;
     const logger = (message) => {
       if (typeof onProgress === "function" && Number.isFinite(message?.progress)) {
-        onProgress({ phase: "ocr-progress", percent: Math.round(message.progress * 100), message: message.status || "OCR" });
+        onProgress({
+          phase: "ocr-progress",
+          percent: Math.round(message.progress * 100),
+          message: message.status || "OCR"
+        });
       }
     };
     try {
@@ -60,15 +82,21 @@ class HybridPdfReader {
   }
 
   async readOcr(filePath, onProgress) {
+    const renderPdf = await getPdfRenderer();
     const worker = await this.ensureWorker(onProgress);
     const pages = [];
     let pageNumber = 0;
-    const rendered = await pdf(filePath, { scale: this.ocrScale });
+    const rendered = await renderPdf(filePath, { scale: this.ocrScale });
+
     for await (const image of rendered) {
       pageNumber += 1;
       if (pageNumber > this.maxOcrPages) break;
       if (typeof onProgress === "function") {
-        onProgress({ phase: "ocr-page", page: pageNumber, message: `OCR página ${pageNumber}` });
+        onProgress({
+          phase: "ocr-page",
+          page: pageNumber,
+          message: `OCR página ${pageNumber}`
+        });
       }
       const result = await worker.recognize(image);
       pages.push({
@@ -77,6 +105,7 @@ class HybridPdfReader {
         confidence: Number(result?.data?.confidence || 0)
       });
     }
+
     return {
       text: pages.map((item) => item.text).join("\n\n"),
       pages: pageNumber,
@@ -93,6 +122,7 @@ class HybridPdfReader {
     } catch (error) {
       digitalError = error.message;
     }
+
     const quality = assessDigitalText(digital.text);
     if (quality.good) {
       return {
@@ -107,9 +137,11 @@ class HybridPdfReader {
     if (typeof onProgress === "function") {
       onProgress({ phase: "ocr-start", message: "PDF escaneado: iniciando OCR" });
     }
+
     const ocr = await this.readOcr(filePath, onProgress);
     const ocrQuality = assessDigitalText(ocr.text);
     const combined = [digital.text, ocr.text].filter(Boolean).join("\n\n");
+
     return {
       text: combined,
       pages: Math.max(digital.pages, ocr.pages),
@@ -131,4 +163,8 @@ class HybridPdfReader {
   }
 }
 
-module.exports = { assessDigitalText, HybridPdfReader };
+module.exports = {
+  assessDigitalText,
+  getPdfRenderer,
+  HybridPdfReader
+};
