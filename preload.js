@@ -2,10 +2,11 @@
 Nombre completo: preload.js
 Ruta o ubicación: /preload.js
 Función o funciones:
-- Exponer una API segura para Documentos, SCAN e Importación Masiva, OCR, Base, Reporte Individual e Informe de Cumplimiento.
+- Exponer una API segura para Documentos, SCAN, Base, Firebase, Reporte Individual e Informe de Cumplimiento.
 - Mantener aislado el renderer de Node.js y limitar los canales IPC permitidos.
 - Permitir buscar PDF dentro de carpetas y subcarpetas con rutas largas.
 - Permitir generar el PDF del inventario obtenido durante el SCAN.
+- Exponer únicamente estado y configuración segura de la sincronización Firebase.
 ========================================================= */
 "use strict";
 
@@ -15,12 +16,13 @@ const INVOKE_CHANNELS = new Set([
   "app:get-info", "dialog:select-document-pdfs", "dialog:select-document-folder", "dialog:select-mass-import-folder", "files:validate-document-pdfs", "dialog:choose-output-dir", "reports:generate-document-report",
   "importacion-masiva:escanear", "importacion-masiva:exportar-scan", "importacion-masiva:procesar", "importacion-masiva:consultar",
   "database:get-overview", "database:query-documents", "database:query-type-records", "database:query-document-details", "database:query-runs", "database:open-folder",
+  "firebase:get-status", "firebase:configure", "firebase:disconnect",
   "reportes-individuales:listar-docentes", "reportes-individuales:consultar-docente", "reportes-individuales:preparar",
   "informe-cumplimiento:obtener-filtros", "informe-cumplimiento:consultar-resumen", "informe-cumplimiento:ejecutar-analisis", "informe-cumplimiento:refinar-ia", "informe-cumplimiento:preparar",
   "informe-cumplimiento:listar-guias", "informe-cumplimiento:guardar-guia", "informe-cumplimiento:restaurar-guia", "informe-cumplimiento:versiones-guia", "informe-cumplimiento:probar-guia", "informe-cumplimiento:generar-seccion",
   "informe-cumplimiento:configuracion-ia", "informe-cumplimiento:guardar-configuracion-ia", "informe-cumplimiento:probar-proveedor-ia", "informe-cumplimiento:probar-cadena-ia", "informe-cumplimiento:exportar"
 ]);
-const EVENT_CHANNELS = new Set(["ocr:progress"]);
+const EVENT_CHANNELS = new Set(["ocr:progress", "firebase:status"]);
 
 function invoke(channel, payload) {
   if (!INVOKE_CHANNELS.has(channel)) return Promise.reject(new Error(`Canal no permitido: ${channel}`));
@@ -52,6 +54,10 @@ contextBridge.exposeInMainWorld("documentAppAPI", {
   queryDatabaseDocumentDetails: (documentId) => invoke("database:query-document-details", documentId),
   queryDatabaseRuns: (options) => invoke("database:query-runs", options),
   openDatabaseFolder: () => invoke("database:open-folder"),
+  getFirebaseStatus: () => invoke("firebase:get-status"),
+  configureFirebase: (payload) => invoke("firebase:configure", payload),
+  disconnectFirebase: () => invoke("firebase:disconnect"),
+  onFirebaseStatus: (callback) => subscribe("firebase:status", callback),
   listIndividualReportTeachers: (options) => invoke("reportes-individuales:listar-docentes", options),
   getIndividualReport: (key) => invoke("reportes-individuales:consultar-docente", key),
   prepareIndividualReport: (key) => invoke("reportes-individuales:preparar", key),
