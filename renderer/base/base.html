@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../shared/menu.css" />
   <link rel="stylesheet" href="../shared/ui.css" />
   <link rel="stylesheet" href="./base.css" />
+  <link rel="stylesheet" href="./firebase-sync.css" />
   <link rel="stylesheet" href="../shared/simple.css" />
 </head>
 <body data-active-menu="base">
@@ -17,6 +18,7 @@
     <header class="page-header">
       <div><h1>Base</h1></div>
       <div class="actions">
+        <button class="btn-secondary firebase-button" id="btnFirebaseSetup" title="Configurar Firebase">Nube</button>
         <button class="btn-secondary" id="btnRefreshBase">Actualizar</button>
         <button class="btn-primary" id="btnOpenBaseFolder">Carpeta</button>
       </div>
@@ -56,6 +58,32 @@
     </section>
   </main>
 
+  <div class="firebase-backdrop" id="firebaseModal" aria-hidden="true">
+    <section class="firebase-modal" role="dialog" aria-modal="true" aria-labelledby="firebaseModalTitle">
+      <header>
+        <h2 id="firebaseModalTitle">Firebase</h2>
+        <button class="btn-secondary firebase-close" id="btnCloseFirebase" aria-label="Cerrar">×</button>
+      </header>
+      <div class="firebase-body">
+        <div class="firebase-state" id="firebaseState">
+          <span class="firebase-state-dot"></span>
+          <strong id="firebaseStateText">Cargando...</strong>
+        </div>
+        <label>Correo
+          <input type="email" id="firebaseEmail" autocomplete="username" />
+        </label>
+        <label>Contraseña
+          <input type="password" id="firebasePassword" autocomplete="current-password" />
+        </label>
+        <div class="firebase-message" id="firebaseMessage"></div>
+      </div>
+      <footer>
+        <button class="btn-danger" id="btnDisconnectFirebase">Desconectar</button>
+        <button class="btn-primary" id="btnSaveFirebase">Guardar</button>
+      </footer>
+    </section>
+  </div>
+
   <script src="../shared/menu.js"></script>
   <script src="../shared/ui.js"></script>
   <script src="./vistas/resumen.view.js"></script>
@@ -64,6 +92,7 @@
   <script src="./vistas/detalles.view.js"></script>
   <script src="./vistas/procesamientos.view.js"></script>
   <script src="./base.js"></script>
+  <script src="./firebase-sync.js"></script>
   <script src="../shared/compact-ui.js"></script>
 </body>
 </html>
