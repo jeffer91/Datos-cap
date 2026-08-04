@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("plansAPI", {
   selectFolder: () => ipcRenderer.invoke("plans:select-folder"),
   process: (filePaths) => ipcRenderer.invoke("plans:process", { filePaths }),
   list: () => ipcRenderer.invoke("plans:list"),
+  update: (record) => ipcRenderer.invoke("plans:update", record),
   export: (format) => ipcRenderer.invoke("plans:export", { format }),
   openDataFolder: () => ipcRenderer.invoke("plans:open-data-folder"),
   openFile: (filePath) => ipcRenderer.invoke("plans:open-file", filePath),
