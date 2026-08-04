@@ -9,6 +9,35 @@ function subscribe(channel, callback) {
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
+function addScreenNavigation() {
+  const topbar = document.querySelector(".topbar");
+  if (!topbar || topbar.querySelector(".screen-nav")) return;
+  const nav = document.createElement("nav");
+  nav.className = "top-actions screen-nav";
+  nav.setAttribute("aria-label", "Pantallas");
+
+  const current = window.location.pathname.toLowerCase();
+  const links = [
+    { label: "Planes", href: "./index.html", active: !current.includes("agreements") },
+    { label: "Acuerdos", href: "./agreements.html", active: current.includes("agreements") }
+  ];
+
+  links.forEach((item) => {
+    const link = document.createElement("a");
+    link.href = item.href;
+    link.textContent = item.label;
+    link.className = `button compact ${item.active ? "primary" : "secondary"}`;
+    link.style.textDecoration = "none";
+    nav.appendChild(link);
+  });
+
+  const actions = topbar.querySelector(":scope > .top-actions");
+  if (actions) topbar.insertBefore(nav, actions);
+  else topbar.appendChild(nav);
+}
+
+window.addEventListener("DOMContentLoaded", addScreenNavigation, { once: true });
+
 contextBridge.exposeInMainWorld("plansAPI", {
   selectFiles: () => ipcRenderer.invoke("plans:select-files"),
   selectFolder: () => ipcRenderer.invoke("plans:select-folder"),
