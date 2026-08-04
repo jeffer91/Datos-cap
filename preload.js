@@ -10,24 +10,28 @@ function subscribe(channel, callback) {
 }
 
 function addScreenNavigation() {
+  if (!document.querySelector('link[href="./agreements.css"]')) {
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = "./agreements.css";
+    document.head.appendChild(stylesheet);
+  }
+
   const topbar = document.querySelector(".topbar");
   if (!topbar || topbar.querySelector(".screen-nav")) return;
   const nav = document.createElement("nav");
-  nav.className = "top-actions screen-nav";
+  nav.className = "screen-nav";
   nav.setAttribute("aria-label", "Pantallas");
 
   const current = window.location.pathname.toLowerCase();
-  const links = [
+  [
     { label: "Planes", href: "./index.html", active: !current.includes("agreements") },
     { label: "Acuerdos", href: "./agreements.html", active: current.includes("agreements") }
-  ];
-
-  links.forEach((item) => {
+  ].forEach((item) => {
     const link = document.createElement("a");
     link.href = item.href;
     link.textContent = item.label;
-    link.className = `button compact ${item.active ? "primary" : "secondary"}`;
-    link.style.textDecoration = "none";
+    if (item.active) link.classList.add("active");
     nav.appendChild(link);
   });
 
