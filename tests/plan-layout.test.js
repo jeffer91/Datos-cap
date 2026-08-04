@@ -23,21 +23,26 @@ function word(text, left, top, width = 60, height = 18) {
   };
 }
 
+function wordsInsideCell(words, value, left, right, top) {
+  let x = left;
+  let line = 0;
+  value.split(" ").forEach((token) => {
+    const tokenWidth = Math.max(25, Math.min(80, token.length * 7));
+    if (x + tokenWidth > right) {
+      line += 1;
+      x = left;
+    }
+    words.push(word(token, x, top + line * 20, tokenWidth));
+    x += tokenWidth + 7;
+  });
+}
+
 function addRow(words, number, y, name, hours, dateWords, type = "Aprobación") {
   words.push(word(String(number), 35, y, 18));
-  let x = 125;
-  name.split(" ").forEach((token) => {
-    words.push(word(token, x, y, Math.max(35, token.length * 8)));
-    x += Math.max(42, token.length * 8 + 8);
-  });
+  wordsInsideCell(words, name, 105, 430, y);
   words.push(word(String(hours), 490, y, 34));
-  x = 610;
-  dateWords.split(" ").forEach((token, index) => {
-    const lineTop = index > 4 ? y + 20 : y;
-    const lineIndex = index > 4 ? index - 5 : index;
-    words.push(word(token, 610 + lineIndex * 55, lineTop, Math.max(35, token.length * 7)));
-  });
-  words.push(word(type, 835, y, 110));
+  wordsInsideCell(words, dateWords, 600, 765, y);
+  words.push(word(type, 815, y, 125));
 }
 
 function run() {
