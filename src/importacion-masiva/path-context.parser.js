@@ -8,7 +8,6 @@ Función o funciones:
 ========================================================= */
 "use strict";
 
-const path = require("path");
 const { toDisplayPath, pathApiFor } = require("../utils/file.utils");
 
 const MONTHS = Object.freeze({
@@ -44,6 +43,12 @@ function normalized(value) {
     .toLowerCase()
     .replace(/[–—−]/g, "-")
     .replace(/[_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function normalizedWords(value) {
+  return normalized(value)
+    .replace(/[-/\\]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -83,7 +88,7 @@ function extractProcessCodes(value) {
 }
 
 function detectPathHint(segments, fileName) {
-  const candidates = [...(segments || []), fileName].map((item) => ({ original: text(item), normalized: normalized(item) }));
+  const candidates = [...(segments || []), fileName].map((item) => ({ original: text(item), normalized: normalizedWords(item) }));
   for (let index = candidates.length - 1; index >= 0; index -= 1) {
     const candidate = candidates[index];
     for (const definition of DOCUMENT_HINTS) {
@@ -143,6 +148,7 @@ module.exports = {
   MONTHS,
   DOCUMENT_HINTS,
   normalized,
+  normalizedWords,
   parseAcademicPeriod,
   parseDocumentMonth,
   extractProcessCodes,
