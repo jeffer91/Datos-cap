@@ -2,7 +2,7 @@
 Nombre completo: menu.js
 Ruta o ubicación: /renderer/shared/menu.js
 Función o funciones:
-- Construir el menú superior compartido entre los cinco módulos de la aplicación.
+- Construir el menú superior compartido.
 - Marcar la página activa y mostrar la versión instalada.
 ========================================================= */
 "use strict";
@@ -15,17 +15,16 @@ Función o funciones:
     root.innerHTML = `
       <header class="app-menu">
         <div class="app-brand">
-          <strong>Gestor de Documentos de Capacitación</strong>
-          <span>Escaneo, extracción y base local</span>
+          <strong>Gestor de Capacitación</strong>
         </div>
         <nav class="app-nav" aria-label="Navegación principal">
           <a class="${active === "documentos" ? "active" : ""}" href="../documentos/documentos.html">Documentos</a>
-          <a class="${active === "importacion-masiva" ? "active" : ""}" href="../importacion-masiva/importacion-masiva.html">SCAN / Importación</a>
+          <a class="${active === "importacion-masiva" ? "active" : ""}" href="../importacion-masiva/importacion-masiva.html">SCAN</a>
           <a class="${active === "base" ? "active" : ""}" href="../base/base.html">Base</a>
-          <a class="${active === "reporte-individual" ? "active" : ""}" href="../reporte-individual/reporte-individual.html">Reporte Individual</a>
-          <a class="${active === "informe-cumplimiento" ? "active" : ""}" href="../informe-cumplimiento/informe-cumplimiento.html">Informe de Cumplimiento</a>
+          <a class="${active === "reporte-individual" ? "active" : ""}" href="../reporte-individual/reporte-individual.html">Docentes</a>
+          <a class="${active === "informe-cumplimiento" ? "active" : ""}" href="../informe-cumplimiento/informe-cumplimiento.html">Informe</a>
         </nav>
-        <div class="app-version" id="sharedAppVersion">Cargando...</div>
+        <div class="app-version" id="sharedAppVersion">...</div>
       </header>`;
 
     try {
@@ -34,7 +33,7 @@ Función o funciones:
       if (version) version.textContent = `v${info.version}`;
     } catch (_error) {
       const version = documentObject.getElementById("sharedAppVersion");
-      if (version) version.textContent = "Versión no disponible";
+      if (version) version.textContent = "—";
     }
   }
 
