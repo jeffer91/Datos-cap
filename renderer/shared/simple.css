@@ -173,6 +173,19 @@ td {
   font-size: 10px !important;
 }
 
+@media (max-width: 860px) {
+  .compliance-workspace:has(.guides-panel.collapsed) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .guides-panel.collapsed {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-height: none !important;
+  }
+}
+
 @media (max-width: 760px) {
   .page-shell {
     padding: 14px 11px 24px !important;
