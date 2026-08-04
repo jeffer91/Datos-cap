@@ -36,6 +36,7 @@ Acuerdo de Patrocinio Institucional
 Docente: Quishpe Torres William Rosendo
 Carrera: Seguridad Ciudadana y Orden Público
 Capacitación: Técnico en seguridad física y del entorno
+Elaborado por: Quishpe Torres William Rosendo
 Código: UGPA-RGI2-69-PRO￾134-2026-03
 En la ciudad de Quito, a los 01 días del mes de Marzo de 2026, el/la señor(a) Quishpe Torres William Rosendo, con número de cédula 1712081452.
 El Colaborador actualmente se encuentra vinculado(a) como Docente en el ITSQMET.
