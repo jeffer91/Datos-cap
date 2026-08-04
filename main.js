@@ -5,7 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const { HybridPdfReader } = require("./src/hybrid-pdf-reader");
-const { parsePlanText, evaluateRecord, extractPeriod } = require("./src/plan-parser");
+const { parsePlanText, evaluateRecord, extractCode, extractPeriod } = require("./src/plan-parser");
 const { PlanStorage } = require("./src/storage");
 const { exportExcel, exportJson } = require("./src/exporter");
 
@@ -112,6 +112,61 @@ function sanitizeTraining(training, index) {
     vision_largo_plazo: cleanString(training?.vision_largo_plazo),
     detalle_compartido_entre_capacitaciones: false
   };
+}
+
+function migrateStoredRecords() {
+  const records = storage.list();
+  let migrated = 0;
+
+  for (const current of records) {
+    if (!current?.id) continue;
+    let updated = JSON.parse(JSON.stringify(current));
+    let changed = false;
+
+    if (!current.correccion_manual) {
+      const codeFromFileName = extractCode("", current.archivo?.nombre || "");
+      if (codeFromFileName && codeFromFileName !== current.docente?.codigo_documento) {
+        updated.docente = {
+          ...(updated.docente || {}),
+          codigo_documento: codeFromFileName,
+          periodo_plan: extractPeriod(codeFromFileName)
+        };
+        changed = true;
+      }
+    }
+
+    const diagnosticCount = Object.values(updated.diagnostico || {}).filter((value) => cleanString(value)).length;
+    const hasUsefulPlanData = Boolean(
+      cleanString(updated.docente?.nombre)
+      && cleanString(updated.docente?.carrera)
+      && (diagnosticCount >= 2 || (updated.capacitaciones?.length || 0) > 0)
+    );
+
+    if (updated.estado === "NO_ES_PLAN" && hasUsefulPlanData) {
+      updated.advertencias = (updated.advertencias || []).filter((item) =>
+        !/no corresponde a un plan individual/i.test(String(item || ""))
+      );
+      updated = evaluateRecord(updated, { isPlan: true, possiblePlan: true });
+      updated.deteccion = {
+        ...(updated.deteccion || {}),
+        posible_plan: true,
+        recuperado_por_migracion: true
+      };
+      changed = true;
+    } else if (changed) {
+      updated = evaluateRecord(updated, {
+        isPlan: updated.estado !== "NO_ES_PLAN" && updated.estado !== "ERROR",
+        possiblePlan: hasUsefulPlanData
+      });
+    }
+
+    if (changed) {
+      storage.updateById(current.id, updated);
+      migrated += 1;
+    }
+  }
+
+  return migrated;
 }
 
 function updatePlanRecord(payload = {}) {
@@ -362,6 +417,7 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   storage = new PlanStorage(path.join(app.getPath("userData"), "data"));
+  migrateStoredRecords();
   registerIpc();
   createWindow();
   app.on("activate", () => {
