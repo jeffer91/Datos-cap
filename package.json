@@ -1,15 +1,16 @@
 {
   "name": "datos-cap",
-  "version": "0.1.0",
-  "description": "Aplicación de escritorio para extraer planes individuales de formación y capacitación docente.",
+  "version": "0.2.0",
+  "description": "Aplicación de escritorio para extraer hasta 500 planes individuales de formación y capacitación docente desde PDF digitales o escaneados.",
   "main": "main.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.js && node --check preload.js && find src renderer tests -name '*.js' -print0 | xargs -0 -n1 node --check",
-    "test": "node tests/plan-parser.test.js"
+    "check": "node scripts/check.js",
+    "test": "node tests/plan-parser.test.js",
+    "verify": "npm run check && npm test"
   },
   "dependencies": {
     "electron": "^31.7.7",
