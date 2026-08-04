@@ -78,7 +78,21 @@ class PlanStorage {
         return code && item?.docente?.codigo_documento === code;
       });
       if (index >= 0) {
-        data.records[index] = record;
+        const previous = data.records[index];
+        data.records[index] = previous?.correccion_manual
+          ? {
+              ...record,
+              docente: previous.docente,
+              diagnostico: previous.diagnostico,
+              capacitaciones: previous.capacitaciones,
+              estado: previous.estado,
+              confianza: previous.confianza,
+              campos_faltantes: previous.campos_faltantes,
+              correccion_manual: true,
+              fecha_correccion: previous.fecha_correccion,
+              advertencias: [...new Set([...(record.advertencias || []), ...(previous.advertencias || [])])]
+            }
+          : record;
         updated += 1;
       } else {
         data.records.push(record);
@@ -88,6 +102,25 @@ class PlanStorage {
     data.updatedAt = new Date().toISOString();
     writeJsonAtomic(this.filePath, data);
     return { inserted, updated, total: data.records.length };
+  }
+
+  updateById(recordId, updatedRecord) {
+    const id = String(recordId || "").trim();
+    if (!id) throw new Error("No se recibió el identificador del plan.");
+    const data = this.load();
+    const index = data.records.findIndex((item) => item?.id === id);
+    if (index < 0) throw new Error("El plan ya no existe en la base local.");
+    data.records[index] = {
+      ...updatedRecord,
+      id,
+      archivo: {
+        ...data.records[index].archivo,
+        ...(updatedRecord?.archivo || {})
+      }
+    };
+    data.updatedAt = new Date().toISOString();
+    writeJsonAtomic(this.filePath, data);
+    return data.records[index];
   }
 
   getSummary() {
