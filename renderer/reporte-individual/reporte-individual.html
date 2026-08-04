@@ -4,54 +4,52 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reporte Individual | Gestor de Capacitación</title>
+  <title>Docentes | Gestor de Capacitación</title>
   <link rel="stylesheet" href="../shared/menu.css" />
   <link rel="stylesheet" href="../shared/ui.css" />
   <link rel="stylesheet" href="./reporte-individual.css" />
+  <link rel="stylesheet" href="../shared/simple.css" />
 </head>
 <body data-active-menu="reporte-individual">
   <div data-menu-root></div>
 
   <main class="page-shell">
     <header class="page-header">
-      <div>
-        <h1>Reporte Individual</h1>
-        <p>Consulta la base local, verifica cada capacitación del docente y prepara su reporte.</p>
-      </div>
+      <div><h1>Docentes</h1></div>
       <div class="actions">
         <button class="btn-secondary" id="btnRefreshIndividualReport">Actualizar</button>
-        <button class="btn-primary" id="btnPrepareIndividualReport" disabled>Preparar reporte</button>
+        <button class="btn-primary" id="btnPrepareIndividualReport" disabled>Generar</button>
       </div>
     </header>
 
     <section class="card report-filters">
-      <input type="search" id="individualReportSearch" placeholder="Buscar por docente, cédula, carrera o capacitación" />
+      <input type="search" id="individualReportSearch" placeholder="Buscar docente" />
       <select id="individualReportStatus">
         <option value="">Todos los estados</option>
         <option value="COMPLETO">Completo</option>
-        <option value="GENERABLE_CON_ADVERTENCIAS">Generable con advertencias</option>
-        <option value="NO_GENERABLE">No generable</option>
+        <option value="GENERABLE_CON_ADVERTENCIAS">Con alertas</option>
+        <option value="NO_GENERABLE">Bloqueado</option>
       </select>
-      <button class="btn-secondary" id="btnApplyIndividualFilters">Aplicar filtros</button>
+      <button class="btn-secondary" id="btnApplyIndividualFilters">Filtrar</button>
     </section>
 
-    <div class="status-box status-info" id="individualReportStatusBox">Consultando la base local...</div>
+    <div class="status-box status-info" id="individualReportStatusBox">Cargando...</div>
 
     <section class="report-summary-grid" id="individualReportSummary">
       <div class="summary-item"><span>Docentes</span><strong id="reportSummaryTeachers">0</strong></div>
       <div class="summary-item"><span>Completos</span><strong id="reportSummaryComplete">0</strong></div>
-      <div class="summary-item"><span>Con advertencias</span><strong id="reportSummaryWarnings">0</strong></div>
-      <div class="summary-item"><span>No generables</span><strong id="reportSummaryBlocked">0</strong></div>
+      <div class="summary-item"><span>Alertas</span><strong id="reportSummaryWarnings">0</strong></div>
+      <div class="summary-item"><span>Bloqueados</span><strong id="reportSummaryBlocked">0</strong></div>
     </section>
 
     <section class="report-layout">
       <aside class="card report-list-panel">
-        <div class="panel-title"><h2>Docentes</h2><span id="individualReportCount">0 registros</span></div>
-        <div id="individualReportTeacherList"><div class="empty">Cargando docentes...</div></div>
+        <div class="panel-title"><h2>Docentes</h2><span id="individualReportCount">0</span></div>
+        <div id="individualReportTeacherList"><div class="empty">Cargando...</div></div>
       </aside>
 
       <section class="card report-detail-panel">
-        <div id="individualReportDetail"><div class="empty">Selecciona un docente para revisar su reporte.</div></div>
+        <div id="individualReportDetail"><div class="empty">Selecciona un docente.</div></div>
         <div id="individualReportPreview"></div>
       </section>
     </section>
@@ -68,5 +66,6 @@
   <script src="./vistas/detalle-docente.view.js"></script>
   <script src="./vistas/vista-previa-reporte.view.js"></script>
   <script src="./reporte-individual.js"></script>
+  <script src="../shared/compact-ui.js"></script>
 </body>
 </html>
