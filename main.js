@@ -6,6 +6,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const { HybridPdfReader } = require("./src/hybrid-pdf-reader");
 const { parsePlanText, evaluateRecord, extractCode, extractPeriod } = require("./src/plan-parser");
+const { applyLayoutToPlan } = require("./src/plan-layout");
 const { PlanStorage } = require("./src/storage");
 const { exportExcel, exportJson } = require("./src/exporter");
 
@@ -266,7 +267,7 @@ async function processFiles(filePaths) {
   const paths = uniquePdfPaths(filePaths);
   if (!paths.length) throw new Error("Selecciona al menos un archivo PDF.");
   processing = true;
-  const reader = new HybridPdfReader({ maxOcrPages: 15, ocrScale: 2.15 });
+  const reader = new HybridPdfReader({ maxOcrPages: 15, ocrScale: 2.55 });
   const records = [];
 
   try {
@@ -298,7 +299,7 @@ async function processFiles(filePaths) {
         if (cleanString(reading.text).length < 80) {
           throw new Error("No se obtuvo texto suficiente del PDF.");
         }
-        const record = parsePlanText(reading.text, {
+        const basicRecord = parsePlanText(reading.text, {
           filePath,
           fileName: path.basename(filePath),
           hash,
@@ -307,6 +308,7 @@ async function processFiles(filePaths) {
           method: reading.method,
           warnings: reading.warnings
         });
+        const record = applyLayoutToPlan(basicRecord, reading.layout || {});
         records.push(record);
       } catch (error) {
         records.push(errorRecord(filePath, error));
