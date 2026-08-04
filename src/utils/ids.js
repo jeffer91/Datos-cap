@@ -30,7 +30,7 @@ function extractRegistroFromCodigo(code) {
   return match ? match[1].padStart(2, "0") : "";
 }
 function extractPeriodoFromCodigo(code) {
-  const match = safeText(code).replace(/\s+/g, "").match(/PRO-?\d{1,3}-(\d{4})-(\d{2})/i);
+  const match = safeText(code).replace(/\s+/g, "").match(/PRO-?\d{1,3}-(\d{4})-(1[0-2]|0[1-9])(?!\d)/i);
   return match ? `${match[1]}-${match[2]}` : "";
 }
 function createDocumentId(filePath, index = 0, code = "", fileHash = "", documentType = "") {

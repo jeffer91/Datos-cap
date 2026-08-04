@@ -2,7 +2,7 @@
 Nombre completo: preload.js
 Ruta o ubicación: /preload.js
 Función o funciones:
-- Exponer una API segura para Documentos, OCR, Base, Reporte Individual e Informe de Cumplimiento.
+- Exponer una API segura para Documentos, Importación Masiva, OCR, Base, Reporte Individual e Informe de Cumplimiento.
 - Mantener aislado el renderer de Node.js y limitar los canales IPC permitidos.
 - Permitir buscar PDF dentro de carpetas y subcarpetas con rutas largas.
 ========================================================= */
@@ -11,7 +11,8 @@ Función o funciones:
 const { contextBridge, ipcRenderer } = require("electron");
 
 const INVOKE_CHANNELS = new Set([
-  "app:get-info", "dialog:select-document-pdfs", "dialog:select-document-folder", "files:validate-document-pdfs", "dialog:choose-output-dir", "reports:generate-document-report",
+  "app:get-info", "dialog:select-document-pdfs", "dialog:select-document-folder", "dialog:select-mass-import-folder", "files:validate-document-pdfs", "dialog:choose-output-dir", "reports:generate-document-report",
+  "importacion-masiva:escanear", "importacion-masiva:procesar", "importacion-masiva:consultar",
   "database:get-overview", "database:query-documents", "database:query-type-records", "database:query-document-details", "database:query-runs", "database:open-folder",
   "reportes-individuales:listar-docentes", "reportes-individuales:consultar-docente", "reportes-individuales:preparar",
   "informe-cumplimiento:obtener-filtros", "informe-cumplimiento:consultar-resumen", "informe-cumplimiento:ejecutar-analisis", "informe-cumplimiento:refinar-ia", "informe-cumplimiento:preparar",
@@ -35,6 +36,10 @@ contextBridge.exposeInMainWorld("documentAppAPI", {
   getAppInfo: () => invoke("app:get-info"),
   selectDocumentFiles: (documentType) => invoke("dialog:select-document-pdfs", documentType),
   selectDocumentFolder: (documentType) => invoke("dialog:select-document-folder", documentType),
+  selectMassImportFolder: () => invoke("dialog:select-mass-import-folder"),
+  scanMassImportFolder: (payload) => invoke("importacion-masiva:escanear", payload),
+  processMassImportBatch: (payload) => invoke("importacion-masiva:procesar", payload),
+  getMassImportBatch: (batchId) => invoke("importacion-masiva:consultar", batchId),
   validateDocumentFiles: (payload) => invoke("files:validate-document-pdfs", payload),
   chooseOutputDirectory: () => invoke("dialog:choose-output-dir"),
   generateDocumentReport: (payload) => invoke("reports:generate-document-report", payload),

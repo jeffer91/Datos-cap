@@ -22,7 +22,7 @@ const COLLECTIONS = Object.freeze({
 function text(value) { return String(value == null ? "" : value).trim(); }
 function normalizePeriod(value) {
   const clean = text(value);
-  const match = clean.match(/((?:19|20)\d{2})[-\/_\s](0?[1-9]|1[0-2])/);
+  const match = clean.match(/((?:19|20)\d{2})[-\/_\s](1[0-2]|0?[1-9])(?!\d)/);
   return match ? `${match[1]}-${String(Number(match[2])).padStart(2, "0")}` : clean;
 }
 function documentMap(documents) {
