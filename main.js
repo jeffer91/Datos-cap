@@ -2,10 +2,11 @@
 Nombre completo: main.js
 Ruta o ubicación: /main.js
 Función o funciones:
-- Abrir las páginas Documentos, Base, Reporte Individual e Informe de Cumplimiento.
+- Abrir Documentos, Importación Masiva, Base, Reporte Individual e Informe de Cumplimiento.
 - Procesar seis tipos documentales con lectura digital u OCR.
 - Exponer consultas seguras para la base local y los informes derivados.
 - Permitir cargar PDF individuales o carpetas completas con rutas largas.
+- Clasificar automáticamente carpetas institucionales completas.
 - Conservar la estructura de carpetas para clasificar Acuerdos de Patrocinio.
 ========================================================= */
 "use strict";
@@ -29,6 +30,7 @@ const { createPersistenceService, createQueryService } = require("./src/database
 const { createIndividualReportService } = require("./src/reporte-individual");
 const { createComplianceReportService } = require("./src/informe-cumplimiento");
 const { registerComplianceReportIpc } = require("./src/informe-cumplimiento/ipc");
+const { createMassImportService } = require("./src/importacion-masiva");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
 const DOCUMENT_TYPES = Object.freeze({
@@ -45,6 +47,7 @@ let persistenceService = null;
 let queryService = null;
 let individualReportService = null;
 let complianceReportService = null;
+let massImportService = null;
 
 function assertDocumentType(documentType) {
   const definition = DOCUMENT_TYPES[documentType];
@@ -136,6 +139,7 @@ function requirePersistence() { if (!persistenceService) throw new Error("La bas
 function requireQueryService() { if (!queryService) throw new Error("El servicio de consultas no está disponible. Reinicia la aplicación."); return queryService; }
 function requireIndividualReportService() { if (!individualReportService) throw new Error("El servicio de Reporte Individual no está disponible. Reinicia la aplicación."); return individualReportService; }
 function requireComplianceReportService() { if (!complianceReportService) throw new Error("El servicio de Informe de Cumplimiento no está disponible. Reinicia la aplicación."); return complianceReportService; }
+function requireMassImportService() { if (!massImportService) throw new Error("El servicio de Importación Masiva no está disponible. Reinicia la aplicación."); return massImportService; }
 
 function emitOcrProgress(documentType, phase, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -148,6 +152,28 @@ function createProgressCallbacks(documentType, phase) {
     onPageRender: (page, totalPages) => emitOcrProgress(documentType, phase, { message: `Preparando página ${page} de ${totalPages || "?"}`, page, totalPages }),
     onPageStart: (page, totalPages) => emitOcrProgress(documentType, phase, { message: `Reconociendo página ${page} de ${totalPages || "?"}`, page, totalPages }),
     onOcrProgress: (message) => emitOcrProgress(documentType, phase, { message: message?.status ? `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ""}` : "Reconociendo texto...", percent: Number.isFinite(message?.progress) ? Math.round(message.progress * 100) : undefined })
+  };
+}
+function createMassImportCallbacks(phase) {
+  return {
+    ...createProgressCallbacks("importacion-masiva", phase),
+    onFileStart: (current, total, filePath) => emitOcrProgress("importacion-masiva", phase, {
+      message: `Clasificando ${current} de ${total}: ${path.basename(filePath || "")}`,
+      currentDocument: current,
+      totalDocuments: total,
+      percent: total ? Math.round(((current - 1) / total) * 100) : 0
+    }),
+    onFileClassified: (current, total, file) => emitOcrProgress("importacion-masiva", phase, {
+      message: `${file.detectedLabel}: ${path.basename(file.path || "")}`,
+      currentDocument: current,
+      totalDocuments: total,
+      percent: total ? Math.round((current / total) * 100) : 100,
+      status: file.status
+    }),
+    onGroupStart: (documentType, total) => emitOcrProgress("importacion-masiva", phase, {
+      message: `Procesando ${total} documento(s) de ${DOCUMENT_TYPES[documentType]?.label || documentType}.`,
+      percent: 0
+    })
   };
 }
 
@@ -195,6 +221,19 @@ async function selectPdfFolder(documentType) {
   };
 }
 
+async function selectMassImportFolder() {
+  if (!mainWindow) return { canceled: true, folderPath: "" };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Seleccionar carpeta institucional para importación masiva",
+    buttonLabel: "Analizar esta carpeta",
+    properties: ["openDirectory", "dontAddToRecent"]
+  });
+  return {
+    canceled: result.canceled || !result.filePaths?.[0],
+    folderPath: result.canceled ? "" : toDisplayPath(result.filePaths?.[0] || "")
+  };
+}
+
 async function chooseOutputDirectory() {
   if (!mainWindow) return { canceled: true, outputDir: "" };
   const result = await dialog.showOpenDialog(mainWindow, { title: "Seleccionar carpeta de salida", buttonLabel: "Usar esta carpeta", properties: ["openDirectory", "createDirectory", "dontAddToRecent"] });
@@ -230,9 +269,19 @@ function registerIpcHandlers() {
   ipcMain.handle("app:get-info", async () => ({ appName: APP_NAME, version: app.getVersion(), platform: process.platform, databaseAvailable: Boolean(persistenceService), documentTypes: Object.keys(DOCUMENT_TYPES) }));
   ipcMain.handle("dialog:select-document-pdfs", async (_event, documentType) => selectPdfFiles(documentType));
   ipcMain.handle("dialog:select-document-folder", async (_event, documentType) => selectPdfFolder(documentType));
+  ipcMain.handle("dialog:select-mass-import-folder", async () => selectMassImportFolder());
   ipcMain.handle("files:validate-document-pdfs", async (_event, payload) => { const config = payload || {}; assertDocumentType(config.documentType); return validateSelectionPayload(config, "validation"); });
   ipcMain.handle("dialog:choose-output-dir", async () => chooseOutputDirectory());
   ipcMain.handle("reports:generate-document-report", async (_event, payload) => { try { return await generateDocumentReport(payload); } catch (error) { console.error("Error al generar reporte:", error); return createErrorResponse(error, "Error desconocido al generar el reporte."); } });
+  ipcMain.handle("importacion-masiva:escanear", async (_event, payload) => {
+    try { return await requireMassImportService().scanFolder(payload?.folderPath, createMassImportCallbacks("scan")); }
+    catch (error) { console.error("Error al escanear carpeta:", error); return createErrorResponse(error, "No se pudo analizar la carpeta."); }
+  });
+  ipcMain.handle("importacion-masiva:procesar", async (_event, payload) => {
+    try { return await requireMassImportService().processBatch(payload || {}, createMassImportCallbacks("processing")); }
+    catch (error) { console.error("Error en importación masiva:", error); return createErrorResponse(error, "No se pudo completar la importación."); }
+  });
+  ipcMain.handle("importacion-masiva:consultar", async (_event, batchId) => ({ ok: true, ...requireMassImportService().getBatch(batchId) }));
   ipcMain.handle("database:get-overview", async () => requireQueryService().getOverview());
   ipcMain.handle("database:query-documents", async (_event, options) => ({ ok: true, documents: requireQueryService().listDocuments(options || {}) }));
   ipcMain.handle("database:query-type-records", async (_event, payload) => { const config = payload || {}; return { ok: true, ...requireQueryService().listTypeRecords(config.documentType, config.options || {}) }; });
@@ -255,6 +304,7 @@ app.whenReady().then(() => {
   queryService = createQueryService(persistenceService.database);
   individualReportService = createIndividualReportService(persistenceService.database);
   complianceReportService = createComplianceReportService(persistenceService.database, { secretStore: createSecretStore() });
+  massImportService = createMassImportService(persistenceService);
   registerIpcHandlers();
   createMainWindow();
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createMainWindow(); });
