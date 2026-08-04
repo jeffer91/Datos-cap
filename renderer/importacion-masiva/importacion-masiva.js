@@ -2,8 +2,9 @@
 Nombre completo: importacion-masiva.js
 Ruta o ubicación: /renderer/importacion-masiva/importacion-masiva.js
 Función o funciones:
-- Seleccionar una carpeta institucional completa.
+- Seleccionar y ejecutar el SCAN de una carpeta institucional completa.
 - Mostrar el inventario clasificado y sus advertencias.
+- Generar un PDF independiente con todo lo encontrado durante el SCAN.
 - Procesar automáticamente los documentos compatibles por tipo.
 ========================================================= */
 "use strict";
@@ -16,17 +17,20 @@ Función o funciones:
     batch: null,
     files: [],
     summary: {},
-    busy: false
+    scanReportFile: "",
+    busyAction: ""
   };
 
   const elements = {
     selectRoot: documentObject.getElementById("btnSelectRoot"),
     scanRoot: documentObject.getElementById("btnScanRoot"),
     selectOutput: documentObject.getElementById("btnSelectOutput"),
+    exportScanPdf: documentObject.getElementById("btnExportScanPdf"),
     processBatch: documentObject.getElementById("btnProcessBatch"),
     includeReview: documentObject.getElementById("includeReview"),
     rootStatus: documentObject.getElementById("rootStatus"),
     outputStatus: documentObject.getElementById("outputStatus"),
+    scanReportStatus: documentObject.getElementById("scanReportStatus"),
     progressPanel: documentObject.getElementById("massProgressPanel"),
     progressTitle: documentObject.getElementById("massProgressTitle"),
     progressDetail: documentObject.getElementById("massProgressDetail"),
@@ -58,6 +62,8 @@ Función o funciones:
     PROCESSING_ERROR: "Error"
   });
 
+  function isBusy() { return Boolean(state.busyAction); }
+
   function setStatus(element, message, type = "info") {
     element.className = ui.statusClass(type);
     element.textContent = message;
@@ -88,12 +94,19 @@ Función o funciones:
     const ready = Number(state.summary.ready || 0);
     const review = Number(state.summary.review || 0);
     const processable = ready + (elements.includeReview.checked ? review : 0);
-    elements.selectRoot.disabled = state.busy;
-    elements.scanRoot.disabled = !state.folderPath || state.busy;
-    elements.selectOutput.disabled = state.busy;
-    elements.processBatch.disabled = !state.batch?.id || !state.outputDir || processable <= 0 || state.busy;
-    elements.scanRoot.textContent = state.busy ? "Procesando..." : "Analizar y clasificar";
-    elements.processBatch.textContent = state.busy ? "Procesando..." : `Procesar documentos clasificados${processable ? ` (${processable})` : ""}`;
+    const busy = isBusy();
+
+    elements.selectRoot.disabled = busy;
+    elements.scanRoot.disabled = !state.folderPath || busy;
+    elements.selectOutput.disabled = busy;
+    elements.exportScanPdf.disabled = !state.batch?.id || !state.outputDir || busy;
+    elements.processBatch.disabled = !state.batch?.id || !state.outputDir || processable <= 0 || busy;
+
+    elements.scanRoot.textContent = state.busyAction === "scan" ? "Ejecutando SCAN..." : "Ejecutar SCAN";
+    elements.exportScanPdf.textContent = state.busyAction === "export" ? "Generando PDF..." : "Generar PDF del SCAN";
+    elements.processBatch.textContent = state.busyAction === "process"
+      ? "Procesando documentos..."
+      : `Procesar documentos clasificados${processable ? ` (${processable})` : ""}`;
   }
 
   function renderSummary() {
@@ -201,7 +214,9 @@ Función o funciones:
       state.batch = null;
       state.files = [];
       state.summary = {};
+      state.scanReportFile = "";
       setStatus(elements.rootStatus, `Carpeta seleccionada: ${state.folderPath}`, "success");
+      setStatus(elements.scanReportStatus, "Ejecuta el SCAN para habilitar el informe PDF.", "info");
       renderSummary();
       renderFiles();
       updateButtons();
@@ -211,9 +226,9 @@ Función o funciones:
   }
 
   async function scanRoot() {
-    state.busy = true;
+    state.busyAction = "scan";
     updateButtons();
-    setProgress(true, "Analizando carpeta institucional", "Inventariando PDF y comprobando sus primeras páginas.", 2);
+    setProgress(true, "Ejecutando SCAN de la carpeta institucional", "Inventariando PDF y comprobando sus primeras páginas.", 2);
     setStatus(elements.rootStatus, "Analizando carpetas, nombres, contenido digital y OCR...", "info");
     try {
       const result = await windowObject.documentAppAPI.scanMassImportFolder({ folderPath: state.folderPath });
@@ -221,20 +236,29 @@ Función o funciones:
       state.batch = result.batch;
       state.files = result.files || [];
       state.summary = result.summary || {};
+      state.scanReportFile = "";
       renderSummary();
       renderFiles();
       const warningCount = Number(state.summary.review || 0) + Number(state.summary.unsupported || 0) + Number(state.summary.empty || 0) + Number(state.summary.inaccessible || 0);
       setStatus(
         elements.rootStatus,
         warningCount
-          ? `Clasificación terminada. ${state.summary.ready || 0} documento(s) listos y ${warningCount} caso(s) que requieren atención.`
-          : `Clasificación terminada. ${state.summary.ready || 0} documento(s) listos para procesar.`,
+          ? `SCAN terminado. ${state.summary.ready || 0} documento(s) listos y ${warningCount} caso(s) que requieren atención.`
+          : `SCAN terminado. ${state.summary.ready || 0} documento(s) listos para procesar.`,
         warningCount ? "warning" : "success"
       );
+      setStatus(
+        elements.scanReportStatus,
+        state.outputDir
+          ? "El SCAN está listo. Ya puedes generar el PDF completo."
+          : "El SCAN está listo. Selecciona una carpeta de salida para generar el PDF.",
+        "success"
+      );
     } catch (error) {
-      setStatus(elements.rootStatus, `Error durante el análisis: ${error.message}`, "danger");
+      setStatus(elements.rootStatus, `Error durante el SCAN: ${error.message}`, "danger");
+      setStatus(elements.scanReportStatus, "No se puede generar el PDF porque el SCAN no finalizó correctamente.", "danger");
     } finally {
-      state.busy = false;
+      state.busyAction = "";
       setProgress(false);
       updateButtons();
     }
@@ -246,14 +270,44 @@ Función o funciones:
       if (result.canceled) return;
       state.outputDir = result.outputDir;
       setStatus(elements.outputStatus, `Carpeta de salida: ${state.outputDir}`, "success");
+      if (state.batch?.id && !state.scanReportFile) {
+        setStatus(elements.scanReportStatus, "El SCAN está listo. Ya puedes generar el PDF completo.", "success");
+      }
       updateButtons();
     } catch (error) {
       setStatus(elements.outputStatus, `No se pudo seleccionar la salida: ${error.message}`, "danger");
     }
   }
 
+  async function exportScanPdf() {
+    state.busyAction = "export";
+    updateButtons();
+    setProgress(true, "Generando PDF del SCAN", "Construyendo resumen, inventario e incidencias.", 15);
+    setStatus(elements.scanReportStatus, "Generando el PDF con todo lo escaneado...", "info");
+    try {
+      const result = await windowObject.documentAppAPI.exportMassImportScanReport({
+        batchId: state.batch.id,
+        outputDir: state.outputDir
+      });
+      if (!result?.ok) throw new Error(result?.message || "No se pudo generar el PDF del SCAN.");
+      state.scanReportFile = result.filePath || "";
+      setProgress(true, "Generando PDF del SCAN", "Finalizando el documento.", 95);
+      setStatus(
+        elements.scanReportStatus,
+        `PDF generado correctamente: ${state.scanReportFile || result.fileName}`,
+        "success"
+      );
+    } catch (error) {
+      setStatus(elements.scanReportStatus, `No se pudo generar el PDF: ${error.message}`, "danger");
+    } finally {
+      state.busyAction = "";
+      setProgress(false);
+      updateButtons();
+    }
+  }
+
   async function processBatch() {
-    state.busy = true;
+    state.busyAction = "process";
     updateButtons();
     setProgress(true, "Procesando documentos", "Cada tipo documental será enviado automáticamente a su procesador.", 2);
     try {
@@ -271,7 +325,7 @@ Función o funciones:
     } catch (error) {
       renderResult({ ok: false, message: error.message });
     } finally {
-      state.busy = false;
+      state.busyAction = "";
       setProgress(false);
       updateButtons();
     }
@@ -280,6 +334,7 @@ Función o funciones:
   elements.selectRoot.addEventListener("click", selectRoot);
   elements.scanRoot.addEventListener("click", scanRoot);
   elements.selectOutput.addEventListener("click", selectOutput);
+  elements.exportScanPdf.addEventListener("click", exportScanPdf);
   elements.processBatch.addEventListener("click", processBatch);
   elements.includeReview.addEventListener("change", updateButtons);
   elements.statusFilter.addEventListener("change", renderFiles);
@@ -289,7 +344,12 @@ Función o funciones:
   windowObject.documentAppAPI.onOcrProgress((payload) => {
     if (payload?.documentType !== "importacion-masiva") return;
     const percent = Number.isFinite(payload.percent) ? payload.percent : 0;
-    setProgress(true, payload.phase === "processing" ? "Procesando documentos" : "Analizando carpeta institucional", payload.message || "Procesando...", percent);
+    setProgress(
+      true,
+      payload.phase === "processing" ? "Procesando documentos" : "Ejecutando SCAN de la carpeta institucional",
+      payload.message || "Procesando...",
+      percent
+    );
   });
 
   renderSummary();
