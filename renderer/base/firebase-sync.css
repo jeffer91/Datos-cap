@@ -1,0 +1,25 @@
+/* Conexión Firebase: configuración mínima y estado discreto. */
+.firebase-button { display: inline-flex; align-items: center; gap: 7px; }
+.firebase-button::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: #94a3b8; }
+.firebase-button.ready::before { background: #16a34a; }
+.firebase-button.syncing::before { background: #2563eb; }
+.firebase-button.error::before { background: #dc2626; }
+
+.firebase-backdrop { position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, .62); }
+.firebase-backdrop.open { display: flex; }
+.firebase-modal { width: min(430px, 100%); background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, .28); overflow: hidden; }
+.firebase-modal header, .firebase-modal footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.firebase-modal footer { border-top: 1px solid var(--line); border-bottom: 0; }
+.firebase-modal h2 { margin: 0; color: var(--navy); font-size: 18px; }
+.firebase-body { display: grid; gap: 12px; padding: 16px; }
+.firebase-body label { display: grid; gap: 6px; color: #475569; font-size: 12px; font-weight: 700; }
+.firebase-body input { width: 100%; min-width: 0; }
+.firebase-state { display: flex; align-items: center; gap: 9px; padding: 10px 11px; border-radius: 10px; background: #f1f5f9; color: #334155; font-size: 12px; }
+.firebase-state-dot { width: 9px; height: 9px; border-radius: 999px; background: #94a3b8; flex: 0 0 auto; }
+.firebase-state.ready .firebase-state-dot { background: #16a34a; }
+.firebase-state.syncing .firebase-state-dot { background: #2563eb; }
+.firebase-state.error .firebase-state-dot { background: #dc2626; }
+.firebase-message { min-height: 18px; color: #64748b; font-size: 11px; }
+.firebase-message.error { color: #b91c1c; }
+.firebase-message.success { color: #166534; }
+.firebase-close { width: 34px; height: 34px; padding: 0 !important; font-size: 20px; }
