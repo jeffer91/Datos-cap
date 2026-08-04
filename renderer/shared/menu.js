@@ -20,7 +20,7 @@ Función o funciones:
         </div>
         <nav class="app-nav" aria-label="Navegación principal">
           <a class="${active === "documentos" ? "active" : ""}" href="../documentos/documentos.html">Documentos</a>
-          <a class="${active === "importacion-masiva" ? "active" : ""}" href="../importacion-masiva/importacion-masiva.html">Importación Masiva</a>
+          <a class="${active === "importacion-masiva" ? "active" : ""}" href="../importacion-masiva/importacion-masiva.html">SCAN / Importación</a>
           <a class="${active === "base" ? "active" : ""}" href="../base/base.html">Base</a>
           <a class="${active === "reporte-individual" ? "active" : ""}" href="../reporte-individual/reporte-individual.html">Reporte Individual</a>
           <a class="${active === "informe-cumplimiento" ? "active" : ""}" href="../informe-cumplimiento/informe-cumplimiento.html">Informe de Cumplimiento</a>
