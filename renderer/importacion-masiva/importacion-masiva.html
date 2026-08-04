@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Importación Masiva | Gestor de Capacitación</title>
+  <title>SCAN e Importación Masiva | Gestor de Capacitación</title>
   <link rel="stylesheet" href="../shared/menu.css" />
   <link rel="stylesheet" href="../shared/ui.css" />
   <link rel="stylesheet" href="./importacion-masiva.css" />
@@ -15,34 +15,30 @@
   <main class="page-shell">
     <header class="page-header">
       <div>
-        <h1>Importación Masiva</h1>
-        <p>Selecciona una carpeta institucional completa. La aplicación recorrerá sus subcarpetas, reconocerá los periodos y clasificará automáticamente los PDF compatibles.</p>
+        <h1>SCAN e Importación Masiva</h1>
+        <p>Escanea una carpeta institucional completa, revisa cómo fueron clasificados sus PDF y genera un informe antes de importar la información a la base local.</p>
       </div>
     </header>
 
-    <section class="card">
-      <h2 class="section-title">1. Seleccionar y analizar carpeta</h2>
-      <p class="section-description">Puedes seleccionar directamente <strong>PROCESOS MISIONALES</strong> o una carpeta interna. No necesitas separar previamente los documentos por tipo.</p>
+    <section class="card scan-card">
+      <div class="scan-title-row">
+        <div>
+          <span class="step-label">APARTADO SCAN</span>
+          <h2 class="section-title">1. SCAN de Procesos Misionales</h2>
+          <p class="section-description">Selecciona directamente <strong>PROCESOS MISIONALES</strong> o una carpeta interna. El SCAN recorre las subcarpetas, reconoce periodos, identifica documentos y marca los casos que necesitan revisión.</p>
+        </div>
+        <span class="scan-badge">SCAN</span>
+      </div>
 
       <div class="actions mass-actions">
-        <button class="btn-primary" id="btnSelectRoot">Seleccionar carpeta institucional</button>
-        <button class="btn-secondary" id="btnScanRoot" disabled>Analizar y clasificar</button>
-        <button class="btn-secondary" id="btnSelectOutput">Seleccionar carpeta de salida</button>
-        <button class="btn-primary" id="btnProcessBatch" disabled>Procesar documentos clasificados</button>
+        <button class="btn-primary" id="btnSelectRoot">Seleccionar carpeta Misionales</button>
+        <button class="btn-secondary" id="btnScanRoot" disabled>Ejecutar SCAN</button>
       </div>
 
-      <label class="review-option">
-        <input type="checkbox" id="includeReview" />
-        <span>Incluir también los documentos marcados para revisión. Los archivos vacíos, inaccesibles o no identificados nunca se procesarán automáticamente.</span>
-      </label>
-
-      <div class="status-grid">
-        <div class="status-box status-info" id="rootStatus">Carpeta institucional no seleccionada.</div>
-        <div class="status-box status-info" id="outputStatus">Carpeta de salida no seleccionada.</div>
-      </div>
+      <div class="status-box status-info" id="rootStatus">Carpeta institucional no seleccionada.</div>
 
       <div class="progress-panel hidden" id="massProgressPanel">
-        <strong id="massProgressTitle">Analizando carpeta...</strong>
+        <strong id="massProgressTitle">Ejecutando SCAN...</strong>
         <span id="massProgressDetail">Preparando inventario.</span>
         <div class="progress-track"><div class="progress-bar" id="massProgressBar"></div></div>
       </div>
@@ -51,7 +47,7 @@
     <section class="card">
       <div class="section-heading-row">
         <div>
-          <h2 class="section-title">2. Resultado de clasificación</h2>
+          <h2 class="section-title">2. Resultado del SCAN</h2>
           <p class="section-description">La clasificación combina estructura de carpetas, códigos institucionales, nombre del archivo, texto digital y OCR breve.</p>
         </div>
         <div class="field-row classification-filters">
@@ -94,8 +90,43 @@
       <div id="massFiles"><div class="empty">Aquí aparecerá el inventario clasificado de la carpeta.</div></div>
     </section>
 
+    <section class="card scan-report-card">
+      <div class="scan-title-row">
+        <div>
+          <span class="step-label">INFORME DEL SCAN</span>
+          <h2 class="section-title">3. Generar PDF de lo escaneado</h2>
+          <p class="section-description">El PDF incluye resumen, procesos y periodos detectados, inventario completo de archivos, clasificación, confianza, método de lectura e incidencias.</p>
+        </div>
+        <span class="pdf-badge">PDF</span>
+      </div>
+
+      <div class="actions mass-actions">
+        <button class="btn-secondary" id="btnSelectOutput">Seleccionar carpeta de salida</button>
+        <button class="btn-primary" id="btnExportScanPdf" disabled>Generar PDF del SCAN</button>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-box status-info" id="outputStatus">Carpeta de salida no seleccionada.</div>
+        <div class="status-box status-info" id="scanReportStatus">Ejecuta primero el SCAN para habilitar el informe PDF.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">4. Importar documentos clasificados</h2>
+      <p class="section-description">Este paso es independiente del PDF del SCAN. Solo guarda y procesa los documentos compatibles en la base local.</p>
+
+      <label class="review-option">
+        <input type="checkbox" id="includeReview" />
+        <span>Incluir también los documentos marcados para revisión. Los archivos vacíos, inaccesibles o no identificados nunca se procesarán automáticamente.</span>
+      </label>
+
+      <div class="actions mass-actions">
+        <button class="btn-primary" id="btnProcessBatch" disabled>Procesar documentos clasificados</button>
+      </div>
+    </section>
+
     <section class="card hidden" id="processingResultCard">
-      <h2 class="section-title">3. Resultado del procesamiento</h2>
+      <h2 class="section-title">5. Resultado del procesamiento</h2>
       <div id="processingResult"></div>
     </section>
   </main>

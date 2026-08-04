@@ -2,11 +2,12 @@
 Nombre completo: main.js
 Ruta o ubicación: /main.js
 Función o funciones:
-- Abrir Documentos, Importación Masiva, Base, Reporte Individual e Informe de Cumplimiento.
+- Abrir Documentos, SCAN e Importación Masiva, Base, Reporte Individual e Informe de Cumplimiento.
 - Procesar seis tipos documentales con lectura digital u OCR.
 - Exponer consultas seguras para la base local y los informes derivados.
 - Permitir cargar PDF individuales o carpetas completas con rutas largas.
 - Clasificar automáticamente carpetas institucionales completas.
+- Generar un PDF del inventario y clasificación obtenidos durante el SCAN.
 - Conservar la estructura de carpetas para clasificar Acuerdos de Patrocinio.
 ========================================================= */
 "use strict";
@@ -30,7 +31,7 @@ const { createPersistenceService, createQueryService } = require("./src/database
 const { createIndividualReportService } = require("./src/reporte-individual");
 const { createComplianceReportService } = require("./src/informe-cumplimiento");
 const { registerComplianceReportIpc } = require("./src/informe-cumplimiento/ipc");
-const { createMassImportService } = require("./src/importacion-masiva");
+const { createMassImportService, exportScanReportPdf } = require("./src/importacion-masiva");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
 const DOCUMENT_TYPES = Object.freeze({
@@ -224,8 +225,8 @@ async function selectPdfFolder(documentType) {
 async function selectMassImportFolder() {
   if (!mainWindow) return { canceled: true, folderPath: "" };
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: "Seleccionar carpeta institucional para importación masiva",
-    buttonLabel: "Analizar esta carpeta",
+    title: "Seleccionar carpeta institucional para SCAN e importación masiva",
+    buttonLabel: "Usar esta carpeta",
     properties: ["openDirectory", "dontAddToRecent"]
   });
   return {
@@ -276,6 +277,15 @@ function registerIpcHandlers() {
   ipcMain.handle("importacion-masiva:escanear", async (_event, payload) => {
     try { return await requireMassImportService().scanFolder(payload?.folderPath, createMassImportCallbacks("scan")); }
     catch (error) { console.error("Error al escanear carpeta:", error); return createErrorResponse(error, "No se pudo analizar la carpeta."); }
+  });
+  ipcMain.handle("importacion-masiva:exportar-scan", async (_event, payload) => {
+    try {
+      const snapshot = requireMassImportService().getBatch(payload?.batchId);
+      return await exportScanReportPdf(snapshot, payload?.outputDir);
+    } catch (error) {
+      console.error("Error al generar PDF del SCAN:", error);
+      return createErrorResponse(error, "No se pudo generar el PDF del SCAN.");
+    }
   });
   ipcMain.handle("importacion-masiva:procesar", async (_event, payload) => {
     try { return await requireMassImportService().processBatch(payload || {}, createMassImportCallbacks("processing")); }

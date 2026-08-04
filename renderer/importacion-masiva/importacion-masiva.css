@@ -1,4 +1,11 @@
 .mass-actions { margin-top: 16px; }
+.scan-card { border-top: 5px solid var(--navy); }
+.scan-report-card { border-top: 5px solid #7c3aed; }
+.scan-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.step-label { display: inline-block; margin-bottom: 8px; color: var(--navy); font-size: 10px; font-weight: 800; letter-spacing: .11em; }
+.scan-badge, .pdf-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 72px; min-height: 38px; padding: 8px 13px; border-radius: 12px; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+.scan-badge { background: #eaf2fb; color: var(--navy); border: 1px solid #bfd3ea; }
+.pdf-badge { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
 .review-option { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; color: #475569; font-size: 13px; line-height: 1.45; }
 .review-option input { width: 17px; height: 17px; min-width: 17px; min-height: 17px; margin-top: 1px; }
 .status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -20,7 +27,8 @@
 .result-group h3 { margin: 0 0 8px; color: var(--navy); font-size: 15px; }
 .result-files { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 @media (max-width: 980px) {
-  .section-heading-row { display: block; }
+  .section-heading-row, .scan-title-row { display: block; }
+  .scan-badge, .pdf-badge { margin-top: 14px; }
   .classification-filters { margin-top: 14px; justify-content: flex-start; }
   .status-grid { grid-template-columns: 1fr; }
 }
