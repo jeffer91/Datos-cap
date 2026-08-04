@@ -42,8 +42,8 @@ function run() {
   assert.strictEqual(merged.length, 3);
   assert.strictEqual(maskEmail("jeff@example.com"), "je••@example.com");
 
-  const morning = new Date("2026-08-04T08:00:00-05:00");
-  const evening = new Date("2026-08-04T20:00:00-05:00");
+  const morning = new Date(2026, 7, 4, 8, 0, 0);
+  const evening = new Date(2026, 7, 4, 20, 0, 0);
   assert.strictEqual(nextDailyDelay(morning, 19), 11 * 60 * 60 * 1000);
   assert.strictEqual(nextDailyDelay(evening, 19), 23 * 60 * 60 * 1000);
 
