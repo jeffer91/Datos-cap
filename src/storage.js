@@ -82,6 +82,7 @@ class PlanStorage {
         data.records[index] = previous?.correccion_manual
           ? {
               ...record,
+              id: previous.id,
               docente: previous.docente,
               diagnostico: previous.diagnostico,
               capacitaciones: previous.capacitaciones,
