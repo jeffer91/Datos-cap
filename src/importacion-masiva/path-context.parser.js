@@ -76,7 +76,7 @@ function parseAcademicPeriod(value) {
 
 function parseDocumentMonth(value) {
   const source = text(value);
-  const matches = [...source.matchAll(/((?:19|20)\d{2})[-_\s](0?[1-9]|1[0-2])/g)];
+  const matches = [...source.matchAll(/((?:19|20)\d{2})[-_\s](1[0-2]|0?[1-9])(?!\d)/g)];
   if (!matches.length) return "";
   const last = matches[matches.length - 1];
   return `${last[1]}-${String(Number(last[2])).padStart(2, "0")}`;
