@@ -8,19 +8,17 @@
   <link rel="stylesheet" href="../shared/menu.css" />
   <link rel="stylesheet" href="../shared/ui.css" />
   <link rel="stylesheet" href="./base.css" />
+  <link rel="stylesheet" href="../shared/simple.css" />
 </head>
 <body data-active-menu="base">
   <div data-menu-root></div>
 
   <main class="page-shell">
     <header class="page-header">
-      <div>
-        <h1>Base local</h1>
-        <p>Consulta todo lo que Documentos ha guardado localmente. Esta página no procesa PDF.</p>
-      </div>
+      <div><h1>Base</h1></div>
       <div class="actions">
         <button class="btn-secondary" id="btnRefreshBase">Actualizar</button>
-        <button class="btn-primary" id="btnOpenBaseFolder">Abrir carpeta</button>
+        <button class="btn-primary" id="btnOpenBaseFolder">Carpeta</button>
       </div>
     </header>
 
@@ -28,33 +26,33 @@
       <div class="base-tabs" aria-label="Vistas de la base">
         <button class="base-tab active" data-base-view="resumen">Resumen</button>
         <button class="base-tab" data-base-view="documentos">Documentos</button>
-        <button class="base-tab" data-base-view="tipos">Tipos documentales</button>
-        <button class="base-tab" data-base-view="detalles">Detalles</button>
-        <button class="base-tab" data-base-view="procesamientos">Procesamientos</button>
+        <button class="base-tab" data-base-view="tipos">Tipos</button>
+        <button class="base-tab" data-base-view="detalles">Detalle</button>
+        <button class="base-tab" data-base-view="procesamientos">Historial</button>
       </div>
 
       <div class="base-toolbar">
         <div class="base-toolbar-left">
-          <input type="search" id="baseSearch" placeholder="Buscar en la vista actual" />
+          <input type="search" id="baseSearch" placeholder="Buscar" />
           <select id="basePeriod" class="type-filter">
             <option value="">Todos los periodos</option>
           </select>
           <select id="baseDocumentType" class="type-filter">
             <option value="">Todos los tipos</option>
-            <option value="plan-individual">Planes Individuales</option>
-            <option value="acuerdo-patrocinio">Acuerdos de Patrocinio</option>
-            <option value="planificacion-capacitacion">Planificaciones de Capacitación</option>
-            <option value="informe-final-capacitacion">Informes Finales de Capacitación</option>
-            <option value="instrumento-evaluacion">Instrumentos de Evaluación</option>
-            <option value="informe-impacto">Informes de Impacto</option>
+            <option value="plan-individual">Planes</option>
+            <option value="acuerdo-patrocinio">Acuerdos</option>
+            <option value="planificacion-capacitacion">Planificaciones</option>
+            <option value="informe-final-capacitacion">Informes</option>
+            <option value="instrumento-evaluacion">Evaluaciones</option>
+            <option value="informe-impacto">Impacto</option>
           </select>
-          <label><input type="checkbox" id="baseReviewOnly" /> Solo para revisión</label>
+          <label><input type="checkbox" id="baseReviewOnly" /> Revisar</label>
         </div>
-        <button class="btn-secondary" id="btnApplyBaseFilters">Aplicar filtros</button>
+        <button class="btn-secondary" id="btnApplyBaseFilters">Filtrar</button>
       </div>
 
-      <div class="status-box status-info" id="baseStatus">Consultando la base local...</div>
-      <div class="base-view" id="baseView"><div class="empty">Cargando información...</div></div>
+      <div class="status-box status-info" id="baseStatus">Cargando...</div>
+      <div class="base-view" id="baseView"><div class="empty">Cargando...</div></div>
     </section>
   </main>
 
@@ -66,5 +64,6 @@
   <script src="./vistas/detalles.view.js"></script>
   <script src="./vistas/procesamientos.view.js"></script>
   <script src="./base.js"></script>
+  <script src="../shared/compact-ui.js"></script>
 </body>
 </html>
