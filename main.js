@@ -5,7 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const { HybridPdfReader } = require("./src/hybrid-pdf-reader");
-const { parsePlanText } = require("./src/plan-parser");
+const { parsePlanText, evaluateRecord, extractPeriod } = require("./src/plan-parser");
 const { PlanStorage } = require("./src/storage");
 const { exportExcel, exportJson } = require("./src/exporter");
 
@@ -86,6 +86,85 @@ function hashFile(filePath) {
   return hash.digest("hex");
 }
 
+function cleanString(value) {
+  return String(value == null ? "" : value).replace(/\r\n?/g, "\n").trim();
+}
+
+function cleanList(value) {
+  const source = Array.isArray(value) ? value : cleanString(value).split(/\n|\|/);
+  return source.map(cleanString).filter(Boolean);
+}
+
+function sanitizeTraining(training, index) {
+  const start = cleanString(training?.fecha_inicio_propuesta);
+  const end = cleanString(training?.fecha_fin_propuesta);
+  return {
+    orden: index + 1,
+    nombre: cleanString(training?.nombre),
+    horas: Math.max(0, Number(training?.horas || 0)),
+    fecha_inicio_propuesta: start,
+    fecha_fin_propuesta: end,
+    fecha_rango_original: [start, end].filter(Boolean).join(" hasta "),
+    tipo: cleanString(training?.tipo),
+    actividades_teoricas: cleanList(training?.actividades_teoricas),
+    actividades_practicas: cleanList(training?.actividades_practicas),
+    impacto_esperado: cleanString(training?.impacto_esperado),
+    vision_largo_plazo: cleanString(training?.vision_largo_plazo),
+    detalle_compartido_entre_capacitaciones: false
+  };
+}
+
+function updatePlanRecord(payload = {}) {
+  const id = cleanString(payload.id);
+  const current = storage.list().find((item) => item?.id === id);
+  if (!current) throw new Error("El plan ya no existe en la base local.");
+
+  const code = cleanString(payload.docente?.codigo_documento);
+  const period = cleanString(payload.docente?.periodo_plan) || extractPeriod(code);
+  const updated = {
+    ...current,
+    docente: {
+      nombre: cleanString(payload.docente?.nombre),
+      carrera: cleanString(payload.docente?.carrera),
+      tiempo_dedicacion: cleanString(payload.docente?.tiempo_dedicacion),
+      nivel_academico_actual: cleanString(payload.docente?.nivel_academico_actual),
+      codigo_documento: code,
+      periodo_plan: period
+    },
+    diagnostico: {
+      capacitacion_12_meses: cleanString(payload.diagnostico?.capacitacion_12_meses),
+      avances_aplicados: cleanString(payload.diagnostico?.avances_aplicados),
+      comodidad_metodologias: cleanString(payload.diagnostico?.comodidad_metodologias),
+      estrategias_pedagogicas: cleanString(payload.diagnostico?.estrategias_pedagogicas),
+      herramientas_tecnologicas: cleanString(payload.diagnostico?.herramientas_tecnologicas),
+      formacion_adicional: cleanString(payload.diagnostico?.formacion_adicional),
+      tipo_formacion: cleanString(payload.diagnostico?.tipo_formacion)
+    },
+    capacitaciones: (Array.isArray(payload.capacitaciones) ? payload.capacitaciones : [])
+      .map(sanitizeTraining),
+    correccion_manual: true,
+    fecha_correccion: new Date().toISOString(),
+    deteccion: {
+      ...(current.deteccion || {}),
+      confirmado_como_plan: true,
+      posible_plan: true,
+      confirmado_manualmente: true
+    },
+    advertencias: (current.advertencias || []).filter((item) =>
+      !/requiere confirmaci[oó]n manual|no corresponde a un plan individual/i.test(String(item || ""))
+    )
+  };
+
+  const evaluated = evaluateRecord(updated, { isPlan: true, possiblePlan: true });
+  const saved = storage.updateById(id, evaluated);
+  return {
+    ok: true,
+    record: saved,
+    records: storage.list(),
+    summary: storage.getSummary()
+  };
+}
+
 function errorRecord(filePath, error) {
   let size = 0;
   try { size = fs.statSync(filePath).size; } catch (_error) { /* sin acción */ }
@@ -121,7 +200,9 @@ function errorRecord(filePath, error) {
     estado: "ERROR",
     confianza: 0,
     campos_faltantes: [error?.message || "No se pudo procesar el archivo"],
-    advertencias: []
+    advertencias: [],
+    correccion_manual: false,
+    fecha_correccion: ""
   };
 }
 
@@ -159,6 +240,9 @@ async function processFiles(filePaths) {
             overallPercent: Math.round((index / paths.length) * 100)
           });
         });
+        if (cleanString(reading.text).length < 80) {
+          throw new Error("No se obtuvo texto suficiente del PDF.");
+        }
         const record = parsePlanText(reading.text, {
           filePath,
           fileName: path.basename(filePath),
@@ -231,6 +315,7 @@ function registerIpc() {
 
   ipcMain.handle("plans:process", async (_event, payload) => processFiles(payload?.filePaths || []));
   ipcMain.handle("plans:list", async () => ({ ok: true, records: storage.list(), summary: storage.getSummary() }));
+  ipcMain.handle("plans:update", async (_event, payload) => updatePlanRecord(payload || {}));
 
   ipcMain.handle("plans:export", async (_event, payload) => {
     const format = String(payload?.format || "xlsx").toLowerCase();
