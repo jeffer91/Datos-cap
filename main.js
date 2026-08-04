@@ -9,6 +9,7 @@ Función o funciones:
 - Clasificar automáticamente carpetas institucionales completas.
 - Generar un PDF del inventario y clasificación obtenidos durante el SCAN.
 - Conservar la estructura de carpetas para clasificar Acuerdos de Patrocinio.
+- Mantener Firebase como respaldo automático sin bloquear el inicio local.
 ========================================================= */
 "use strict";
 
@@ -32,6 +33,7 @@ const { createIndividualReportService } = require("./src/reporte-individual");
 const { createComplianceReportService } = require("./src/informe-cumplimiento");
 const { registerComplianceReportIpc } = require("./src/informe-cumplimiento/ipc");
 const { createMassImportService, exportScanReportPdf } = require("./src/importacion-masiva");
+const { createFirebaseSyncService } = require("./src/firebase");
 
 const APP_NAME = "Gestor de Documentos de Capacitación";
 const DOCUMENT_TYPES = Object.freeze({
@@ -49,6 +51,7 @@ let queryService = null;
 let individualReportService = null;
 let complianceReportService = null;
 let massImportService = null;
+let firebaseSyncService = null;
 
 function assertDocumentType(documentType) {
   const definition = DOCUMENT_TYPES[documentType];
@@ -67,9 +70,7 @@ function prepareSelectionEntries(documentType, entries) {
       path: toDisplayPath(entry?.path || ""),
       rootPath: toDisplayPath(entry?.rootPath || "")
     };
-    if (documentType === "acuerdo-patrocinio") {
-      normalized.folderContext = deriveFolderContext(normalized);
-    }
+    if (documentType === "acuerdo-patrocinio") normalized.folderContext = deriveFolderContext(normalized);
     return normalized;
   }).filter((entry) => entry.path);
 }
@@ -109,7 +110,12 @@ function createMainWindow() {
     title: APP_NAME,
     backgroundColor: "#eef2f7",
     show: false,
-    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false }
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
   });
   mainWindow.loadFile(path.join(__dirname, "renderer", "documentos", "documentos.html"));
   mainWindow.once("ready-to-show", () => mainWindow.show());
@@ -141,20 +147,49 @@ function requireQueryService() { if (!queryService) throw new Error("El servicio
 function requireIndividualReportService() { if (!individualReportService) throw new Error("El servicio de Reporte Individual no está disponible. Reinicia la aplicación."); return individualReportService; }
 function requireComplianceReportService() { if (!complianceReportService) throw new Error("El servicio de Informe de Cumplimiento no está disponible. Reinicia la aplicación."); return complianceReportService; }
 function requireMassImportService() { if (!massImportService) throw new Error("El servicio de Importación Masiva no está disponible. Reinicia la aplicación."); return massImportService; }
+function requireFirebaseSyncService() { if (!firebaseSyncService) throw new Error("El servicio de Firebase no está disponible. Reinicia la aplicación."); return firebaseSyncService; }
 
 function emitOcrProgress(documentType, phase, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send("ocr:progress", { documentType, phase, ...payload });
 }
+
+function emitFirebaseStatus(status) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("firebase:status", status);
+}
+
 function createProgressCallbacks(documentType, phase) {
   return {
-    onDocumentStart: (current, total, filePath) => emitOcrProgress(documentType, phase, { message: `Documento ${current} de ${total}: ${path.basename(filePath || "")}`, currentDocument: current, totalDocuments: total, percent: total ? Math.round(((current - 1) / total) * 100) : 0 }),
-    onModeChange: (data) => emitOcrProgress(documentType, phase, { message: `OCR activado: ${(data.reasons || []).join(" ")}`, mode: data.mode }),
-    onPageRender: (page, totalPages) => emitOcrProgress(documentType, phase, { message: `Preparando página ${page} de ${totalPages || "?"}`, page, totalPages }),
-    onPageStart: (page, totalPages) => emitOcrProgress(documentType, phase, { message: `Reconociendo página ${page} de ${totalPages || "?"}`, page, totalPages }),
-    onOcrProgress: (message) => emitOcrProgress(documentType, phase, { message: message?.status ? `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ""}` : "Reconociendo texto...", percent: Number.isFinite(message?.progress) ? Math.round(message.progress * 100) : undefined })
+    onDocumentStart: (current, total, filePath) => emitOcrProgress(documentType, phase, {
+      message: `Documento ${current} de ${total}: ${path.basename(filePath || "")}`,
+      currentDocument: current,
+      totalDocuments: total,
+      percent: total ? Math.round(((current - 1) / total) * 100) : 0
+    }),
+    onModeChange: (data) => emitOcrProgress(documentType, phase, {
+      message: `OCR activado: ${(data.reasons || []).join(" ")}`,
+      mode: data.mode
+    }),
+    onPageRender: (page, totalPages) => emitOcrProgress(documentType, phase, {
+      message: `Preparando página ${page} de ${totalPages || "?"}`,
+      page,
+      totalPages
+    }),
+    onPageStart: (page, totalPages) => emitOcrProgress(documentType, phase, {
+      message: `Reconociendo página ${page} de ${totalPages || "?"}`,
+      page,
+      totalPages
+    }),
+    onOcrProgress: (message) => emitOcrProgress(documentType, phase, {
+      message: message?.status
+        ? `${message.status}${Number.isFinite(message.progress) ? ` ${Math.round(message.progress * 100)}%` : ""}`
+        : "Reconociendo texto...",
+      percent: Number.isFinite(message?.progress) ? Math.round(message.progress * 100) : undefined
+    })
   };
 }
+
 function createMassImportCallbacks(phase) {
   return {
     ...createProgressCallbacks("importacion-masiva", phase),
@@ -237,8 +272,15 @@ async function selectMassImportFolder() {
 
 async function chooseOutputDirectory() {
   if (!mainWindow) return { canceled: true, outputDir: "" };
-  const result = await dialog.showOpenDialog(mainWindow, { title: "Seleccionar carpeta de salida", buttonLabel: "Usar esta carpeta", properties: ["openDirectory", "createDirectory", "dontAddToRecent"] });
-  return { canceled: result.canceled || !result.filePaths?.[0], outputDir: result.canceled ? "" : toDisplayPath(result.filePaths?.[0] || "") };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Seleccionar carpeta de salida",
+    buttonLabel: "Usar esta carpeta",
+    properties: ["openDirectory", "createDirectory", "dontAddToRecent"]
+  });
+  return {
+    canceled: result.canceled || !result.filePaths?.[0],
+    outputDir: result.canceled ? "" : toDisplayPath(result.filePaths?.[0] || "")
+  };
 }
 
 async function validateSelectionPayload(config, phase = "validation") {
@@ -254,10 +296,26 @@ async function generateDocumentReport(payload) {
   const config = payload || {};
   assertDocumentType(config.documentType);
   const requestCheck = validateOutputRequest(config);
-  if (!requestCheck.ok) return { ok: false, message: requestCheck.issues.join(" "), files: {}, summary: {}, warnings: requestCheck.issues };
+  if (!requestCheck.ok) {
+    return { ok: false, message: requestCheck.issues.join(" "), files: {}, summary: {}, warnings: requestCheck.issues };
+  }
   const validation = await validateSelectionPayload(config, "validation");
-  if (!validation.canContinue) return { ok: false, message: "No hay PDF válidos para procesar en esta sección.", validation, files: {}, summary: {}, warnings: validation.invalidFiles.map((file) => ({ archivo: file.name, errores: file.errors })) };
-  const options = { outputDir: config.outputDir, validation, persistenceService: requirePersistence(), ...createProgressCallbacks(config.documentType, "processing") };
+  if (!validation.canContinue) {
+    return {
+      ok: false,
+      message: "No hay PDF válidos para procesar en esta sección.",
+      validation,
+      files: {},
+      summary: {},
+      warnings: validation.invalidFiles.map((file) => ({ archivo: file.name, errores: file.errors }))
+    };
+  }
+  const options = {
+    outputDir: config.outputDir,
+    validation,
+    persistenceService: requirePersistence(),
+    ...createProgressCallbacks(config.documentType, "processing")
+  };
   if (config.documentType === "acuerdo-patrocinio") return processAgreementReport(options);
   if (config.documentType === "planificacion-capacitacion") return processPlanningReport(options);
   if (config.documentType === "informe-final-capacitacion") return processFinalReport(options);
@@ -267,16 +325,35 @@ async function generateDocumentReport(payload) {
 }
 
 function registerIpcHandlers() {
-  ipcMain.handle("app:get-info", async () => ({ appName: APP_NAME, version: app.getVersion(), platform: process.platform, databaseAvailable: Boolean(persistenceService), documentTypes: Object.keys(DOCUMENT_TYPES) }));
+  ipcMain.handle("app:get-info", async () => ({
+    appName: APP_NAME,
+    version: app.getVersion(),
+    platform: process.platform,
+    databaseAvailable: Boolean(persistenceService),
+    documentTypes: Object.keys(DOCUMENT_TYPES)
+  }));
   ipcMain.handle("dialog:select-document-pdfs", async (_event, documentType) => selectPdfFiles(documentType));
   ipcMain.handle("dialog:select-document-folder", async (_event, documentType) => selectPdfFolder(documentType));
   ipcMain.handle("dialog:select-mass-import-folder", async () => selectMassImportFolder());
-  ipcMain.handle("files:validate-document-pdfs", async (_event, payload) => { const config = payload || {}; assertDocumentType(config.documentType); return validateSelectionPayload(config, "validation"); });
+  ipcMain.handle("files:validate-document-pdfs", async (_event, payload) => {
+    const config = payload || {};
+    assertDocumentType(config.documentType);
+    return validateSelectionPayload(config, "validation");
+  });
   ipcMain.handle("dialog:choose-output-dir", async () => chooseOutputDirectory());
-  ipcMain.handle("reports:generate-document-report", async (_event, payload) => { try { return await generateDocumentReport(payload); } catch (error) { console.error("Error al generar reporte:", error); return createErrorResponse(error, "Error desconocido al generar el reporte."); } });
+  ipcMain.handle("reports:generate-document-report", async (_event, payload) => {
+    try { return await generateDocumentReport(payload); }
+    catch (error) {
+      console.error("Error al generar reporte:", error);
+      return createErrorResponse(error, "Error desconocido al generar el reporte.");
+    }
+  });
   ipcMain.handle("importacion-masiva:escanear", async (_event, payload) => {
     try { return await requireMassImportService().scanFolder(payload?.folderPath, createMassImportCallbacks("scan")); }
-    catch (error) { console.error("Error al escanear carpeta:", error); return createErrorResponse(error, "No se pudo analizar la carpeta."); }
+    catch (error) {
+      console.error("Error al escanear carpeta:", error);
+      return createErrorResponse(error, "No se pudo analizar la carpeta.");
+    }
   });
   ipcMain.handle("importacion-masiva:exportar-scan", async (_event, payload) => {
     try {
@@ -289,19 +366,57 @@ function registerIpcHandlers() {
   });
   ipcMain.handle("importacion-masiva:procesar", async (_event, payload) => {
     try { return await requireMassImportService().processBatch(payload || {}, createMassImportCallbacks("processing")); }
-    catch (error) { console.error("Error en importación masiva:", error); return createErrorResponse(error, "No se pudo completar la importación."); }
+    catch (error) {
+      console.error("Error en importación masiva:", error);
+      return createErrorResponse(error, "No se pudo completar la importación.");
+    }
   });
-  ipcMain.handle("importacion-masiva:consultar", async (_event, batchId) => ({ ok: true, ...requireMassImportService().getBatch(batchId) }));
+  ipcMain.handle("importacion-masiva:consultar", async (_event, batchId) => ({
+    ok: true,
+    ...requireMassImportService().getBatch(batchId)
+  }));
   ipcMain.handle("database:get-overview", async () => requireQueryService().getOverview());
-  ipcMain.handle("database:query-documents", async (_event, options) => ({ ok: true, documents: requireQueryService().listDocuments(options || {}) }));
-  ipcMain.handle("database:query-type-records", async (_event, payload) => { const config = payload || {}; return { ok: true, ...requireQueryService().listTypeRecords(config.documentType, config.options || {}) }; });
-  ipcMain.handle("database:query-document-details", async (_event, documentId) => ({ ok: true, ...requireQueryService().getDocumentDetails(documentId) }));
-  ipcMain.handle("database:query-runs", async (_event, options) => ({ ok: true, runs: requireQueryService().listProcessingRuns(options || {}) }));
-  ipcMain.handle("database:open-folder", async () => { const databasePath = requirePersistence().getDatabasePath(); const errorMessage = await shell.openPath(databasePath); if (errorMessage) throw new Error(errorMessage); return { ok: true, databasePath }; });
-  ipcMain.handle("reportes-individuales:listar-docentes", async (_event, options) => ({ ok: true, teachers: requireIndividualReportService().listTeachers(options || {}) }));
-  ipcMain.handle("reportes-individuales:consultar-docente", async (_event, key) => ({ ok: true, report: requireIndividualReportService().getTeacherReport(key) }));
+  ipcMain.handle("database:query-documents", async (_event, options) => ({
+    ok: true,
+    documents: requireQueryService().listDocuments(options || {})
+  }));
+  ipcMain.handle("database:query-type-records", async (_event, payload) => {
+    const config = payload || {};
+    return { ok: true, ...requireQueryService().listTypeRecords(config.documentType, config.options || {}) };
+  });
+  ipcMain.handle("database:query-document-details", async (_event, documentId) => ({
+    ok: true,
+    ...requireQueryService().getDocumentDetails(documentId)
+  }));
+  ipcMain.handle("database:query-runs", async (_event, options) => ({
+    ok: true,
+    runs: requireQueryService().listProcessingRuns(options || {})
+  }));
+  ipcMain.handle("database:open-folder", async () => {
+    const databasePath = requirePersistence().getDatabasePath();
+    const errorMessage = await shell.openPath(databasePath);
+    if (errorMessage) throw new Error(errorMessage);
+    return { ok: true, databasePath };
+  });
+  ipcMain.handle("firebase:get-status", async () => requireFirebaseSyncService().publicStatus());
+  ipcMain.handle("firebase:configure", async (_event, payload) => requireFirebaseSyncService().configure(payload || {}));
+  ipcMain.handle("firebase:disconnect", async () => ({
+    ok: true,
+    status: await requireFirebaseSyncService().disconnect()
+  }));
+  ipcMain.handle("reportes-individuales:listar-docentes", async (_event, options) => ({
+    ok: true,
+    teachers: requireIndividualReportService().listTeachers(options || {})
+  }));
+  ipcMain.handle("reportes-individuales:consultar-docente", async (_event, key) => ({
+    ok: true,
+    report: requireIndividualReportService().getTeacherReport(key)
+  }));
   ipcMain.handle("reportes-individuales:preparar", async (_event, key) => requireIndividualReportService().prepareReport(key));
-  ipcMain.handle("informe-cumplimiento:obtener-filtros", async () => ({ ok: true, options: requireComplianceReportService().getFilters() }));
+  ipcMain.handle("informe-cumplimiento:obtener-filtros", async () => ({
+    ok: true,
+    options: requireComplianceReportService().getFilters()
+  }));
   ipcMain.handle("informe-cumplimiento:consultar-resumen", async (_event, filters) => requireComplianceReportService().getDashboard(filters || {}));
   ipcMain.handle("informe-cumplimiento:ejecutar-analisis", async (_event, filters) => requireComplianceReportService().runInternalAnalysis(filters || {}));
   ipcMain.handle("informe-cumplimiento:refinar-ia", async (_event, filters) => requireComplianceReportService().refineWithAi(filters || {}));
@@ -310,13 +425,29 @@ function registerIpcHandlers() {
 }
 
 app.whenReady().then(() => {
+  const secretStore = createSecretStore();
   persistenceService = createPersistenceService(path.join(app.getPath("userData"), "local-database"));
   queryService = createQueryService(persistenceService.database);
   individualReportService = createIndividualReportService(persistenceService.database);
-  complianceReportService = createComplianceReportService(persistenceService.database, { secretStore: createSecretStore() });
+  complianceReportService = createComplianceReportService(persistenceService.database, { secretStore });
   massImportService = createMassImportService(persistenceService);
+  firebaseSyncService = createFirebaseSyncService(persistenceService.database, {
+    secretStore,
+    onStatus: emitFirebaseStatus,
+    logger: console
+  });
   registerIpcHandlers();
   createMainWindow();
-  app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createMainWindow(); });
+  firebaseSyncService.start();
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+  });
 });
-app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
+
+app.on("before-quit", () => {
+  if (firebaseSyncService) firebaseSyncService.stop();
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
