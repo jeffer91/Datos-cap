@@ -7,7 +7,9 @@ const state = {
   records: [],
   summary: { total: 0, completos: 0, revisar: 0, errores: 0, capacitaciones: 0 },
   busy: false,
-  currentRecord: null
+  currentRecord: null,
+  editDraft: null,
+  editing: false
 };
 
 const elements = {};
@@ -24,8 +26,8 @@ function cacheElements() {
     "statReview", "statTrainings", "resultsSubtitle", "searchInput", "statusFilter",
     "excelButton", "jsonButton", "resultsBody", "emptyState", "visibleCount",
     "clearDataButton", "openDataButton", "versionLabel", "drawerBackdrop", "detailDrawer",
-    "drawerTitle", "drawerContent", "closeDrawerButton", "closeDrawerFooterButton",
-    "openPdfButton", "toastStack"
+    "drawerTitle", "drawerContent", "closeDrawerButton", "openPdfButton", "editPlanButton",
+    "savePlanButton", "cancelEditButton", "toastStack"
   ].forEach((id) => { elements[id] = byId(id); });
 }
 
@@ -47,6 +49,17 @@ function listText(value) {
   return Array.isArray(value) ? value.filter(Boolean).join(" · ") : displayValue(value);
 }
 
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function splitLines(value) {
+  return String(value || "")
+    .split(/\n|\|/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function toast(message, type = "") {
   const item = document.createElement("div");
   item.className = `toast${type ? ` ${type}` : ""}`;
@@ -64,6 +77,10 @@ function setBusy(value) {
   elements.excelButton.disabled = state.busy || !state.records.length;
   elements.jsonButton.disabled = state.busy || !state.records.length;
   elements.clearDataButton.disabled = state.busy || !state.records.length;
+  elements.editPlanButton.disabled = state.busy || !state.currentRecord;
+  elements.savePlanButton.disabled = state.busy || !state.editing;
+  elements.cancelEditButton.disabled = state.busy || !state.editing;
+  elements.openPdfButton.disabled = state.busy || !state.currentRecord?.archivo?.ruta;
 }
 
 function updateSelection() {
@@ -124,7 +141,7 @@ function renderTable() {
       <td><span class="status-pill ${status.className}">${status.label}</span></td>
       <td class="teacher-cell">
         <strong>${escapeHtml(displayValue(record.docente?.nombre, record.archivo?.nombre || "Sin nombre"))}</strong>
-        <span>${escapeHtml(displayValue(record.docente?.codigo_documento, record.archivo?.nombre || ""))}</span>
+        <span>${escapeHtml(displayValue(record.docente?.codigo_documento, record.archivo?.nombre || ""))}${record.correccion_manual ? " · Corregido" : ""}</span>
       </td>
       <td>${escapeHtml(displayValue(record.docente?.carrera))}</td>
       <td>${escapeHtml(displayValue(record.docente?.periodo_plan, "—"))}</td>
@@ -149,20 +166,18 @@ function detailItem(label, value, full = false) {
 }
 
 function trainingHtml(training, index) {
-  const theory = listText(training.actividades_teoricas);
-  const practice = listText(training.actividades_practicas);
   return `
     <article class="training-card">
       <div class="training-head">
-        <strong>${index + 1}. ${escapeHtml(displayValue(training.nombre))}</strong>
+        <strong>Capacitación ${index + 1}: ${escapeHtml(displayValue(training.nombre))}</strong>
         <span>${escapeHtml(displayValue(training.horas, "0"))} h</span>
       </div>
-      <div class="training-meta">
-        ${escapeHtml(displayValue(training.fecha_rango_original, "Sin fecha"))} · ${escapeHtml(displayValue(training.tipo, "Sin tipo"))}
-      </div>
-      <div class="training-detail">
-        <span>Teóricas</span><p>${escapeHtml(theory)}</p>
-        <span>Prácticas</span><p>${escapeHtml(practice)}</p>
+      <div class="training-detail ordered">
+        <span>Fecha de inicio</span><p>${escapeHtml(displayValue(training.fecha_inicio_propuesta))}</p>
+        <span>Fecha de finalización</span><p>${escapeHtml(displayValue(training.fecha_fin_propuesta))}</p>
+        <span>Tipo</span><p>${escapeHtml(displayValue(training.tipo))}</p>
+        <span>Actividades teóricas</span><p>${escapeHtml(listText(training.actividades_teoricas))}</p>
+        <span>Actividades prácticas</span><p>${escapeHtml(listText(training.actividades_practicas))}</p>
         <span>Impacto esperado</span><p>${escapeHtml(displayValue(training.impacto_esperado))}</p>
         <span>Visión a largo plazo</span><p>${escapeHtml(displayValue(training.vision_largo_plazo))}</p>
       </div>
@@ -170,62 +185,273 @@ function trainingHtml(training, index) {
   `;
 }
 
-function openDrawer(record) {
-  state.currentRecord = record;
-  elements.drawerTitle.textContent = displayValue(record.docente?.nombre, record.archivo?.nombre || "Plan docente");
-  const issues = [...(record.campos_faltantes || []), ...(record.advertencias || [])];
+function uniqueIssues(record) {
+  return [...new Set([...(record.campos_faltantes || []), ...(record.advertencias || [])].filter(Boolean))];
+}
+
+function renderDetailView() {
+  const record = state.currentRecord;
+  if (!record) return;
+  const issues = uniqueIssues(record);
   const trainings = record.capacitaciones || [];
+  const status = statusInfo(record);
+  elements.drawerTitle.textContent = displayValue(record.docente?.nombre, record.archivo?.nombre || "Plan docente");
 
   elements.drawerContent.innerHTML = `
+    <div class="record-meta">
+      <span class="status-pill ${status.className}">${status.label}</span>
+      <span>${escapeHtml(record.archivo?.metodo_lectura || "")}</span>
+      ${record.correccion_manual ? "<span class='manual-badge'>Corregido manualmente</span>" : ""}
+    </div>
+
     <section class="detail-section">
-      <h3>Datos del docente</h3>
+      <h3>1. Datos del docente</h3>
       <div class="detail-grid">
-        ${detailItem("Nombre", record.docente?.nombre, true)}
-        ${detailItem("Carrera", record.docente?.carrera)}
-        ${detailItem("Dedicación", record.docente?.tiempo_dedicacion)}
-        ${detailItem("Nivel académico", record.docente?.nivel_academico_actual)}
-        ${detailItem("Periodo", record.docente?.periodo_plan)}
-        ${detailItem("Código", record.docente?.codigo_documento, true)}
+        ${detailItem("Nombre del docente", record.docente?.nombre, true)}
+        ${detailItem("Carrera", record.docente?.carrera, true)}
+        ${detailItem("Tiempo de dedicación", record.docente?.tiempo_dedicacion)}
+        ${detailItem("Nivel académico actual", record.docente?.nivel_academico_actual)}
+        ${detailItem("Código del documento", record.docente?.codigo_documento, true)}
+        ${detailItem("Periodo del plan", record.docente?.periodo_plan, true)}
       </div>
     </section>
 
     <section class="detail-section">
-      <h3>Diagnóstico</h3>
+      <h3>2. Diagnóstico del docente</h3>
       <div class="detail-grid">
-        ${detailItem("Últimos 12 meses", record.diagnostico?.capacitacion_12_meses, true)}
-        ${detailItem("Avances aplicados", record.diagnostico?.avances_aplicados, true)}
-        ${detailItem("Comodidad con metodologías", record.diagnostico?.comodidad_metodologias, true)}
-        ${detailItem("Estrategias pedagógicas", record.diagnostico?.estrategias_pedagogicas, true)}
-        ${detailItem("Herramientas tecnológicas", record.diagnostico?.herramientas_tecnologicas, true)}
-        ${detailItem("Formación adicional", record.diagnostico?.formacion_adicional, true)}
-        ${detailItem("Tipo de formación", record.diagnostico?.tipo_formacion, true)}
+        ${detailItem("Capacitación realizada en los últimos 12 meses", record.diagnostico?.capacitacion_12_meses, true)}
+        ${detailItem("Avances disciplinares aplicados en clases", record.diagnostico?.avances_aplicados, true)}
+        ${detailItem("Nivel de comodidad con nuevas metodologías", record.diagnostico?.comodidad_metodologias, true)}
+        ${detailItem("Estrategias pedagógicas utilizadas", record.diagnostico?.estrategias_pedagogicas, true)}
+        ${detailItem("Herramientas tecnológicas utilizadas", record.diagnostico?.herramientas_tecnologicas, true)}
+        ${detailItem("Formación académica adicional necesaria", record.diagnostico?.formacion_adicional, true)}
+        ${detailItem("Tipo de formación requerida", record.diagnostico?.tipo_formacion, true)}
       </div>
     </section>
 
     <section class="detail-section">
-      <h3>Capacitaciones propuestas (${trainings.length})</h3>
-      ${trainings.length ? trainings.map(trainingHtml).join("") : "<div class='detail-item'><p>No se encontraron capacitaciones.</p></div>"}
+      <h3>3. Capacitaciones propuestas (${trainings.length})</h3>
+      ${trainings.length ? trainings.map(trainingHtml).join("") : "<div class='detail-item full'><p>No se encontraron capacitaciones.</p></div>"}
     </section>
 
     ${issues.length ? `
-      <section class="detail-section">
-        <h3>Revisión</h3>
+      <section class="detail-section review-section">
+        <h3>4. Revisión</h3>
         <ul class="issue-list">${issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul>
       </section>
     ` : ""}
   `;
+}
 
+function formField(label, field, value, options = {}) {
+  const fullClass = options.full === false ? "" : " full";
+  const type = options.type || "text";
+  if (options.textarea) {
+    return `
+      <label class="edit-field${fullClass}">
+        <span>${escapeHtml(label)}</span>
+        <textarea data-field="${escapeHtml(field)}" rows="${options.rows || 3}">${escapeHtml(value || "")}</textarea>
+      </label>
+    `;
+  }
+  return `
+    <label class="edit-field${fullClass}">
+      <span>${escapeHtml(label)}</span>
+      <input data-field="${escapeHtml(field)}" type="${escapeHtml(type)}" value="${escapeHtml(value || "")}" />
+    </label>
+  `;
+}
+
+function trainingEditHtml(training, index) {
+  return `
+    <article class="training-edit-card" data-training-index="${index}">
+      <div class="training-edit-head">
+        <strong>Capacitación ${index + 1}</strong>
+        <button class="text-button danger" type="button" data-remove-training="${index}">Eliminar</button>
+      </div>
+      <div class="edit-grid">
+        ${formField("Nombre", "nombre", training.nombre)}
+        ${formField("Horas", "horas", training.horas || "", { type: "number", full: false })}
+        ${formField("Tipo", "tipo", training.tipo || "", { full: false })}
+        ${formField("Fecha de inicio", "fecha_inicio_propuesta", training.fecha_inicio_propuesta || "", { full: false })}
+        ${formField("Fecha de finalización", "fecha_fin_propuesta", training.fecha_fin_propuesta || "", { full: false })}
+        ${formField("Actividades teóricas (una por línea)", "actividades_teoricas", (training.actividades_teoricas || []).join("\n"), { textarea: true })}
+        ${formField("Actividades prácticas (una por línea)", "actividades_practicas", (training.actividades_practicas || []).join("\n"), { textarea: true })}
+        ${formField("Impacto esperado", "impacto_esperado", training.impacto_esperado || "", { textarea: true })}
+        ${formField("Visión a largo plazo", "vision_largo_plazo", training.vision_largo_plazo || "", { textarea: true })}
+      </div>
+    </article>
+  `;
+}
+
+function renderEditForm() {
+  const record = state.editDraft;
+  if (!record) return;
+  const trainings = record.capacitaciones || [];
+  elements.drawerTitle.textContent = displayValue(record.docente?.nombre, "Editar plan");
+  elements.drawerContent.innerHTML = `
+    <div class="edit-notice">Corrige únicamente lo que necesites y pulsa Guardar.</div>
+
+    <section class="detail-section">
+      <h3>1. Datos del docente</h3>
+      <div class="edit-grid">
+        ${formField("Nombre del docente", "docente.nombre", record.docente?.nombre)}
+        ${formField("Carrera", "docente.carrera", record.docente?.carrera)}
+        ${formField("Tiempo de dedicación", "docente.tiempo_dedicacion", record.docente?.tiempo_dedicacion, { full: false })}
+        ${formField("Nivel académico actual", "docente.nivel_academico_actual", record.docente?.nivel_academico_actual, { full: false })}
+        ${formField("Código del documento", "docente.codigo_documento", record.docente?.codigo_documento)}
+        ${formField("Periodo del plan", "docente.periodo_plan", record.docente?.periodo_plan, { type: "month" })}
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h3>2. Diagnóstico del docente</h3>
+      <div class="edit-grid">
+        ${formField("Capacitación realizada en los últimos 12 meses", "diagnostico.capacitacion_12_meses", record.diagnostico?.capacitacion_12_meses, { textarea: true })}
+        ${formField("Avances disciplinares aplicados en clases", "diagnostico.avances_aplicados", record.diagnostico?.avances_aplicados, { textarea: true })}
+        ${formField("Nivel de comodidad con nuevas metodologías", "diagnostico.comodidad_metodologias", record.diagnostico?.comodidad_metodologias, { textarea: true })}
+        ${formField("Estrategias pedagógicas utilizadas", "diagnostico.estrategias_pedagogicas", record.diagnostico?.estrategias_pedagogicas, { textarea: true })}
+        ${formField("Herramientas tecnológicas utilizadas", "diagnostico.herramientas_tecnologicas", record.diagnostico?.herramientas_tecnologicas, { textarea: true })}
+        ${formField("Formación académica adicional necesaria", "diagnostico.formacion_adicional", record.diagnostico?.formacion_adicional, { textarea: true })}
+        ${formField("Tipo de formación requerida", "diagnostico.tipo_formacion", record.diagnostico?.tipo_formacion, { textarea: true })}
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <div class="section-heading-row">
+        <h3>3. Capacitaciones propuestas (${trainings.length})</h3>
+        <button class="button secondary compact" id="addTrainingButton" type="button">Agregar</button>
+      </div>
+      <div id="trainingEditList">
+        ${trainings.length ? trainings.map(trainingEditHtml).join("") : "<div class='edit-empty'>No hay capacitaciones. Pulsa Agregar.</div>"}
+      </div>
+    </section>
+  `;
+
+  elements.drawerContent.querySelector("#addTrainingButton").addEventListener("click", () => {
+    syncDraftFromForm();
+    state.editDraft.capacitaciones.push({
+      orden: state.editDraft.capacitaciones.length + 1,
+      nombre: "",
+      horas: 0,
+      fecha_inicio_propuesta: "",
+      fecha_fin_propuesta: "",
+      tipo: "",
+      actividades_teoricas: [],
+      actividades_practicas: [],
+      impacto_esperado: "",
+      vision_largo_plazo: ""
+    });
+    renderEditForm();
+  });
+
+  elements.drawerContent.querySelectorAll("[data-remove-training]").forEach((button) => {
+    button.addEventListener("click", () => {
+      syncDraftFromForm();
+      const index = Number(button.dataset.removeTraining);
+      state.editDraft.capacitaciones.splice(index, 1);
+      renderEditForm();
+    });
+  });
+}
+
+function fieldValue(field) {
+  return elements.drawerContent.querySelector(`[data-field="${field}"]`)?.value.trim() || "";
+}
+
+function syncDraftFromForm() {
+  if (!state.editing || !state.editDraft) return;
+  state.editDraft.docente = {
+    nombre: fieldValue("docente.nombre"),
+    carrera: fieldValue("docente.carrera"),
+    tiempo_dedicacion: fieldValue("docente.tiempo_dedicacion"),
+    nivel_academico_actual: fieldValue("docente.nivel_academico_actual"),
+    codigo_documento: fieldValue("docente.codigo_documento"),
+    periodo_plan: fieldValue("docente.periodo_plan")
+  };
+  state.editDraft.diagnostico = {
+    capacitacion_12_meses: fieldValue("diagnostico.capacitacion_12_meses"),
+    avances_aplicados: fieldValue("diagnostico.avances_aplicados"),
+    comodidad_metodologias: fieldValue("diagnostico.comodidad_metodologias"),
+    estrategias_pedagogicas: fieldValue("diagnostico.estrategias_pedagogicas"),
+    herramientas_tecnologicas: fieldValue("diagnostico.herramientas_tecnologicas"),
+    formacion_adicional: fieldValue("diagnostico.formacion_adicional"),
+    tipo_formacion: fieldValue("diagnostico.tipo_formacion")
+  };
+  state.editDraft.capacitaciones = [...elements.drawerContent.querySelectorAll(".training-edit-card")].map((card, index) => {
+    const get = (name) => card.querySelector(`[data-field="${name}"]`)?.value.trim() || "";
+    return {
+      orden: index + 1,
+      nombre: get("nombre"),
+      horas: Number(get("horas") || 0),
+      fecha_inicio_propuesta: get("fecha_inicio_propuesta"),
+      fecha_fin_propuesta: get("fecha_fin_propuesta"),
+      tipo: get("tipo"),
+      actividades_teoricas: splitLines(get("actividades_teoricas")),
+      actividades_practicas: splitLines(get("actividades_practicas")),
+      impacto_esperado: get("impacto_esperado"),
+      vision_largo_plazo: get("vision_largo_plazo")
+    };
+  });
+}
+
+function setEditMode(editing) {
+  state.editing = Boolean(editing);
+  elements.editPlanButton.classList.toggle("hidden", state.editing);
+  elements.savePlanButton.classList.toggle("hidden", !state.editing);
+  elements.cancelEditButton.classList.toggle("hidden", !state.editing);
+  if (state.editing) {
+    state.editDraft = clone(state.currentRecord);
+    renderEditForm();
+  } else {
+    state.editDraft = null;
+    renderDetailView();
+  }
+  setBusy(state.busy);
+}
+
+function openDrawer(record) {
+  state.currentRecord = record;
+  state.editDraft = null;
+  state.editing = false;
   elements.drawerBackdrop.classList.remove("hidden");
   elements.detailDrawer.classList.add("open");
   elements.detailDrawer.setAttribute("aria-hidden", "false");
-  elements.openPdfButton.disabled = !record.archivo?.ruta;
+  elements.editPlanButton.classList.remove("hidden");
+  elements.savePlanButton.classList.add("hidden");
+  elements.cancelEditButton.classList.add("hidden");
+  renderDetailView();
+  setBusy(state.busy);
 }
 
-function closeDrawer() {
+function closeDrawer(force = false) {
+  if (state.editing && !force && !window.confirm("¿Salir sin guardar los cambios?")) return;
   state.currentRecord = null;
+  state.editDraft = null;
+  state.editing = false;
   elements.drawerBackdrop.classList.add("hidden");
   elements.detailDrawer.classList.remove("open");
   elements.detailDrawer.setAttribute("aria-hidden", "true");
+}
+
+async function saveEdit() {
+  if (!state.editing || !state.editDraft || state.busy) return;
+  syncDraftFromForm();
+  setBusy(true);
+  try {
+    const result = await api.update(state.editDraft);
+    state.records = result.records || state.records;
+    state.summary = result.summary || state.summary;
+    state.currentRecord = result.record;
+    updateStats();
+    renderTable();
+    setEditMode(false);
+    toast("Correcciones guardadas.", "success");
+  } catch (error) {
+    toast(error.message || "No se pudieron guardar las correcciones.", "error");
+  } finally {
+    setBusy(false);
+  }
 }
 
 function showProgress(progress) {
@@ -288,8 +514,9 @@ async function processSelection() {
     const result = await api.process(state.selectedFiles);
     state.selectedFiles = [];
     updateSelection();
-    state.records = result.records?.length ? (await api.list()).records : state.records;
-    state.summary = result.summary || state.summary;
+    const latest = await api.list();
+    state.records = latest.records || state.records;
+    state.summary = latest.summary || result.summary || state.summary;
     updateStats();
     renderTable();
     toast(`${result.processed} archivos procesados.`, "success");
@@ -325,6 +552,14 @@ async function clearData() {
   }
 }
 
+async function openCurrentPdf() {
+  try {
+    if (state.currentRecord?.archivo?.ruta) await api.openFile(state.currentRecord.archivo.ruta);
+  } catch (error) {
+    toast(error.message || "No se pudo abrir el PDF.", "error");
+  }
+}
+
 function bindEvents() {
   elements.filesButton.addEventListener("click", selectFiles);
   elements.folderButton.addEventListener("click", selectFolder);
@@ -342,16 +577,12 @@ function bindEvents() {
     try { await api.openDataFolder(); }
     catch (error) { toast(error.message || "No se pudo abrir la carpeta.", "error"); }
   });
-  elements.closeDrawerButton.addEventListener("click", closeDrawer);
-  elements.closeDrawerFooterButton.addEventListener("click", closeDrawer);
-  elements.drawerBackdrop.addEventListener("click", closeDrawer);
-  elements.openPdfButton.addEventListener("click", async () => {
-    try {
-      if (state.currentRecord?.archivo?.ruta) await api.openFile(state.currentRecord.archivo.ruta);
-    } catch (error) {
-      toast(error.message || "No se pudo abrir el PDF.", "error");
-    }
-  });
+  elements.closeDrawerButton.addEventListener("click", () => closeDrawer());
+  elements.drawerBackdrop.addEventListener("click", () => closeDrawer());
+  elements.openPdfButton.addEventListener("click", openCurrentPdf);
+  elements.editPlanButton.addEventListener("click", () => setEditMode(true));
+  elements.cancelEditButton.addEventListener("click", () => setEditMode(false));
+  elements.savePlanButton.addEventListener("click", saveEdit);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeDrawer();
   });
