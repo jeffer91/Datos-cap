@@ -1,7 +1,7 @@
 {
   "name": "datos-cap",
-  "version": "0.4.2",
-  "description": "Aplicación de escritorio para extraer, revisar y corregir planes docentes y acuerdos de patrocinio desde PDF digitales o escaneados, con OCR por regiones, dedicación fija y validación visual de campos.",
+  "version": "0.5.0",
+  "description": "Aplicación de escritorio para importar, validar, revisar y corregir planes docentes desde tablas TSV generadas a partir de PDF, además de procesar acuerdos de patrocinio.",
   "main": "bootstrap.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "scripts": {
     "start": "electron .",
     "check": "node scripts/check.js",
-    "test": "node tests/module-load.test.js && node tests/plan-parser.test.js && node tests/plan-layout.test.js && node tests/plan-validation.test.js && node tests/agreement-parser.test.js",
+    "test": "node tests/module-load.test.js && node tests/plan-parser.test.js && node tests/plan-layout.test.js && node tests/plan-validation.test.js && node tests/plan-table.test.js && node tests/agreement-parser.test.js",
     "verify": "npm run check && npm test"
   },
   "dependencies": {
