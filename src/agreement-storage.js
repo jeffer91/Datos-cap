@@ -37,10 +37,19 @@ class AgreementStorage {
           ? {
               ...record,
               id: previous.id,
-              acuerdo: previous.acuerdo,
+              acuerdo: {
+                ...previous.acuerdo,
+                archivo_pdf_final: record?.archivo?.ruta || previous.acuerdo?.archivo_pdf_final || ""
+              },
               docente: previous.docente,
               capacitacion: previous.capacitacion,
               patrocinio: previous.patrocinio,
+              vinculacion: previous.vinculacion,
+              deteccion: {
+                ...(record.deteccion || {}),
+                ...(previous.deteccion || {}),
+                confirmado_manualmente: true
+              },
               estado: previous.estado,
               confianza: previous.confianza,
               campos_faltantes: previous.campos_faltantes,
