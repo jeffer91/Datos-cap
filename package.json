@@ -1,7 +1,7 @@
 {
   "name": "datos-cap",
-  "version": "0.4.2",
-  "description": "Aplicación de escritorio para extraer, revisar y corregir planes docentes y acuerdos de patrocinio desde PDF digitales o escaneados, con OCR por regiones, dedicación fija y validación visual de campos.",
+  "version": "0.4.3",
+  "description": "Aplicación de escritorio para extraer, revisar y corregir planes docentes y acuerdos de patrocinio desde PDF digitales o escaneados, con OCR por regiones, dedicación fija, validación visual de campos y revisión conservadora de firmas.",
   "main": "bootstrap.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
