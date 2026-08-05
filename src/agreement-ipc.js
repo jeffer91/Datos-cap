@@ -8,6 +8,7 @@ const {
   normalize,
   extractAgreementCode,
   extractPeriod,
+  agreementSignalScore,
   evaluateAgreement,
   parseAgreementText
 } = require("./agreement-parser");
@@ -115,6 +116,28 @@ function scanFolder(folderPath, limit) {
 
 function stringValue(value) {
   return String(value == null ? "" : value).replace(/\r\n?/g, "\n").trim();
+}
+
+function isUsableDigitalAgreementText(text) {
+  const source = stringValue(text);
+  return source.length >= 450 && agreementSignalScore(source) >= 3;
+}
+
+async function readAgreementPdf(reader, filePath, onProgress) {
+  try {
+    const digital = await reader.readDigital(filePath);
+    if (isUsableDigitalAgreementText(digital.text)) {
+      return {
+        text: digital.text,
+        pages: digital.pages,
+        method: "DIGITAL",
+        warnings: []
+      };
+    }
+  } catch (_error) {
+    // El lector híbrido volverá a intentarlo y aplicará OCR cuando corresponda.
+  }
+  return reader.read(filePath, onProgress);
 }
 
 function boolValue(value) {
@@ -259,7 +282,7 @@ function registerAgreementIpc(options) {
         try {
           const stat = fs.statSync(filePath);
           if (!stat.isFile() || stat.size === 0) throw new Error("El archivo está vacío o no está disponible.");
-          const reading = await reader.read(filePath, (detail) => emitProgress({
+          const reading = await readAgreementPdf(reader, filePath, (detail) => emitProgress({
             ...detail,
             scope: "agreements",
             current,
@@ -396,6 +419,8 @@ module.exports = {
   similarity,
   planTrainingOptions,
   matchTraining,
+  isUsableDigitalAgreementText,
+  readAgreementPdf,
   sanitizeAgreementUpdate,
   registerAgreementIpc
 };
