@@ -201,7 +201,7 @@ function parseTableFromWords(table) {
       fecha_inicio_propuesta: date.start,
       fecha_fin_propuesta: date.end,
       fecha_rango_original: date.original,
-      tipo,
+      tipo: type,
       actividades_teoricas: [],
       actividades_practicas: [],
       impacto_esperado: "",
