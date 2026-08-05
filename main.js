@@ -5,8 +5,9 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const { HybridPdfReader } = require("./src/hybrid-pdf-reader");
-const { parsePlanText, evaluateRecord, extractCode, extractPeriod } = require("./src/plan-parser");
+const { parsePlanText, extractCode, extractPeriod } = require("./src/plan-parser");
 const { applyLayoutToPlan } = require("./src/plan-layout");
+const { DEFAULT_DEDICATION, validatePlanRecord } = require("./src/plan-validation");
 const { PlanStorage } = require("./src/storage");
 const { exportExcel, exportJson } = require("./src/exporter");
 
@@ -122,17 +123,17 @@ function migrateStoredRecords() {
   for (const current of records) {
     if (!current?.id) continue;
     let updated = JSON.parse(JSON.stringify(current));
-    let changed = false;
+
+    updated.docente = {
+      ...(updated.docente || {}),
+      tiempo_dedicacion: DEFAULT_DEDICATION
+    };
 
     if (!current.correccion_manual) {
       const codeFromFileName = extractCode("", current.archivo?.nombre || "");
-      if (codeFromFileName && codeFromFileName !== current.docente?.codigo_documento) {
-        updated.docente = {
-          ...(updated.docente || {}),
-          codigo_documento: codeFromFileName,
-          periodo_plan: extractPeriod(codeFromFileName)
-        };
-        changed = true;
+      if (codeFromFileName) {
+        updated.docente.codigo_documento = codeFromFileName;
+        updated.docente.periodo_plan = extractPeriod(codeFromFileName);
       }
     }
 
@@ -147,22 +148,21 @@ function migrateStoredRecords() {
       updated.advertencias = (updated.advertencias || []).filter((item) =>
         !/no corresponde a un plan individual/i.test(String(item || ""))
       );
-      updated = evaluateRecord(updated, { isPlan: true, possiblePlan: true });
       updated.deteccion = {
         ...(updated.deteccion || {}),
         posible_plan: true,
         recuperado_por_migracion: true
       };
-      changed = true;
-    } else if (changed) {
-      updated = evaluateRecord(updated, {
-        isPlan: updated.estado !== "NO_ES_PLAN" && updated.estado !== "ERROR",
-        possiblePlan: hasUsefulPlanData
-      });
     }
 
-    if (changed) {
-      storage.updateById(current.id, updated);
+    const validated = validatePlanRecord(updated, {
+      isPlan: updated.estado !== "ERROR" && (updated.estado !== "NO_ES_PLAN" || hasUsefulPlanData),
+      possiblePlan: hasUsefulPlanData,
+      preserveError: true
+    });
+
+    if (JSON.stringify(validated) !== JSON.stringify(current)) {
+      storage.updateById(current.id, validated);
       migrated += 1;
     }
   }
@@ -182,7 +182,7 @@ function updatePlanRecord(payload = {}) {
     docente: {
       nombre: cleanString(payload.docente?.nombre),
       carrera: cleanString(payload.docente?.carrera),
-      tiempo_dedicacion: cleanString(payload.docente?.tiempo_dedicacion),
+      tiempo_dedicacion: DEFAULT_DEDICATION,
       nivel_academico_actual: cleanString(payload.docente?.nivel_academico_actual),
       codigo_documento: code,
       periodo_plan: period
@@ -211,8 +211,8 @@ function updatePlanRecord(payload = {}) {
     )
   };
 
-  const evaluated = evaluateRecord(updated, { isPlan: true, possiblePlan: true });
-  const saved = storage.updateById(id, evaluated);
+  const validated = validatePlanRecord(updated, { isPlan: true, possiblePlan: true });
+  const saved = storage.updateById(id, validated);
   return {
     ok: true,
     record: saved,
@@ -238,7 +238,7 @@ function errorRecord(filePath, error) {
     docente: {
       nombre: "",
       carrera: "",
-      tiempo_dedicacion: "",
+      tiempo_dedicacion: DEFAULT_DEDICATION,
       nivel_academico_actual: "",
       codigo_documento: "",
       periodo_plan: ""
@@ -256,6 +256,7 @@ function errorRecord(filePath, error) {
     estado: "ERROR",
     confianza: 0,
     campos_faltantes: [error?.message || "No se pudo procesar el archivo"],
+    problemas_campos: {},
     advertencias: [],
     correccion_manual: false,
     fecha_correccion: ""
@@ -308,7 +309,11 @@ async function processFiles(filePaths) {
           method: reading.method,
           warnings: reading.warnings
         });
-        const record = applyLayoutToPlan(basicRecord, reading.layout || {});
+        const layoutRecord = applyLayoutToPlan(basicRecord, reading.layout || {});
+        const record = validatePlanRecord(layoutRecord, {
+          isPlan: layoutRecord.estado !== "NO_ES_PLAN",
+          possiblePlan: layoutRecord.deteccion?.posible_plan || layoutRecord.deteccion?.confirmado_como_plan
+        });
         records.push(record);
       } catch (error) {
         records.push(errorRecord(filePath, error));
