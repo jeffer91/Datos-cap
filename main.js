@@ -4,10 +4,13 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const { HybridPdfReader } = require("./src/hybrid-pdf-reader");
-const { parsePlanText, extractCode, extractPeriod } = require("./src/plan-parser");
-const { applyLayoutToPlan } = require("./src/plan-layout");
+const { PlanProcessingEngine } = require("./src/plan-pipeline");
+const {
+  applyPlanIntelligence,
+  extractPeriod
+} = require("./src/plan-intelligence");
 const { DEFAULT_DEDICATION, validatePlanRecord } = require("./src/plan-validation");
+const { isLocalAiEnabled, configuredModel } = require("./src/local-ai-review");
 const { PlanStorage } = require("./src/storage");
 const { exportExcel, exportJson } = require("./src/exporter");
 
@@ -83,8 +86,7 @@ function scanFolder(folderPath) {
 
 function hashFile(filePath) {
   const hash = crypto.createHash("sha256");
-  const buffer = fs.readFileSync(filePath);
-  hash.update(buffer);
+  hash.update(fs.readFileSync(filePath));
   return hash.digest("hex");
 }
 
@@ -112,62 +114,69 @@ function sanitizeTraining(training, index) {
     actividades_practicas: cleanList(training?.actividades_practicas),
     impacto_esperado: cleanString(training?.impacto_esperado),
     vision_largo_plazo: cleanString(training?.vision_largo_plazo),
-    detalle_compartido_entre_capacitaciones: false
+    detalle_compartido_entre_capacitaciones: true
   };
 }
 
+function hasUsefulPlanData(record) {
+  const diagnosticCount = Object.values(record?.diagnostico || {}).filter((value) => cleanString(value)).length;
+  return Boolean(
+    cleanString(record?.docente?.nombre)
+    && cleanString(record?.docente?.carrera)
+    && (diagnosticCount >= 2 || (record?.capacitaciones?.length || 0) > 0)
+  );
+}
+
 function migrateStoredRecords() {
+  const firstPass = storage.deduplicate();
   const records = storage.list();
   let migrated = 0;
 
   for (const current of records) {
     if (!current?.id) continue;
-    let updated = JSON.parse(JSON.stringify(current));
-
-    updated.docente = {
-      ...(updated.docente || {}),
-      tiempo_dedicacion: DEFAULT_DEDICATION
-    };
-
-    if (!current.correccion_manual) {
-      const codeFromFileName = extractCode("", current.archivo?.nombre || "");
-      if (codeFromFileName) {
-        updated.docente.codigo_documento = codeFromFileName;
-        updated.docente.periodo_plan = extractPeriod(codeFromFileName);
-      }
-    }
-
-    const diagnosticCount = Object.values(updated.diagnostico || {}).filter((value) => cleanString(value)).length;
-    const hasUsefulPlanData = Boolean(
-      cleanString(updated.docente?.nombre)
-      && cleanString(updated.docente?.carrera)
-      && (diagnosticCount >= 2 || (updated.capacitaciones?.length || 0) > 0)
-    );
-
-    if (updated.estado === "NO_ES_PLAN" && hasUsefulPlanData) {
-      updated.advertencias = (updated.advertencias || []).filter((item) =>
-        !/no corresponde a un plan individual/i.test(String(item || ""))
-      );
-      updated.deteccion = {
-        ...(updated.deteccion || {}),
-        posible_plan: true,
-        recuperado_por_migracion: true
+    try {
+      let updated = applyPlanIntelligence(current, {
+        fileName: current.archivo?.nombre || "",
+        method: current.archivo?.metodo_lectura || "MIGRACION"
+      });
+      updated.docente = {
+        ...(updated.docente || {}),
+        tiempo_dedicacion: DEFAULT_DEDICATION
       };
-    }
 
-    const validated = validatePlanRecord(updated, {
-      isPlan: updated.estado !== "ERROR" && (updated.estado !== "NO_ES_PLAN" || hasUsefulPlanData),
-      possiblePlan: hasUsefulPlanData,
-      preserveError: true
-    });
+      const useful = hasUsefulPlanData(updated);
+      if (updated.estado === "NO_ES_PLAN" && useful) {
+        updated.advertencias = (updated.advertencias || []).filter((item) =>
+          !/no corresponde a un plan individual/i.test(String(item || ""))
+        );
+        updated.deteccion = {
+          ...(updated.deteccion || {}),
+          posible_plan: true,
+          recuperado_por_migracion: true
+        };
+      }
 
-    if (JSON.stringify(validated) !== JSON.stringify(current)) {
-      storage.updateById(current.id, validated);
-      migrated += 1;
+      const validated = validatePlanRecord(updated, {
+        isPlan: updated.estado !== "ERROR" && (updated.estado !== "NO_ES_PLAN" || useful),
+        possiblePlan: useful,
+        preserveError: true
+      });
+
+      if (JSON.stringify(validated) !== JSON.stringify(current)) {
+        storage.updateById(current.id, validated);
+        migrated += 1;
+      }
+    } catch (_error) {
+      // El registro pudo fusionarse con otro durante la migración.
     }
   }
 
-  return migrated;
+  const secondPass = storage.deduplicate();
+  return {
+    migrated,
+    consolidated: firstPass.removed + secondPass.removed,
+    total: storage.list().length
+  };
 }
 
 function updatePlanRecord(payload = {}) {
@@ -177,7 +186,7 @@ function updatePlanRecord(payload = {}) {
 
   const code = cleanString(payload.docente?.codigo_documento);
   const period = cleanString(payload.docente?.periodo_plan) || extractPeriod(code);
-  const updated = {
+  let updated = {
     ...current,
     docente: {
       nombre: cleanString(payload.docente?.nombre),
@@ -196,8 +205,7 @@ function updatePlanRecord(payload = {}) {
       formacion_adicional: cleanString(payload.diagnostico?.formacion_adicional),
       tipo_formacion: cleanString(payload.diagnostico?.tipo_formacion)
     },
-    capacitaciones: (Array.isArray(payload.capacitaciones) ? payload.capacitaciones : [])
-      .map(sanitizeTraining),
+    capacitaciones: (Array.isArray(payload.capacitaciones) ? payload.capacitaciones : []).map(sanitizeTraining),
     correccion_manual: true,
     fecha_correccion: new Date().toISOString(),
     deteccion: {
@@ -211,6 +219,10 @@ function updatePlanRecord(payload = {}) {
     )
   };
 
+  updated = applyPlanIntelligence(updated, {
+    fileName: current.archivo?.nombre || "",
+    method: "CORRECCION_MANUAL"
+  });
   const validated = validatePlanRecord(updated, { isPlan: true, possiblePlan: true });
   const saved = storage.updateById(id, validated);
   return {
@@ -252,6 +264,12 @@ function errorRecord(filePath, error) {
       formacion_adicional: "",
       tipo_formacion: ""
     },
+    detalles_plan: {
+      actividades_teoricas: [],
+      actividades_practicas: [],
+      impacto_esperado: "",
+      vision_largo_plazo: ""
+    },
     capacitaciones: [],
     estado: "ERROR",
     confianza: 0,
@@ -268,7 +286,7 @@ async function processFiles(filePaths) {
   const paths = uniquePdfPaths(filePaths);
   if (!paths.length) throw new Error("Selecciona al menos un archivo PDF.");
   processing = true;
-  const reader = new HybridPdfReader({ maxOcrPages: 15, ocrScale: 2.55 });
+  const engine = new PlanProcessingEngine({ maxPages: 20, maxOcrPages: 15, ocrScale: 2.55, aiThreshold: 4 });
   const records = [];
 
   try {
@@ -288,7 +306,12 @@ async function processFiles(filePaths) {
         const stat = fs.statSync(filePath);
         if (!stat.isFile() || stat.size === 0) throw new Error("El archivo está vacío o no está disponible.");
         const hash = hashFile(filePath);
-        const reading = await reader.read(filePath, (detail) => {
+        const result = await engine.process(filePath, {
+          filePath,
+          fileName: path.basename(filePath),
+          hash,
+          size: stat.size
+        }, (detail) => {
           emitProgress({
             ...detail,
             current,
@@ -297,24 +320,7 @@ async function processFiles(filePaths) {
             overallPercent: Math.round((index / paths.length) * 100)
           });
         });
-        if (cleanString(reading.text).length < 80) {
-          throw new Error("No se obtuvo texto suficiente del PDF.");
-        }
-        const basicRecord = parsePlanText(reading.text, {
-          filePath,
-          fileName: path.basename(filePath),
-          hash,
-          size: stat.size,
-          pages: reading.pages,
-          method: reading.method,
-          warnings: reading.warnings
-        });
-        const layoutRecord = applyLayoutToPlan(basicRecord, reading.layout || {});
-        const record = validatePlanRecord(layoutRecord, {
-          isPlan: layoutRecord.estado !== "NO_ES_PLAN",
-          possiblePlan: layoutRecord.deteccion?.posible_plan || layoutRecord.deteccion?.confirmado_como_plan
-        });
-        records.push(record);
+        records.push(result.record);
       } catch (error) {
         records.push(errorRecord(filePath, error));
       }
@@ -330,17 +336,25 @@ async function processFiles(filePaths) {
     }
 
     const saved = storage.upsertMany(records);
-    emitProgress({ phase: "complete", current: paths.length, total: paths.length, percent: 100, message: "Proceso finalizado" });
+    emitProgress({
+      phase: "complete",
+      current: paths.length,
+      total: paths.length,
+      percent: 100,
+      message: saved.consolidated
+        ? `Proceso finalizado · ${saved.consolidated} duplicados consolidados`
+        : "Proceso finalizado"
+    });
     return {
       ok: true,
       processed: records.length,
       saved,
-      records,
+      records: storage.list(),
       summary: storage.getSummary()
     };
   } finally {
     processing = false;
-    await reader.close().catch(() => {});
+    await engine.close();
   }
 }
 
@@ -418,7 +432,11 @@ function registerIpc() {
     name: app.getName(),
     version: app.getVersion(),
     maxFiles: MAX_FILES,
-    dataPath: storage.rootDir
+    dataPath: storage.rootDir,
+    localAi: {
+      enabled: isLocalAiEnabled(),
+      model: configuredModel()
+    }
   }));
 }
 
