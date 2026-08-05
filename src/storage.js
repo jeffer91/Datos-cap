@@ -89,6 +89,12 @@ class PlanStorage {
               estado: previous.estado,
               confianza: previous.confianza,
               campos_faltantes: previous.campos_faltantes,
+              problemas_campos: previous.problemas_campos || {},
+              deteccion: {
+                ...(record.deteccion || {}),
+                ...(previous.deteccion || {}),
+                confirmado_manualmente: true
+              },
               correccion_manual: true,
               fecha_correccion: previous.fecha_correccion,
               advertencias: [...new Set([...(record.advertencias || []), ...(previous.advertencias || [])])]
