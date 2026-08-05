@@ -7,9 +7,10 @@ const {
   parseSpanishDate,
   extractVersion,
   extractSupport,
+  evaluateAgreement,
   parseAgreementText
 } = require("../src/agreement-parser");
-const { matchTraining } = require("../src/agreement-ipc");
+const { matchTraining, sanitizeAgreementUpdate } = require("../src/agreement-ipc");
 
 const digital = `
 ACUERDO DE PATROCINIO INSTITUCIONAL
@@ -60,6 +61,7 @@ function run() {
     original: "En la ciudad de Quito, a los 08 días del mes de 11 de 2024"
   });
   assert.strictEqual(parseSpanishDate(newTemplate).iso, "2026-03-01");
+  assert.strictEqual(parseSpanishDate("En la ciudad de Quito, a los 31 días del mes de febrero de 2026").iso, "");
   assert.strictEqual(extractVersion(digital), "1.0");
 
   const supportOld = extractSupport(digital);
@@ -103,8 +105,63 @@ function run() {
     pages: 4,
     method: "OCR"
   });
-  assert.strictEqual(scanned.acuerdo.estado_acuerdo, "FIRMADO");
+  assert.strictEqual(scanned.acuerdo.estado_acuerdo, "REVISAR");
+  assert.strictEqual(scanned.estado, "REVISAR");
   assert.strictEqual(scanned.patrocinio.financiamiento_total, true);
+  assert.ok(scanned.advertencias.some((warning) => /verifica visualmente las firmas/i.test(warning)));
+
+  const signed = parseAgreementText(`${newTemplate}\nFirmado electrónicamente por William Quishpe`, {
+    fileName: "UGPA-R-firmado.PDF",
+    filePath: "C:/acuerdos/UGPA-R-firmado.PDF",
+    pages: 4,
+    method: "OCR"
+  });
+  assert.strictEqual(signed.acuerdo.estado_acuerdo, "FIRMADO");
+
+  const invalidPercentage = evaluateAgreement({
+    ...scanned,
+    acuerdo: { ...scanned.acuerdo, estado_acuerdo: "PENDIENTE_FIRMA" },
+    capacitacion: { ...scanned.capacitacion, id_plan: "cap-002" },
+    patrocinio: {
+      ...scanned.patrocinio,
+      financiamiento_total: false,
+      financiamiento_parcial: true,
+      porcentaje_financiado: "150"
+    }
+  }, { isAgreement: true, possibleAgreement: true });
+  assert.strictEqual(invalidPercentage.estado, "REVISAR");
+  assert.ok(invalidPercentage.campos_faltantes.includes("Porcentaje financiado válido entre 1 y 100"));
+
+  const conflictingFinancing = evaluateAgreement({
+    ...invalidPercentage,
+    patrocinio: {
+      ...invalidPercentage.patrocinio,
+      financiamiento_total: true,
+      financiamiento_parcial: true,
+      porcentaje_financiado: "50"
+    }
+  }, { isAgreement: true, possibleAgreement: true });
+  assert.ok(conflictingFinancing.campos_faltantes.includes("Selecciona únicamente financiamiento total o parcial"));
+
+  const selectedOption = {
+    id: "cap-003",
+    planId: "plan-003",
+    teacher: "Viviana Flores",
+    career: "Desarrollo de Software",
+    period: "2024-11",
+    name: "Inteligencia Artificial Aplicada",
+    order: 2
+  };
+  const corrected = sanitizeAgreementUpdate(record, {
+    ...record,
+    capacitacion: {
+      id_plan: selectedOption.id,
+      plan_id: "",
+      nombre: "Nombre anterior"
+    }
+  }, [selectedOption]);
+  assert.strictEqual(corrected.capacitacion.nombre, selectedOption.name);
+  assert.strictEqual(corrected.capacitacion.plan_id, selectedOption.planId);
 
   console.log("Extractor de acuerdos: pruebas correctas.");
 }
