@@ -1,7 +1,7 @@
 "use strict";
 
 const path = require("path");
-const { HybridPdfReader } = require("./hybrid-pdf-reader");
+const { EnhancedHybridPdfReader } = require("./enhanced-hybrid-reader");
 const { readPositionalPdf } = require("./positional-pdf-reader");
 const { parsePlanText } = require("./plan-parser");
 const { applyLayoutToPlan } = require("./plan-layout");
@@ -28,7 +28,7 @@ class PlanProcessingEngine {
   constructor(options = {}) {
     this.maxPages = Math.max(1, Number(options.maxPages || 20));
     this.aiThreshold = Math.max(1, Number(options.aiThreshold || 4));
-    this.hybrid = new HybridPdfReader({
+    this.hybrid = new EnhancedHybridPdfReader({
       maxOcrPages: Math.max(1, Number(options.maxOcrPages || 15)),
       ocrScale: Math.max(1.4, Number(options.ocrScale || 2.55))
     });
@@ -45,7 +45,7 @@ class PlanProcessingEngine {
         onProgress
       });
       if (positional.usable) return positional;
-      positionalWarning = "El texto posicional no fue suficiente; se aplicó el lector híbrido.";
+      positionalWarning = "El texto posicional no fue suficiente; se aplicó OCR multipaso.";
     } catch (error) {
       positionalWarning = `Lectura posicional: ${error.message}`;
     }
@@ -110,7 +110,7 @@ class PlanProcessingEngine {
     record.archivo = {
       ...(record.archivo || {}),
       metodo_lectura: reading.method,
-      motor_lectura: reading.method === "DIGITAL_POSICIONAL" ? "PDFJS_COORDENADAS" : "HIBRIDO_TESSERACT"
+      motor_lectura: reading.method === "DIGITAL_POSICIONAL" ? "PDFJS_COORDENADAS" : "TESSERACT_MULTIPASO"
     };
     return { record, reading };
   }
