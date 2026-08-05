@@ -3,15 +3,24 @@
 const assert = require("assert");
 
 function run() {
-  const moduleUnderTest = require("../src/hybrid-pdf-reader");
-  assert.strictEqual(typeof moduleUnderTest.HybridPdfReader, "function");
-  assert.strictEqual(typeof moduleUnderTest.assessDigitalText, "function");
-  assert.strictEqual(typeof moduleUnderTest.getPdfRenderer, "function");
+  const hybrid = require("../src/hybrid-pdf-reader");
+  assert.strictEqual(typeof hybrid.HybridPdfReader, "function");
+  assert.strictEqual(typeof hybrid.assessDigitalText, "function");
+  assert.strictEqual(typeof hybrid.getPdfRenderer, "function");
 
-  const reader = new moduleUnderTest.HybridPdfReader({ maxOcrPages: 6 });
+  const reader = new hybrid.HybridPdfReader({ maxOcrPages: 6 });
   assert.strictEqual(reader.maxOcrPages, 6);
 
-  console.log("Carga del lector híbrido: correcta.");
+  const positional = require("../src/positional-pdf-reader");
+  assert.strictEqual(typeof positional.readPositionalPdf, "function");
+  assert.strictEqual(typeof positional.groupWordsIntoLines, "function");
+  assert.strictEqual(positional.isUsablePlanText("texto corto"), false);
+
+  const pipeline = require("../src/plan-pipeline");
+  assert.strictEqual(typeof pipeline.PlanProcessingEngine, "function");
+  assert.strictEqual(typeof pipeline.problemCount, "function");
+
+  console.log("Carga de lectores y motor paralelo: correcta.");
 }
 
 try {
