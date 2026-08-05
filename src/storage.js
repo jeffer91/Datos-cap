@@ -79,7 +79,8 @@ class PlanStorage {
       });
       if (index >= 0) {
         const previous = data.records[index];
-        data.records[index] = previous?.correccion_manual
+        const importedFromTable = Boolean(record?.deteccion?.origen_tabla);
+        data.records[index] = previous?.correccion_manual && !importedFromTable
           ? {
               ...record,
               id: previous.id,
@@ -89,11 +90,15 @@ class PlanStorage {
               estado: previous.estado,
               confianza: previous.confianza,
               campos_faltantes: previous.campos_faltantes,
+              problemas_campos: previous.problemas_campos,
               correccion_manual: true,
               fecha_correccion: previous.fecha_correccion,
               advertencias: [...new Set([...(record.advertencias || []), ...(previous.advertencias || [])])]
             }
-          : record;
+          : {
+              ...record,
+              id: previous.id
+            };
         updated += 1;
       } else {
         data.records.push(record);
