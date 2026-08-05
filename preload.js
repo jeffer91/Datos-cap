@@ -1,6 +1,6 @@
 "use strict";
 
-const { contextBridge, ipcRenderer, clipboard } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 function subscribe(channel, callback) {
   if (typeof callback !== "function") return () => {};
@@ -46,11 +46,6 @@ contextBridge.exposeInMainWorld("plansAPI", {
   selectFiles: () => ipcRenderer.invoke("plans:select-files"),
   selectFolder: () => ipcRenderer.invoke("plans:select-folder"),
   process: (filePaths) => ipcRenderer.invoke("plans:process", { filePaths }),
-  importTable: (tableText) => ipcRenderer.invoke("plans:import-table", { tableText }),
-  copyText: (text) => {
-    clipboard.writeText(String(text || ""));
-    return true;
-  },
   list: () => ipcRenderer.invoke("plans:list"),
   update: (record) => ipcRenderer.invoke("plans:update", record),
   export: (format) => ipcRenderer.invoke("plans:export", { format }),

@@ -3,34 +3,8 @@
 const api = window.plansAPI;
 const FIXED_DEDICATION = "Tiempo Completo";
 
-const PLAN_PROMPT = `Analiza todos los PDF adjuntos correspondientes a Planes Individuales de Formación y Capacitación Docente.
-
-Devuelve únicamente una tabla TSV dentro de un bloque de código. No incluyas explicaciones antes ni después. No uses una tabla Markdown y no uses el carácter | para separar columnas.
-
-REGLAS:
-
-1. Usa exactamente las columnas indicadas abajo y en el mismo orden.
-2. Genera una fila por cada capacitación propuesta.
-3. Cuando un plan tenga varias capacitaciones, repite en cada fila los datos del docente, plan y diagnóstico.
-4. Si el plan no tiene capacitaciones identificables, genera una fila y escribe NO ENCONTRADO en los campos de capacitación.
-5. No inventes información.
-6. Cuando un dato no aparezca o no pueda confirmarse, escribe NO ENCONTRADO.
-7. El tiempo de dedicación siempre debe ser: Tiempo Completo.
-8. Obtén el periodo desde el código del documento, en formato AAAA-MM.
-9. Conserva las respuestas completas, pero elimina preguntas, encabezados y textos institucionales que no formen parte de la respuesta.
-10. No uses saltos de línea ni tabulaciones dentro de una celda.
-11. Separa varias actividades mediante el símbolo •.
-12. Conserva el nombre original del archivo PDF.
-13. Las fechas deben escribirse en formato AAAA-MM-DD cuando el día sea identificable. Cuando no sea posible, conserva el texto exacto de la fecha.
-14. No combines información de diferentes docentes o capacitaciones.
-15. Revisa visualmente tablas, encabezados y páginas escaneadas antes de escribir NO ENCONTRADO.
-16. La primera línea debe contener los encabezados. Desde la segunda línea coloca los registros.
-
-COLUMNAS EXACTAS:
-
-archivo_pdf\tcodigo_documento\tperiodo_plan\tnombre_docente\tcarrera\ttiempo_dedicacion\tnivel_academico_actual\tcapacitacion_ultimos_12_meses\tavances_disciplinares_aplicados\tcomodidad_nuevas_metodologias\testrategias_pedagogicas\therramientas_tecnologicas\tformacion_academica_adicional\ttipo_formacion\tnombre_capacitacion\thoras\tfecha_inicio\tfecha_fin\ttipo_capacitacion\tactividades_teoricas\tactividades_practicas\timpacto_esperado\tvision_largo_plazo`;
-
 const state = {
+  selectedFiles: [],
   records: [],
   summary: { total: 0, completos: 0, revisar: 0, errores: 0, capacitaciones: 0 },
   busy: false,
@@ -47,13 +21,14 @@ function byId(id) {
 
 function cacheElements() {
   [
-    "copyPromptButton", "promptPreview", "tableInput", "tableInputHint", "clearTableButton",
-    "importTableButton", "importResult", "importResultTitle", "importResultText",
-    "statTotal", "statComplete", "statReview", "statTrainings", "resultsSubtitle",
-    "searchInput", "statusFilter", "excelButton", "jsonButton", "resultsBody", "emptyState",
-    "visibleCount", "clearDataButton", "openDataButton", "versionLabel", "drawerBackdrop",
-    "detailDrawer", "drawerTitle", "drawerContent", "closeDrawerButton", "openPdfButton",
-    "editPlanButton", "savePlanButton", "cancelEditButton", "toastStack"
+    "filesButton", "folderButton", "selectionPanel", "selectionCount", "selectionHint",
+    "clearSelectionButton", "processButton", "progressCard", "progressTitle", "progressFile",
+    "progressPercent", "progressBar", "progressMessage", "statTotal", "statComplete",
+    "statReview", "statTrainings", "resultsSubtitle", "searchInput", "statusFilter",
+    "excelButton", "jsonButton", "resultsBody", "emptyState", "visibleCount",
+    "clearDataButton", "openDataButton", "versionLabel", "drawerBackdrop", "detailDrawer",
+    "drawerTitle", "drawerContent", "closeDrawerButton", "openPdfButton", "editPlanButton",
+    "savePlanButton", "cancelEditButton", "toastStack"
   ].forEach((id) => { elements[id] = byId(id); });
 }
 
@@ -102,29 +77,12 @@ function toast(message, type = "") {
   window.setTimeout(() => item.remove(), 3600);
 }
 
-function nonEmptyTableLines() {
-  return elements.tableInput.value
-    .replace(/^```(?:tsv|text|txt)?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
-    .split(/\r?\n/)
-    .filter((line) => line.trim());
-}
-
-function updateTableHint() {
-  const lines = nonEmptyTableLines();
-  const hasText = Boolean(elements.tableInput.value.trim());
-  const rowCount = Math.max(0, lines.length - 1);
-  elements.tableInputHint.textContent = hasText
-    ? `${rowCount} ${rowCount === 1 ? "fila detectada" : "filas detectadas"}.`
-    : "Todavía no has pegado una tabla.";
-  elements.clearTableButton.disabled = state.busy || !hasText;
-  elements.importTableButton.disabled = state.busy || !hasText;
-}
-
 function setBusy(value) {
   state.busy = Boolean(value);
-  elements.copyPromptButton.disabled = state.busy;
-  elements.tableInput.disabled = state.busy;
+  elements.filesButton.disabled = state.busy;
+  elements.folderButton.disabled = state.busy;
+  elements.processButton.disabled = state.busy || !state.selectedFiles.length;
+  elements.clearSelectionButton.disabled = state.busy;
   elements.excelButton.disabled = state.busy || !state.records.length;
   elements.jsonButton.disabled = state.busy || !state.records.length;
   elements.clearDataButton.disabled = state.busy || !state.records.length;
@@ -132,7 +90,16 @@ function setBusy(value) {
   elements.savePlanButton.disabled = state.busy || !state.editing;
   elements.cancelEditButton.disabled = state.busy || !state.editing;
   elements.openPdfButton.disabled = state.busy || !state.currentRecord?.archivo?.ruta;
-  updateTableHint();
+}
+
+function updateSelection() {
+  const count = state.selectedFiles.length;
+  elements.selectionPanel.classList.toggle("hidden", count === 0);
+  elements.selectionCount.textContent = `${count} ${count === 1 ? "archivo" : "archivos"}`;
+  elements.selectionHint.textContent = count >= 500
+    ? "Se alcanzó el máximo de 500 archivos"
+    : "Listos para procesar";
+  elements.processButton.disabled = state.busy || count === 0;
 }
 
 function updateStats() {
@@ -189,7 +156,7 @@ function renderTable() {
       <td>${escapeHtml(displayValue(record.docente?.carrera))}</td>
       <td>${escapeHtml(displayValue(record.docente?.periodo_plan, "—"))}</td>
       <td>${record.capacitaciones?.length || 0}</td>
-      <td><span class="method-pill">${escapeHtml(displayValue(record.archivo?.metodo_lectura, "TABLA"))}</span></td>
+      <td><span class="method-pill">${escapeHtml(displayValue(record.archivo?.metodo_lectura, "—"))}</span></td>
       <td>
         ${problemCount ? `<span class="problem-count" title="${problemCount} campos por corregir">${problemCount}</span>` : ""}
         <button class="detail-button" type="button">Ver</button>
@@ -266,7 +233,6 @@ function renderDetailView() {
     <div class="record-meta">
       <span class="status-pill ${status.className}">${status.label}</span>
       <span>${escapeHtml(record.archivo?.metodo_lectura || "")}</span>
-      <span>${escapeHtml(record.archivo?.nombre || "")}</span>
       ${record.correccion_manual ? "<span class='manual-badge'>Corregido manualmente</span>" : ""}
     </div>
 
@@ -505,7 +471,6 @@ function openDrawer(record) {
   elements.drawerBackdrop.classList.remove("hidden");
   elements.detailDrawer.classList.add("open");
   elements.detailDrawer.setAttribute("aria-hidden", "false");
-  elements.openPdfButton.classList.toggle("hidden", !record.archivo?.ruta);
   elements.editPlanButton.classList.remove("hidden");
   elements.savePlanButton.classList.add("hidden");
   elements.cancelEditButton.classList.add("hidden");
@@ -544,38 +509,19 @@ async function saveEdit() {
   }
 }
 
-async function copyPrompt() {
-  try {
-    api.copyText(PLAN_PROMPT);
-    toast("Prompt copiado. Ahora pégalo en ChatGPT junto con los PDF.", "success");
-  } catch (error) {
-    toast(error.message || "No se pudo copiar el prompt.", "error");
-  }
-}
-
-async function importTable() {
-  const tableText = elements.tableInput.value.trim();
-  if (!tableText || state.busy) return;
-  setBusy(true);
-  elements.importResult.classList.add("hidden");
-  try {
-    const result = await api.importTable(tableText);
-    state.records = result.records || [];
-    state.summary = result.summary || state.summary;
-    updateStats();
-    renderTable();
-    elements.importResultTitle.textContent = "Tabla procesada correctamente";
-    elements.importResultText.textContent = `${result.rows} filas se agruparon en ${result.plans} planes y ${result.trainings} capacitaciones.`;
-    elements.importResult.classList.remove("hidden");
-    toast(`${result.plans} planes procesados.`, "success");
-  } catch (error) {
-    elements.importResultTitle.textContent = "No se pudo procesar la tabla";
-    elements.importResultText.textContent = error.message || "Revisa el formato pegado.";
-    elements.importResult.classList.remove("hidden");
-    elements.importResult.classList.add("error");
-    toast(error.message || "No se pudo procesar la tabla.", "error");
-  } finally {
-    setBusy(false);
+function showProgress(progress) {
+  elements.progressCard.classList.remove("hidden");
+  const percent = Math.max(0, Math.min(100, Number(progress.percent ?? progress.overallPercent ?? 0)));
+  elements.progressBar.style.width = `${percent}%`;
+  elements.progressPercent.textContent = `${percent}%`;
+  elements.progressFile.textContent = progress.fileName || "";
+  elements.progressMessage.textContent = progress.message || "Procesando...";
+  elements.progressTitle.textContent = progress.phase === "ocr-page" || progress.phase === "ocr-progress"
+    ? "Reconociendo texto"
+    : "Procesando planes";
+  if (progress.phase === "complete") {
+    elements.progressTitle.textContent = "Listo";
+    window.setTimeout(() => elements.progressCard.classList.add("hidden"), 1800);
   }
 }
 
@@ -588,6 +534,51 @@ async function loadRecords() {
     renderTable();
   } catch (error) {
     toast(error.message || "No se pudieron cargar los datos.", "error");
+  }
+}
+
+async function selectFiles() {
+  try {
+    const result = await api.selectFiles();
+    if (result.canceled) return;
+    state.selectedFiles = result.filePaths || [];
+    updateSelection();
+  } catch (error) {
+    toast(error.message || "No se pudieron seleccionar los archivos.", "error");
+  }
+}
+
+async function selectFolder() {
+  try {
+    const result = await api.selectFolder();
+    if (result.canceled) return;
+    state.selectedFiles = result.filePaths || [];
+    updateSelection();
+    if (result.truncated) toast("Se cargaron los primeros 500 PDF.");
+    if (!state.selectedFiles.length) toast("La carpeta no contiene archivos PDF.", "error");
+  } catch (error) {
+    toast(error.message || "No se pudo leer la carpeta.", "error");
+  }
+}
+
+async function processSelection() {
+  if (!state.selectedFiles.length || state.busy) return;
+  setBusy(true);
+  elements.progressCard.classList.remove("hidden");
+  try {
+    const result = await api.process(state.selectedFiles);
+    state.selectedFiles = [];
+    updateSelection();
+    const latest = await api.list();
+    state.records = latest.records || state.records;
+    state.summary = latest.summary || result.summary || state.summary;
+    updateStats();
+    renderTable();
+    toast(`${result.processed} archivos procesados.`, "success");
+  } catch (error) {
+    toast(error.message || "No se pudo completar el procesamiento.", "error");
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -625,20 +616,13 @@ async function openCurrentPdf() {
 }
 
 function bindEvents() {
-  elements.copyPromptButton.addEventListener("click", copyPrompt);
-  elements.tableInput.addEventListener("input", () => {
-    elements.importResult.classList.add("hidden");
-    elements.importResult.classList.remove("error");
-    updateTableHint();
+  elements.filesButton.addEventListener("click", selectFiles);
+  elements.folderButton.addEventListener("click", selectFolder);
+  elements.clearSelectionButton.addEventListener("click", () => {
+    state.selectedFiles = [];
+    updateSelection();
   });
-  elements.clearTableButton.addEventListener("click", () => {
-    elements.tableInput.value = "";
-    elements.importResult.classList.add("hidden");
-    elements.importResult.classList.remove("error");
-    updateTableHint();
-    elements.tableInput.focus();
-  });
-  elements.importTableButton.addEventListener("click", importTable);
+  elements.processButton.addEventListener("click", processSelection);
   elements.searchInput.addEventListener("input", renderTable);
   elements.statusFilter.addEventListener("change", renderTable);
   elements.excelButton.addEventListener("click", () => exportData("xlsx"));
@@ -657,11 +641,11 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeDrawer();
   });
+  api.onProgress(showProgress);
 }
 
 async function initialize() {
   cacheElements();
-  elements.promptPreview.textContent = PLAN_PROMPT;
   bindEvents();
   setBusy(false);
   try {
