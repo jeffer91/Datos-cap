@@ -1,13 +1,44 @@
 "use strict";
 
-const { evaluateRecord, extractCode, extractPeriod } = require("./plan-parser");
+const {
+  evaluateRecord,
+  extractCode,
+  extractPeriod
+} = require("./plan-parser");
+
+const COLUMN_LIMITS = Object.freeze({
+  numberEnd: 0.085,
+  nameEnd: 0.445,
+  hoursEnd: 0.585,
+  dateEnd: 0.775
+});
+
+const ACTIVITY_ALIASES = Object.freeze([
+  ["hacking", "ciberseguridad", "seguridad", "ethical"],
+  ["inteligencia", "artificial", "generativa", "ia"],
+  ["apa", "normas", "gamificacion"],
+  ["valores", "habilidades", "blandas", "educativos"],
+  ["fibra", "optica", "ftth", "otdr"],
+  ["programacion", "software", "codigo", "desarrollo"]
+]);
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 function compact(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+  return String(value || "")
+    .replace(/[\u00ad\u200b\u200c\u200d\ufeff]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalize(value) {
-  return compact(value)
+  return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, " ")
@@ -17,145 +48,98 @@ function normalize(value) {
 }
 
 function smartCase(value) {
-  const source = compact(value);
-  if (!source) return "";
-  const letters = source.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
-  if (!letters || letters !== letters.toUpperCase()) return source;
-  const lowerWords = new Set(["de", "del", "la", "las", "los", "y", "e", "en"]);
-  return source.toLowerCase().split(" ").map((word, index) => {
-    if (index > 0 && lowerWords.has(word)) return word;
+  const clean = compact(value).replace(/^[:\-–—]+\s*/, "");
+  if (!clean) return "";
+  const letters = clean.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
+  if (!letters || letters !== letters.toUpperCase()) return clean;
+  const lower = new Set(["de", "del", "la", "las", "los", "y", "e", "en", "a"]);
+  return clean.toLowerCase().split(" ").map((word, index) => {
+    if (index > 0 && lower.has(word)) return word;
     return word.charAt(0).toUpperCase() + word.slice(1);
   }).join(" ");
 }
 
-function cleanCell(value) {
-  return compact(value)
-    .replace(/^[#*•·▪◦\-–—:;,.\s]+/, "")
-    .replace(/[#*•·▪◦\-–—:;,.\s]+$/, "")
-    .trim();
-}
-
-function wordsFromPages(pages) {
-  return (Array.isArray(pages) ? pages : []).flatMap((page) =>
-    (Array.isArray(page?.words) ? page.words : []).map((word) => ({
-      ...word,
-      pageNumber: Number(page.pageNumber || word.pageNumber || 0),
-      pageWidth: Number(page.width || word.pageWidth || 0),
-      pageHeight: Number(page.height || word.pageHeight || 0)
-    }))
-  );
+function groupWordsByVisualLine(words, tolerance = 12) {
+  const sorted = [...(Array.isArray(words) ? words : [])]
+    .filter((word) => compact(word.text))
+    .sort((left, right) => left.centerY - right.centerY || left.left - right.left);
+  const lines = [];
+  for (const word of sorted) {
+    let line = lines.find((candidate) => Math.abs(candidate.centerY - word.centerY) <= tolerance);
+    if (!line) {
+      line = { centerY: word.centerY, words: [] };
+      lines.push(line);
+    }
+    line.words.push(word);
+    line.centerY = line.words.reduce((sum, item) => sum + item.centerY, 0) / line.words.length;
+  }
+  return lines
+    .sort((left, right) => left.centerY - right.centerY)
+    .map((line) => line.words.sort((left, right) => left.left - right.left));
 }
 
 function textFromWords(words) {
-  return (Array.isArray(words) ? words : [])
-    .slice()
-    .sort((left, right) => left.top - right.top || left.left - right.left)
-    .map((word) => word.text)
+  return groupWordsByVisualLine(words)
+    .map((line) => line.map((word) => word.text).join(" ").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
     .join(" ")
-    .replace(/\s+([,.;:])/g, "$1")
-    .replace(/\s+/g, " ")
     .trim();
 }
 
-function linesFromWords(words, tolerance = 10) {
-  const sorted = (Array.isArray(words) ? words : []).slice().sort((left, right) => left.centerY - right.centerY || left.left - right.left);
-  const lines = [];
-  sorted.forEach((word) => {
-    const line = lines.find((candidate) => Math.abs(candidate.centerY - word.centerY) <= tolerance);
-    if (line) {
-      line.words.push(word);
-      line.centerY = line.words.reduce((sum, item) => sum + item.centerY, 0) / line.words.length;
-    } else {
-      lines.push({ centerY: word.centerY, words: [word] });
-    }
-  });
-  return lines
-    .sort((left, right) => left.centerY - right.centerY)
-    .map((line) => ({ ...line, text: textFromWords(line.words) }));
-}
-
-function extractHeaderCode(layout) {
-  const pages = Array.isArray(layout?.pages) ? layout.pages : [];
-  for (const page of pages.slice(0, 2)) {
-    const width = Number(page.width || 0);
-    const height = Number(page.height || 0);
-    const words = Array.isArray(page.words) ? page.words : [];
-    if (!width || !height || !words.length) continue;
-
-    const zones = [
-      words.filter((word) => word.top <= height * 0.28 && word.left >= width * 0.42),
-      words.filter((word) => word.top <= height * 0.35),
-      words
-    ];
-    for (const zone of zones) {
-      const code = extractCode(textFromWords(zone));
-      if (code) return code;
-    }
-  }
-  return "";
-}
-
-function findLineIndex(lines, phrases) {
-  const normalizedPhrases = phrases.map(normalize);
-  return lines.findIndex((line) => normalizedPhrases.some((phrase) => normalize(line.text).includes(phrase)));
-}
-
-function sectionWords(page, startPhrases, endPhrases) {
-  const lines = linesFromWords(page.words || [], Math.max(8, Number(page.height || 0) * 0.008));
-  const startIndex = findLineIndex(lines, startPhrases);
-  if (startIndex < 0) return [];
-  let endIndex = lines.length;
-  for (const phrase of endPhrases) {
-    const candidate = lines.findIndex((line, index) => index > startIndex && normalize(line.text).includes(normalize(phrase)));
-    if (candidate >= 0 && candidate < endIndex) endIndex = candidate;
-  }
-  const startY = lines[startIndex].words.reduce((max, word) => Math.max(max, word.bottom), lines[startIndex].centerY);
-  const endY = endIndex < lines.length
-    ? lines[endIndex].words.reduce((min, word) => Math.min(min, word.top), lines[endIndex].centerY)
-    : Number(page.height || Infinity);
-  return (page.words || []).filter((word) => word.top >= startY && word.bottom <= endY);
+function cleanCell(value) {
+  return compact(value)
+    .replace(/^(?:#|n[º°o]?|nombre\s+de\s+capacitaci[oó]n\s+propuesta|horas\s+de\s+capacitaci[oó]n\s+propuesta|fecha\s+de\s+propuesta\s+de\s+ejecuci[oó]n|tipo\s+de\s+capacitaci[oó]n\s+propuesta)\s*/i, "")
+    .replace(/^[|:;,.\-–—\s]+|[|:;,.\-–—\s]+$/g, "")
+    .trim();
 }
 
 function rowAnchors(words, width) {
-  const numberWords = words.filter((word) => {
-    if (word.left > width * 0.15) return false;
-    const text = cleanCell(word.text);
-    return /^\d{1,2}[.)]?$/.test(text);
-  });
+  const candidates = (Array.isArray(words) ? words : [])
+    .filter((word) => word.centerX / width <= 0.15)
+    .filter((word) => /^\d{1,2}$/.test(compact(word.text)))
+    .map((word) => ({ number: Number(word.text), y: word.centerY, word }))
+    .filter((item) => item.number >= 1 && item.number <= 30)
+    .sort((left, right) => left.y - right.y);
+
   const anchors = [];
-  numberWords.sort((left, right) => left.centerY - right.centerY).forEach((word) => {
-    const number = Number(cleanCell(word.text).replace(/\D/g, ""));
-    if (!number) return;
-    if (!anchors.some((anchor) => Math.abs(anchor.centerY - word.centerY) < 18)) {
-      anchors.push({ centerY: word.centerY, number });
-    }
+  candidates.forEach((candidate) => {
+    const existing = anchors.find((item) => Math.abs(item.y - candidate.y) < 18);
+    if (!existing) anchors.push(candidate);
+    else if (candidate.word.confidence > existing.word.confidence) Object.assign(existing, candidate);
   });
-  return anchors.sort((left, right) => left.centerY - right.centerY);
+  return anchors;
 }
 
 function wordsForRow(words, anchors, index) {
-  const anchor = anchors[index];
+  const current = anchors[index];
   const previous = anchors[index - 1];
   const next = anchors[index + 1];
-  const top = previous ? (previous.centerY + anchor.centerY) / 2 : anchor.centerY - 32;
-  const bottom = next ? (anchor.centerY + next.centerY) / 2 : anchor.centerY + 64;
+  const top = previous ? (previous.y + current.y) / 2 : current.y - (next ? (next.y - current.y) / 2 : 45);
+  const bottom = next ? (current.y + next.y) / 2 : current.y + (previous ? (current.y - previous.y) / 2 : 60);
   return words.filter((word) => word.centerY >= top && word.centerY < bottom);
 }
 
 function splitColumns(words, width) {
-  return {
-    number: words.filter((word) => word.centerX < width * 0.08),
-    name: words.filter((word) => word.centerX >= width * 0.08 && word.centerX < width * 0.43),
-    hours: words.filter((word) => word.centerX >= width * 0.43 && word.centerX < width * 0.56),
-    date: words.filter((word) => word.centerX >= width * 0.56 && word.centerX < width * 0.83),
-    type: words.filter((word) => word.centerX >= width * 0.83)
-  };
+  const output = { number: [], name: [], hours: [], date: [], type: [] };
+  words.forEach((word) => {
+    const ratio = word.centerX / width;
+    if (ratio <= COLUMN_LIMITS.numberEnd) output.number.push(word);
+    else if (ratio <= COLUMN_LIMITS.nameEnd) output.name.push(word);
+    else if (ratio <= COLUMN_LIMITS.hoursEnd) output.hours.push(word);
+    else if (ratio <= COLUMN_LIMITS.dateEnd) output.date.push(word);
+    else output.type.push(word);
+  });
+  return output;
 }
 
 function splitDateRange(value) {
-  const source = cleanCell(value);
+  const source = cleanCell(value)
+    .replace(/\bDesdo\b/gi, "Desde")
+    .replace(/\bhasta\s+el\b/gi, "hasta")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!source) return { start: "", end: "", original: "" };
-  const match = source.match(/(?:Desde\s+)?(.+?)\s+(?:hasta|al)\s+(.+)/i);
+  const match = source.match(/(?:Desde\s+)?(.+?)\s+hasta\s+(.+)/i);
   if (!match) return { start: source, end: "", original: source };
   return {
     start: cleanCell(match[1]),
@@ -232,184 +216,170 @@ function cleanSectionText(value, headings = []) {
     .replace(/[ \t]+/g, " ")
     .replace(/ *\n */g, "\n")
     .trim();
-  for (const heading of headings) {
-    const pattern = new RegExp(heading, "i");
-    const match = source.match(pattern);
-    if (match && match.index != null) source = source.slice(0, match.index).trim();
-  }
-  return source;
-}
-
-function parseActivitiesFromLayout(layout) {
-  const pages = Array.isArray(layout?.pages) ? layout.pages : [];
-  const output = { teoricas: [], practicas: [], impacto: "", vision: "" };
-  for (const page of pages) {
-    if (!output.teoricas.length) {
-      output.teoricas = sectionWords(page, ["teoricas", "teóricas"], ["practicas", "prácticas"])
-        .map((word) => word.text)
-        .join(" ")
-        .split(/\s*[•▪◦●■□◆◇▶►*]\s*|\s{2,}/)
-        .map(cleanCell)
-        .filter(Boolean);
-    }
-    if (!output.practicas.length) {
-      output.practicas = sectionWords(page, ["practicas", "prácticas"], ["impacto esperado"])
-        .map((word) => word.text)
-        .join(" ")
-        .split(/\s*[•▪◦●■□◆◇▶►*]\s*|\s{2,}/)
-        .map(cleanCell)
-        .filter(Boolean);
-    }
-    if (!output.impacto) {
-      output.impacto = cleanSectionText(
-        textFromWords(sectionWords(page, ["impacto esperado en el docente"], ["vision a largo plazo", "visión a largo plazo"])),
-        ["8\\.?\\s*Visi[oó]n\\s+a\\s+largo\\s+plazo"]
-      );
-    }
-    if (!output.vision) {
-      output.vision = cleanSectionText(
-        textFromWords(sectionWords(page, ["vision a largo plazo", "visión a largo plazo"], ["formacion docente", "formación docente"])),
-        ["Formaci[oó]n\\s+Docente"]
-      );
-    }
-  }
-  return output;
-}
-
-function meaningfulTokens(value) {
-  return new Set(normalize(value).split(" ").filter((token) => token.length >= 4));
-}
-
-function trainingMatchesActivity(training, activity) {
-  const trainingTokens = meaningfulTokens(training?.nombre);
-  const activityTokens = meaningfulTokens(activity);
-  for (const token of trainingTokens) {
-    if (activityTokens.has(token)) return true;
-  }
-
-  const trainingText = normalize(training?.nombre);
-  const activityText = normalize(activity);
-  const groups = [
-    [["ethical", "hacking", "ciberseguridad", "seguridad"], ["hacking", "ciberseguridad", "vulnerabilidades", "ataques"]],
-    [["inteligencia", "artificial", "generativa"], ["inteligencia", "artificial", "generativa"]],
-    [["apa", "gamificacion"], ["apa", "gamificacion", "referencias", "citacion"]],
-    [["valores", "habilidades", "blandas"], ["valores", "habilidades", "blandas"]],
-    [["fibra", "optica", "redes"], ["fibra", "optica", "otdr", "ftth", "empalme"]]
-  ];
-  return groups.some(([trainingWords, activityWords]) =>
-    trainingWords.some((word) => trainingText.includes(word))
-    && activityWords.some((word) => activityText.includes(word))
-  );
-}
-
-function distributeActivities(trainings, activities) {
-  const list = Array.isArray(activities) ? activities.filter(Boolean) : [];
-  if (!trainings.length || !list.length) return;
-  if (trainings.length === 1) {
-    trainings[0].actividades_teoricas = list;
-    return;
-  }
-  const unmatched = [];
-  list.forEach((activity) => {
-    const matching = trainings.filter((training) => trainingMatchesActivity(training, activity));
-    if (matching.length === 1) matching[0].actividades_teoricas.push(activity);
-    else unmatched.push(activity);
+  headings.forEach((heading) => {
+    source = source.replace(heading, " ");
   });
-  if (unmatched.length) {
-    trainings.forEach((training) => {
-      if (!training.actividades_teoricas.length) training.actividades_teoricas = [...unmatched];
-    });
-  }
+  return source.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function parseTrainingTable(layout) {
-  const pages = Array.isArray(layout?.pages) ? layout.pages : [];
-  const candidates = [];
-  for (const page of pages) {
-    const words = sectionWords(
-      page,
-      ["resumen de capacitacion propuestas", "resumen de capacitación propuestas", "resumen de capacitaciones propuestas"],
-      ["indicadores", "actividades"]
-    );
-    if (!words.length) continue;
-    const left = Math.min(...words.map((word) => word.left));
-    const right = Math.max(...words.map((word) => word.right));
-    const top = Math.min(...words.map((word) => word.top));
-    const bottom = Math.max(...words.map((word) => word.bottom));
-    const table = {
-      rectangle: { left, top, width: right - left, height: bottom - top },
-      words
+function parseActivities(layout) {
+  const text = (layout?.sections?.activities || []).map((item) => item.text).join("\n");
+  if (!compact(text)) return { theoretical: [], practical: [] };
+  const source = cleanSectionText(text, [/^\s*6\.?\s*Actividades\s*/gim]);
+  const theoreticalMatch = source.match(/Te[oó]ricas?\s*([\s\S]*?)(?=Pr[aá]cticas?|$)/i);
+  const practicalMatch = source.match(/Pr[aá]cticas?\s*([\s\S]*?)(?=$)/i);
+  const parseList = (value) => String(value || "")
+    .split(/\n|(?=\s[-=•▪◦●■□◆◇▶►]\s*)/)
+    .map((line) => compact(line).replace(/^[-=•▪◦●■□◆◇▶►*"']+\s*/, ""))
+    .filter((line) => line && !/^\d+\.?\s/.test(line));
+  return {
+    theoretical: [...new Set(parseList(theoreticalMatch?.[1]))],
+    practical: [...new Set(parseList(practicalMatch?.[1]))]
+  };
+}
+
+function parseSingleSection(layout, key, headingPatterns) {
+  const text = (layout?.sections?.[key] || []).map((item) => item.text).join("\n");
+  return compact(cleanSectionText(text, headingPatterns))
+    .replace(/^\(?\s*3\s*a\s*5\s*a[nñ]os\s*\)?\s*/i, "")
+    .replace(/^[:;,.\-–—\s]+/, "")
+    .trim();
+}
+
+function tokenSet(value) {
+  const normalized = normalize(value);
+  const tokens = new Set(normalized.split(" ").filter((token) => token.length >= 2));
+  ACTIVITY_ALIASES.forEach((group) => {
+    if (group.some((token) => tokens.has(token))) group.forEach((token) => tokens.add(token));
+  });
+  return tokens;
+}
+
+function similarity(left, right) {
+  const a = tokenSet(left);
+  const b = tokenSet(right);
+  let score = 0;
+  a.forEach((token) => { if (b.has(token)) score += token.length <= 2 ? 1 : 2; });
+  return score;
+}
+
+function assignActivities(trainings, activities) {
+  const theoreticalAvailable = [...activities.theoretical];
+  const practicalAvailable = [...activities.practical];
+
+  return trainings.map((training) => {
+    const choose = (items) => {
+      const ranked = items.map((item, index) => ({ item, index, score: similarity(training.nombre, item) }))
+        .sort((left, right) => right.score - left.score);
+      if (!ranked.length || ranked[0].score <= 0) return [];
+      return [ranked[0].item];
     };
-    const parsed = parseTableFromWords(table);
-    if (parsed.length) candidates.push(parsed);
-  }
-  return candidates.sort((left, right) => trainingsQuality(right) - trainingsQuality(left))[0] || [];
+    const theoretical = choose(theoreticalAvailable);
+    const practical = choose(practicalAvailable);
+    return {
+      ...training,
+      actividades_teoricas: theoretical.length ? theoretical : activities.theoretical,
+      actividades_practicas: practical.length ? practical : activities.practical,
+      detalle_compartido_entre_capacitaciones: !theoretical.length || !practical.length
+    };
+  });
 }
 
-function mergeTrainingDetails(trainings, details) {
-  const output = trainings.map((training) => ({
-    ...training,
-    actividades_teoricas: [],
-    actividades_practicas: [],
-    impacto_esperado: details.impacto,
-    vision_largo_plazo: details.vision,
-    detalle_compartido_entre_capacitaciones: trainings.length > 1
-  }));
-  distributeActivities(output, details.teoricas);
-
-  if (details.practicas.length) {
-    details.practicas.forEach((activity) => {
-      const matching = output.filter((training) => trainingMatchesActivity(training, activity));
-      if (matching.length === 1) matching[0].actividades_practicas.push(activity);
-    });
-    const unassigned = output.filter((training) => !training.actividades_practicas.length);
-    if (unassigned.length) {
-      unassigned.forEach((training) => { training.actividades_practicas = [...details.practicas]; });
-    }
-  }
+function cleanDiagnosis(record) {
+  const output = clone(record);
+  const boundaries = [
+    /\s+3\.?\s*Evaluaciones?\s+de\s+capacitaci[oó]n[\s\S]*$/i,
+    /\s+4\.?\s*Resumen\s+de\s+Capacitaci[oó]n(?:es)?\s+Propuestas?[\s\S]*$/i,
+    /\s+5\.?\s*Indicadores[\s\S]*$/i
+  ];
+  Object.keys(output.diagnostico || {}).forEach((field) => {
+    let value = compact(output.diagnostico[field]);
+    boundaries.forEach((pattern) => { value = value.replace(pattern, "").trim(); });
+    output.diagnostico[field] = value;
+  });
   return output;
+}
+
+function extractLayoutCode(layout) {
+  const source = [
+    ...(layout?.codeRegions || []).map((item) => item.text),
+    ...(layout?.headers || []).map((item) => item.text)
+  ].join("\n");
+  return extractCode(source, "");
+}
+
+function bestTableTrainings(layout) {
+  const candidates = (layout?.tables || [])
+    .map((table) => parseTableFromWords(table))
+    .filter((rows) => rows.length)
+    .sort((left, right) => trainingsQuality(right) - trainingsQuality(left) || right.length - left.length);
+  return candidates[0] || [];
 }
 
 function applyLayoutToPlan(record, layout = {}) {
-  if (!record || !layout || !Array.isArray(layout.pages)) return record;
-  const output = JSON.parse(JSON.stringify(record));
-  output.docente = output.docente || {};
-  const code = extractHeaderCode(layout);
-  if (code) {
-    output.docente.codigo_documento = code;
-    output.docente.periodo_plan = extractPeriod(code);
+  let output = cleanDiagnosis(record);
+  let changed = false;
+  const warnings = [...(output.advertencias || [])];
+
+  const layoutCode = extractLayoutCode(layout);
+  if (layoutCode && layoutCode !== output.docente?.codigo_documento) {
+    output.docente.codigo_documento = layoutCode;
+    output.docente.periodo_plan = extractPeriod(layoutCode);
+    changed = true;
   }
 
-  const tableTrainings = parseTrainingTable(layout);
-  const currentQuality = trainingsQuality(output.capacitaciones);
-  const tableQuality = trainingsQuality(tableTrainings);
-  if (tableTrainings.length && tableQuality >= currentQuality) {
-    const details = parseActivitiesFromLayout(layout);
-    output.capacitaciones = mergeTrainingDetails(tableTrainings, details);
-    output.advertencias = (output.advertencias || []).filter((warning) =>
-      !/texto digital era insuficiente/i.test(String(warning || ""))
-    );
-    output.advertencias.push("Las capacitaciones se reconstruyeron mediante OCR por celdas.");
+  const structuredTrainings = bestTableTrainings(layout);
+  if (structuredTrainings.length
+      && (structuredTrainings.length > (output.capacitaciones || []).length
+        || trainingsQuality(structuredTrainings) > trainingsQuality(output.capacitaciones))) {
+    output.capacitaciones = structuredTrainings;
+    changed = true;
+    warnings.push(`Se reconstruyeron ${structuredTrainings.length} capacitaciones leyendo las celdas de la tabla.`);
   }
+
+  const activities = parseActivities(layout);
+  const impact = parseSingleSection(layout, "impact", [
+    /^\s*7\.?\s*Impacto\s+esperado\s+en\s+el\s+docente\s*/gim,
+    /^\s*Impacto\s+esperado\s+en\s+el\s+docente\s*/gim
+  ]);
+  const vision = parseSingleSection(layout, "vision", [
+    /^\s*8\.?\s*Visi[oó]n\s+a\s+largo\s+plazo(?:\s*\([^)]*\))?\s*/gim,
+    /^\s*Visi[oó]n\s+a\s+largo\s+plazo(?:\s*\([^)]*\))?\s*/gim
+  ]);
+
+  if ((output.capacitaciones || []).length && (activities.theoretical.length || activities.practical.length)) {
+    output.capacitaciones = assignActivities(output.capacitaciones, activities);
+    changed = true;
+  }
+  output.capacitaciones = (output.capacitaciones || []).map((training) => ({
+    ...training,
+    impacto_esperado: impact || compact(training.impacto_esperado),
+    vision_largo_plazo: vision || compact(training.vision_largo_plazo)
+  }));
+  if (impact || vision) changed = true;
+
+  output.advertencias = [...new Set(warnings)];
+  output.ocr_estructurado = {
+    aplicado: changed,
+    encabezados: (layout.headers || []).length,
+    regiones_codigo: (layout.codeRegions || []).length,
+    tablas: (layout.tables || []).length,
+    secciones_actividades: (layout.sections?.activities || []).length
+  };
 
   return evaluateRecord(output, {
-    isPlan: output.deteccion?.confirmado_como_plan !== false,
-    possiblePlan: output.deteccion?.posible_plan !== false
+    isPlan: output.estado !== "ERROR" && output.estado !== "NO_ES_PLAN",
+    possiblePlan: true
   });
 }
 
 module.exports = {
-  compact,
-  normalize,
-  textFromWords,
-  linesFromWords,
-  extractHeaderCode,
-  splitDateRange,
+  COLUMN_LIMITS,
+  groupWordsByVisualLine,
   parseTableFromWords,
-  parseActivitiesFromLayout,
-  parseTrainingTable,
-  trainingQuality,
-  trainingsQuality,
-  distributeActivities,
+  parseActivities,
+  assignActivities,
+  extractLayoutCode,
+  bestTableTrainings,
   applyLayoutToPlan
 };
