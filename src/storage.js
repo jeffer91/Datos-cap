@@ -52,18 +52,8 @@ class PlanStorage {
   }
 
   upsert(record) {
-    const data = this.load();
-    const hash = record?.archivo?.hash || "";
-    const code = record?.docente?.codigo_documento || "";
-    const index = data.records.findIndex((item) => {
-      if (hash && item?.archivo?.hash === hash) return true;
-      return code && item?.docente?.codigo_documento === code;
-    });
-    if (index >= 0) data.records[index] = record;
-    else data.records.push(record);
-    data.updatedAt = new Date().toISOString();
-    writeJsonAtomic(this.filePath, data);
-    return { inserted: index < 0, total: data.records.length };
+    const result = this.upsertMany([record]);
+    return { inserted: result.inserted === 1, total: result.total };
   }
 
   upsertMany(records) {
