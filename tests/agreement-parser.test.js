@@ -10,7 +10,11 @@ const {
   evaluateAgreement,
   parseAgreementText
 } = require("../src/agreement-parser");
-const { matchTraining, sanitizeAgreementUpdate } = require("../src/agreement-ipc");
+const {
+  matchTraining,
+  isUsableDigitalAgreementText,
+  sanitizeAgreementUpdate
+} = require("../src/agreement-ipc");
 
 const digital = `
 ACUERDO DE PATROCINIO INSTITUCIONAL
@@ -53,6 +57,9 @@ Compromisos
 `;
 
 function run() {
+  assert.strictEqual(isUsableDigitalAgreementText(digital), true);
+  assert.strictEqual(isUsableDigitalAgreementText("PLAN INDIVIDUAL DE FORMACIÓN DOCENTE"), false);
+
   assert.strictEqual(extractAgreementCode(digital), "CGC-RGI2-159-PRO-134-2024-11");
   assert.strictEqual(extractAgreementCode(newTemplate), "UGPA-RGI2-69-PRO-134-2026-03");
   assert.strictEqual(extractPeriod(extractAgreementCode(newTemplate)), "2026-03");
