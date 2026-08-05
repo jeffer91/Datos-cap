@@ -1,6 +1,7 @@
 "use strict";
 
 const api = window.plansAPI;
+const FIXED_DEDICATION = "Tiempo Completo";
 
 const state = {
   selectedFiles: [],
@@ -58,6 +59,14 @@ function splitLines(value) {
     .split(/\n|\|/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function problemFor(record, path) {
+  return record?.problemas_campos?.[path] || null;
+}
+
+function hasProblemPrefix(record, prefix) {
+  return Object.keys(record?.problemas_campos || {}).some((path) => path === prefix || path.startsWith(`${prefix}.`));
 }
 
 function toast(message, type = "") {
@@ -136,6 +145,7 @@ function renderTable() {
 
   records.forEach((record) => {
     const status = statusInfo(record);
+    const problemCount = Object.keys(record.problemas_campos || {}).length;
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><span class="status-pill ${status.className}">${status.label}</span></td>
@@ -147,7 +157,10 @@ function renderTable() {
       <td>${escapeHtml(displayValue(record.docente?.periodo_plan, "—"))}</td>
       <td>${record.capacitaciones?.length || 0}</td>
       <td><span class="method-pill">${escapeHtml(displayValue(record.archivo?.metodo_lectura, "—"))}</span></td>
-      <td><button class="detail-button" type="button">Ver</button></td>
+      <td>
+        ${problemCount ? `<span class="problem-count" title="${problemCount} campos por corregir">${problemCount}</span>` : ""}
+        <button class="detail-button" type="button">Ver</button>
+      </td>
     `;
     row.querySelector(".detail-button").addEventListener("click", () => openDrawer(record));
     elements.resultsBody.appendChild(row);
@@ -156,37 +169,55 @@ function renderTable() {
   elements.visibleCount.textContent = `${records.length} ${records.length === 1 ? "registro" : "registros"}`;
 }
 
-function detailItem(label, value, full = false) {
+function detailItem(label, value, path, full = false, record = state.currentRecord) {
+  const problem = problemFor(record, path);
   return `
-    <div class="detail-item${full ? " full" : ""}">
+    <div class="detail-item${full ? " full" : ""}${problem ? " field-problem" : ""}">
       <span>${escapeHtml(label)}</span>
       <p>${escapeHtml(displayValue(value))}</p>
+      ${problem ? `<small>${escapeHtml(problem.message)}</small>` : ""}
     </div>
   `;
 }
 
-function trainingHtml(training, index) {
+function trainingValue(label, value, path, record) {
+  const problem = problemFor(record, path);
   return `
-    <article class="training-card">
+    <div class="training-value${problem ? " field-problem-inline" : ""}">
+      <span>${escapeHtml(label)}</span>
+      <p>${escapeHtml(displayValue(value))}</p>
+      ${problem ? `<small>${escapeHtml(problem.message)}</small>` : ""}
+    </div>
+  `;
+}
+
+function trainingHtml(training, index, record) {
+  const base = `capacitaciones.${index}`;
+  const cardProblem = hasProblemPrefix(record, base);
+  return `
+    <article class="training-card${cardProblem ? " training-problem" : ""}">
       <div class="training-head">
         <strong>Capacitación ${index + 1}: ${escapeHtml(displayValue(training.nombre))}</strong>
         <span>${escapeHtml(displayValue(training.horas, "0"))} h</span>
       </div>
       <div class="training-detail ordered">
-        <span>Fecha de inicio</span><p>${escapeHtml(displayValue(training.fecha_inicio_propuesta))}</p>
-        <span>Fecha de finalización</span><p>${escapeHtml(displayValue(training.fecha_fin_propuesta))}</p>
-        <span>Tipo</span><p>${escapeHtml(displayValue(training.tipo))}</p>
-        <span>Actividades teóricas</span><p>${escapeHtml(listText(training.actividades_teoricas))}</p>
-        <span>Actividades prácticas</span><p>${escapeHtml(listText(training.actividades_practicas))}</p>
-        <span>Impacto esperado</span><p>${escapeHtml(displayValue(training.impacto_esperado))}</p>
-        <span>Visión a largo plazo</span><p>${escapeHtml(displayValue(training.vision_largo_plazo))}</p>
+        ${trainingValue("Nombre", training.nombre, `${base}.nombre`, record)}
+        ${trainingValue("Horas", training.horas ? `${training.horas} h` : "", `${base}.horas`, record)}
+        ${trainingValue("Fecha de inicio", training.fecha_inicio_propuesta, `${base}.fecha_inicio_propuesta`, record)}
+        ${trainingValue("Fecha de finalización", training.fecha_fin_propuesta, `${base}.fecha_fin_propuesta`, record)}
+        ${trainingValue("Tipo", training.tipo, `${base}.tipo`, record)}
+        ${trainingValue("Actividades teóricas", listText(training.actividades_teoricas), `${base}.actividades_teoricas`, record)}
+        ${trainingValue("Actividades prácticas", listText(training.actividades_practicas), `${base}.actividades_practicas`, record)}
+        ${trainingValue("Impacto esperado", training.impacto_esperado, `${base}.impacto_esperado`, record)}
+        ${trainingValue("Visión a largo plazo", training.vision_largo_plazo, `${base}.vision_largo_plazo`, record)}
       </div>
     </article>
   `;
 }
 
 function uniqueIssues(record) {
-  return [...new Set([...(record.campos_faltantes || []), ...(record.advertencias || [])].filter(Boolean))];
+  const structured = Object.values(record.problemas_campos || {}).map((problem) => problem.message);
+  return [...new Set([...structured, ...(record.advertencias || [])].filter(Boolean))];
 }
 
 function renderDetailView() {
@@ -195,6 +226,7 @@ function renderDetailView() {
   const issues = uniqueIssues(record);
   const trainings = record.capacitaciones || [];
   const status = statusInfo(record);
+  const missingTrainings = problemFor(record, "capacitaciones");
   elements.drawerTitle.textContent = displayValue(record.docente?.nombre, record.archivo?.nombre || "Plan docente");
 
   elements.drawerContent.innerHTML = `
@@ -204,34 +236,38 @@ function renderDetailView() {
       ${record.correccion_manual ? "<span class='manual-badge'>Corregido manualmente</span>" : ""}
     </div>
 
+    ${issues.length ? `<div class="problem-guide">Los campos en rojo necesitan corrección.</div>` : ""}
+
     <section class="detail-section">
       <h3>1. Datos del docente</h3>
       <div class="detail-grid">
-        ${detailItem("Nombre del docente", record.docente?.nombre, true)}
-        ${detailItem("Carrera", record.docente?.carrera, true)}
-        ${detailItem("Tiempo de dedicación", record.docente?.tiempo_dedicacion)}
-        ${detailItem("Nivel académico actual", record.docente?.nivel_academico_actual)}
-        ${detailItem("Código del documento", record.docente?.codigo_documento, true)}
-        ${detailItem("Periodo del plan", record.docente?.periodo_plan, true)}
+        ${detailItem("Nombre del docente", record.docente?.nombre, "docente.nombre", true, record)}
+        ${detailItem("Carrera", record.docente?.carrera, "docente.carrera", true, record)}
+        ${detailItem("Tiempo de dedicación", FIXED_DEDICATION, "docente.tiempo_dedicacion", false, record)}
+        ${detailItem("Nivel académico actual", record.docente?.nivel_academico_actual, "docente.nivel_academico_actual", false, record)}
+        ${detailItem("Código del documento", record.docente?.codigo_documento, "docente.codigo_documento", true, record)}
+        ${detailItem("Periodo del plan", record.docente?.periodo_plan, "docente.periodo_plan", true, record)}
       </div>
     </section>
 
     <section class="detail-section">
       <h3>2. Diagnóstico del docente</h3>
       <div class="detail-grid">
-        ${detailItem("Capacitación realizada en los últimos 12 meses", record.diagnostico?.capacitacion_12_meses, true)}
-        ${detailItem("Avances disciplinares aplicados en clases", record.diagnostico?.avances_aplicados, true)}
-        ${detailItem("Nivel de comodidad con nuevas metodologías", record.diagnostico?.comodidad_metodologias, true)}
-        ${detailItem("Estrategias pedagógicas utilizadas", record.diagnostico?.estrategias_pedagogicas, true)}
-        ${detailItem("Herramientas tecnológicas utilizadas", record.diagnostico?.herramientas_tecnologicas, true)}
-        ${detailItem("Formación académica adicional necesaria", record.diagnostico?.formacion_adicional, true)}
-        ${detailItem("Tipo de formación requerida", record.diagnostico?.tipo_formacion, true)}
+        ${detailItem("Capacitación realizada en los últimos 12 meses", record.diagnostico?.capacitacion_12_meses, "diagnostico.capacitacion_12_meses", true, record)}
+        ${detailItem("Avances disciplinares aplicados en clases", record.diagnostico?.avances_aplicados, "diagnostico.avances_aplicados", true, record)}
+        ${detailItem("Nivel de comodidad con nuevas metodologías", record.diagnostico?.comodidad_metodologias, "diagnostico.comodidad_metodologias", true, record)}
+        ${detailItem("Estrategias pedagógicas utilizadas", record.diagnostico?.estrategias_pedagogicas, "diagnostico.estrategias_pedagogicas", true, record)}
+        ${detailItem("Herramientas tecnológicas utilizadas", record.diagnostico?.herramientas_tecnologicas, "diagnostico.herramientas_tecnologicas", true, record)}
+        ${detailItem("Formación académica adicional necesaria", record.diagnostico?.formacion_adicional, "diagnostico.formacion_adicional", true, record)}
+        ${detailItem("Tipo de formación requerida", record.diagnostico?.tipo_formacion, "diagnostico.tipo_formacion", true, record)}
       </div>
     </section>
 
-    <section class="detail-section">
+    <section class="detail-section${missingTrainings ? " section-problem" : ""}">
       <h3>3. Capacitaciones propuestas (${trainings.length})</h3>
-      ${trainings.length ? trainings.map(trainingHtml).join("") : "<div class='detail-item full'><p>No se encontraron capacitaciones.</p></div>"}
+      ${trainings.length
+        ? trainings.map((training, index) => trainingHtml(training, index, record)).join("")
+        : `<div class="detail-item full field-problem"><p>No se encontraron capacitaciones.</p><small>${escapeHtml(missingTrainings?.message || "Agrega al menos una capacitación.")}</small></div>`}
     </section>
 
     ${issues.length ? `
@@ -246,39 +282,48 @@ function renderDetailView() {
 function formField(label, field, value, options = {}) {
   const fullClass = options.full === false ? "" : " full";
   const type = options.type || "text";
+  const problem = options.problem || null;
+  const problemClass = problem ? " field-problem" : "";
+  const readonly = options.readonly ? " readonly" : "";
+  const fixedClass = options.readonly ? " fixed-field" : "";
   if (options.textarea) {
     return `
-      <label class="edit-field${fullClass}">
+      <label class="edit-field${fullClass}${problemClass}${fixedClass}">
         <span>${escapeHtml(label)}</span>
-        <textarea data-field="${escapeHtml(field)}" rows="${options.rows || 3}">${escapeHtml(value || "")}</textarea>
+        <textarea data-field="${escapeHtml(field)}" rows="${options.rows || 3}"${readonly}>${escapeHtml(value || "")}</textarea>
+        ${problem ? `<small>${escapeHtml(problem.message)}</small>` : ""}
       </label>
     `;
   }
   return `
-    <label class="edit-field${fullClass}">
+    <label class="edit-field${fullClass}${problemClass}${fixedClass}">
       <span>${escapeHtml(label)}</span>
-      <input data-field="${escapeHtml(field)}" type="${escapeHtml(type)}" value="${escapeHtml(value || "")}" />
+      <input data-field="${escapeHtml(field)}" type="${escapeHtml(type)}" value="${escapeHtml(value || "")}"${readonly} />
+      ${problem ? `<small>${escapeHtml(problem.message)}</small>` : ""}
     </label>
   `;
 }
 
-function trainingEditHtml(training, index) {
+function trainingEditHtml(training, index, record) {
+  const base = `capacitaciones.${index}`;
+  const cardProblem = hasProblemPrefix(record, base);
+  const issue = (field) => problemFor(record, `${base}.${field}`);
   return `
-    <article class="training-edit-card" data-training-index="${index}">
+    <article class="training-edit-card${cardProblem ? " training-problem" : ""}" data-training-index="${index}">
       <div class="training-edit-head">
-        <strong>Capacitación ${index + 1}</strong>
+        <strong>Capacitación ${index + 1}${cardProblem ? " · Revisar" : ""}</strong>
         <button class="text-button danger" type="button" data-remove-training="${index}">Eliminar</button>
       </div>
       <div class="edit-grid">
-        ${formField("Nombre", "nombre", training.nombre)}
-        ${formField("Horas", "horas", training.horas || "", { type: "number", full: false })}
-        ${formField("Tipo", "tipo", training.tipo || "", { full: false })}
-        ${formField("Fecha de inicio", "fecha_inicio_propuesta", training.fecha_inicio_propuesta || "", { full: false })}
-        ${formField("Fecha de finalización", "fecha_fin_propuesta", training.fecha_fin_propuesta || "", { full: false })}
-        ${formField("Actividades teóricas (una por línea)", "actividades_teoricas", (training.actividades_teoricas || []).join("\n"), { textarea: true })}
-        ${formField("Actividades prácticas (una por línea)", "actividades_practicas", (training.actividades_practicas || []).join("\n"), { textarea: true })}
-        ${formField("Impacto esperado", "impacto_esperado", training.impacto_esperado || "", { textarea: true })}
-        ${formField("Visión a largo plazo", "vision_largo_plazo", training.vision_largo_plazo || "", { textarea: true })}
+        ${formField("Nombre", "nombre", training.nombre, { problem: issue("nombre") })}
+        ${formField("Horas", "horas", training.horas || "", { type: "number", full: false, problem: issue("horas") })}
+        ${formField("Tipo", "tipo", training.tipo || "", { full: false, problem: issue("tipo") })}
+        ${formField("Fecha de inicio", "fecha_inicio_propuesta", training.fecha_inicio_propuesta || "", { full: false, problem: issue("fecha_inicio_propuesta") })}
+        ${formField("Fecha de finalización", "fecha_fin_propuesta", training.fecha_fin_propuesta || "", { full: false, problem: issue("fecha_fin_propuesta") })}
+        ${formField("Actividades teóricas (una por línea)", "actividades_teoricas", (training.actividades_teoricas || []).join("\n"), { textarea: true, problem: issue("actividades_teoricas") })}
+        ${formField("Actividades prácticas (una por línea)", "actividades_practicas", (training.actividades_practicas || []).join("\n"), { textarea: true, problem: issue("actividades_practicas") })}
+        ${formField("Impacto esperado", "impacto_esperado", training.impacto_esperado || "", { textarea: true, problem: issue("impacto_esperado") })}
+        ${formField("Visión a largo plazo", "vision_largo_plazo", training.vision_largo_plazo || "", { textarea: true, problem: issue("vision_largo_plazo") })}
       </div>
     </article>
   `;
@@ -287,43 +332,52 @@ function trainingEditHtml(training, index) {
 function renderEditForm() {
   const record = state.editDraft;
   if (!record) return;
+  record.docente = record.docente || {};
+  record.docente.tiempo_dedicacion = FIXED_DEDICATION;
   const trainings = record.capacitaciones || [];
+  const issue = (path) => problemFor(record, path);
+  const missingTrainings = issue("capacitaciones");
   elements.drawerTitle.textContent = displayValue(record.docente?.nombre, "Editar plan");
   elements.drawerContent.innerHTML = `
-    <div class="edit-notice">Corrige únicamente lo que necesites y pulsa Guardar.</div>
+    <div class="edit-notice${Object.keys(record.problemas_campos || {}).length ? " warning" : ""}">
+      ${Object.keys(record.problemas_campos || {}).length
+        ? "Corrige los campos marcados en rojo y pulsa Guardar."
+        : "Puedes corregir los datos y pulsar Guardar."}
+    </div>
 
     <section class="detail-section">
       <h3>1. Datos del docente</h3>
       <div class="edit-grid">
-        ${formField("Nombre del docente", "docente.nombre", record.docente?.nombre)}
-        ${formField("Carrera", "docente.carrera", record.docente?.carrera)}
-        ${formField("Tiempo de dedicación", "docente.tiempo_dedicacion", record.docente?.tiempo_dedicacion, { full: false })}
-        ${formField("Nivel académico actual", "docente.nivel_academico_actual", record.docente?.nivel_academico_actual, { full: false })}
-        ${formField("Código del documento", "docente.codigo_documento", record.docente?.codigo_documento)}
-        ${formField("Periodo del plan", "docente.periodo_plan", record.docente?.periodo_plan, { type: "month" })}
+        ${formField("Nombre del docente", "docente.nombre", record.docente?.nombre, { problem: issue("docente.nombre") })}
+        ${formField("Carrera", "docente.carrera", record.docente?.carrera, { problem: issue("docente.carrera") })}
+        ${formField("Tiempo de dedicación", "docente.tiempo_dedicacion", FIXED_DEDICATION, { full: false, readonly: true })}
+        ${formField("Nivel académico actual", "docente.nivel_academico_actual", record.docente?.nivel_academico_actual, { full: false, problem: issue("docente.nivel_academico_actual") })}
+        ${formField("Código del documento", "docente.codigo_documento", record.docente?.codigo_documento, { problem: issue("docente.codigo_documento") })}
+        ${formField("Periodo del plan", "docente.periodo_plan", record.docente?.periodo_plan, { type: "month", problem: issue("docente.periodo_plan") })}
       </div>
     </section>
 
     <section class="detail-section">
       <h3>2. Diagnóstico del docente</h3>
       <div class="edit-grid">
-        ${formField("Capacitación realizada en los últimos 12 meses", "diagnostico.capacitacion_12_meses", record.diagnostico?.capacitacion_12_meses, { textarea: true })}
-        ${formField("Avances disciplinares aplicados en clases", "diagnostico.avances_aplicados", record.diagnostico?.avances_aplicados, { textarea: true })}
-        ${formField("Nivel de comodidad con nuevas metodologías", "diagnostico.comodidad_metodologias", record.diagnostico?.comodidad_metodologias, { textarea: true })}
-        ${formField("Estrategias pedagógicas utilizadas", "diagnostico.estrategias_pedagogicas", record.diagnostico?.estrategias_pedagogicas, { textarea: true })}
-        ${formField("Herramientas tecnológicas utilizadas", "diagnostico.herramientas_tecnologicas", record.diagnostico?.herramientas_tecnologicas, { textarea: true })}
-        ${formField("Formación académica adicional necesaria", "diagnostico.formacion_adicional", record.diagnostico?.formacion_adicional, { textarea: true })}
-        ${formField("Tipo de formación requerida", "diagnostico.tipo_formacion", record.diagnostico?.tipo_formacion, { textarea: true })}
+        ${formField("Capacitación realizada en los últimos 12 meses", "diagnostico.capacitacion_12_meses", record.diagnostico?.capacitacion_12_meses, { textarea: true, problem: issue("diagnostico.capacitacion_12_meses") })}
+        ${formField("Avances disciplinares aplicados en clases", "diagnostico.avances_aplicados", record.diagnostico?.avances_aplicados, { textarea: true, problem: issue("diagnostico.avances_aplicados") })}
+        ${formField("Nivel de comodidad con nuevas metodologías", "diagnostico.comodidad_metodologias", record.diagnostico?.comodidad_metodologias, { textarea: true, problem: issue("diagnostico.comodidad_metodologias") })}
+        ${formField("Estrategias pedagógicas utilizadas", "diagnostico.estrategias_pedagogicas", record.diagnostico?.estrategias_pedagogicas, { textarea: true, problem: issue("diagnostico.estrategias_pedagogicas") })}
+        ${formField("Herramientas tecnológicas utilizadas", "diagnostico.herramientas_tecnologicas", record.diagnostico?.herramientas_tecnologicas, { textarea: true, problem: issue("diagnostico.herramientas_tecnologicas") })}
+        ${formField("Formación académica adicional necesaria", "diagnostico.formacion_adicional", record.diagnostico?.formacion_adicional, { textarea: true, problem: issue("diagnostico.formacion_adicional") })}
+        ${formField("Tipo de formación requerida", "diagnostico.tipo_formacion", record.diagnostico?.tipo_formacion, { textarea: true, problem: issue("diagnostico.tipo_formacion") })}
       </div>
     </section>
 
-    <section class="detail-section">
+    <section class="detail-section${missingTrainings ? " section-problem" : ""}">
       <div class="section-heading-row">
         <h3>3. Capacitaciones propuestas (${trainings.length})</h3>
         <button class="button secondary compact" id="addTrainingButton" type="button">Agregar</button>
       </div>
+      ${missingTrainings ? `<small class="section-error">${escapeHtml(missingTrainings.message)}</small>` : ""}
       <div id="trainingEditList">
-        ${trainings.length ? trainings.map(trainingEditHtml).join("") : "<div class='edit-empty'>No hay capacitaciones. Pulsa Agregar.</div>"}
+        ${trainings.length ? trainings.map((training, index) => trainingEditHtml(training, index, record)).join("") : "<div class='edit-empty field-problem'>No hay capacitaciones. Pulsa Agregar.</div>"}
       </div>
     </section>
   `;
@@ -364,7 +418,7 @@ function syncDraftFromForm() {
   state.editDraft.docente = {
     nombre: fieldValue("docente.nombre"),
     carrera: fieldValue("docente.carrera"),
-    tiempo_dedicacion: fieldValue("docente.tiempo_dedicacion"),
+    tiempo_dedicacion: FIXED_DEDICATION,
     nivel_academico_actual: fieldValue("docente.nivel_academico_actual"),
     codigo_documento: fieldValue("docente.codigo_documento"),
     periodo_plan: fieldValue("docente.periodo_plan")
@@ -446,7 +500,8 @@ async function saveEdit() {
     updateStats();
     renderTable();
     setEditMode(false);
-    toast("Correcciones guardadas.", "success");
+    const remaining = Object.keys(result.record?.problemas_campos || {}).length;
+    toast(remaining ? `Guardado. Aún faltan ${remaining} campos por corregir.` : "Correcciones guardadas.", remaining ? "" : "success");
   } catch (error) {
     toast(error.message || "No se pudieron guardar las correcciones.", "error");
   } finally {
