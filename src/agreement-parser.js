@@ -103,6 +103,8 @@ function validDateParts(year, month, day) {
   const m = Number(month);
   const d = Number(day);
   if (y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
   return { year: y, month: m, day: d };
 }
 
@@ -281,8 +283,15 @@ function extractSupport(text) {
 function inferAgreementState(text, metadata = {}) {
   const method = String(metadata.method || "").toUpperCase();
   const source = normalize(text);
-  const hasSignatureArea = source.includes("firma") || source.includes("elaborado por");
-  if (["OCR", "MIXTO"].includes(method) && hasSignatureArea) return "FIRMADO";
+  const explicitSignedEvidence = [
+    "firmado electronicamente",
+    "firma electronica",
+    "documento firmado",
+    "suscrito digitalmente",
+    "firmado digitalmente"
+  ].some((marker) => source.includes(marker));
+  if (explicitSignedEvidence) return "FIRMADO";
+  if (["OCR", "MIXTO"].includes(method)) return "REVISAR";
   return "PENDIENTE_FIRMA";
 }
 
@@ -324,8 +333,18 @@ function evaluateAgreement(record, options = {}) {
 
   if (!compact(output.capacitacion.id_plan)) missing.push("ID de la capacitación del plan");
   if (!supportCount(output.patrocinio)) missing.push("Apoyo institucional seleccionado");
-  if (output.patrocinio.financiamiento_parcial && !compact(output.patrocinio.porcentaje_financiado)) {
-    missing.push("Porcentaje financiado");
+
+  if (output.patrocinio.financiamiento_total && output.patrocinio.financiamiento_parcial) {
+    missing.push("Selecciona únicamente financiamiento total o parcial");
+  }
+
+  if (output.patrocinio.financiamiento_parcial) {
+    const rawPercentage = compact(output.patrocinio.porcentaje_financiado).replace(",", ".");
+    const percentage = Number(rawPercentage);
+    if (!rawPercentage) missing.push("Porcentaje financiado");
+    else if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+      missing.push("Porcentaje financiado válido entre 1 y 100");
+    }
   }
 
   output.campos_faltantes = [...new Set(missing)];
@@ -351,8 +370,8 @@ function parseAgreementText(text, metadata = {}) {
   const isAgreement = score >= 5 || Boolean(code && teacherName && trainingName);
   const warnings = Array.isArray(metadata.warnings) ? [...metadata.warnings] : [];
   const inferredState = inferAgreementState(source, metadata);
-  if (inferredState === "FIRMADO" && ["OCR", "MIXTO"].includes(String(metadata.method || "").toUpperCase())) {
-    warnings.push("El estado Firmado fue inferido por tratarse de una copia escaneada; verifica las firmas.");
+  if (inferredState === "REVISAR") {
+    warnings.push("El PDF es una copia escaneada; verifica visualmente las firmas antes de marcarlo como Firmado.");
   }
   if (possibleAgreement && !isAgreement) warnings.push("El contenido parece un acuerdo, pero requiere confirmación manual.");
 
