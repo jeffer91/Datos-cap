@@ -1,5 +1,10 @@
 "use strict";
 
+const {
+  resolveSharedDetails,
+  isValidPlanCode
+} = require("./plan-intelligence");
+
 const DEFAULT_DEDICATION = "Tiempo Completo";
 
 const VALID_TRAINING_TYPES = new Set([
@@ -55,9 +60,7 @@ function hasMixedContent(value, maxLength = 700) {
 }
 
 function addProblem(problems, path, label, message, type = "missing") {
-  if (!problems[path]) {
-    problems[path] = { path, label, message, type };
-  }
+  if (!problems[path]) problems[path] = { path, label, message, type };
 }
 
 function validateRequiredText(problems, path, label, value, options = {}) {
@@ -81,12 +84,14 @@ function validateCode(problems, code) {
     addProblem(problems, "docente.codigo_documento", "Código del documento", "Falta completar: Código del documento.", "missing");
     return;
   }
-  if (!/^(?:UGPA|CGC)-RGI[12]-\d{1,3}-PRO-251-20\d{2}-(?:0[1-9]|1[0-2])$/i.test(source)) {
+  if (!isValidPlanCode(source)) {
     addProblem(
       problems,
       "docente.codigo_documento",
       "Código del documento",
-      "El código no tiene el formato esperado de un Plan PRO-251.",
+      /-00-PRO-251/i.test(source)
+        ? "El consecutivo 00 del código es sospechoso; verifica el PDF."
+        : "El código no tiene el formato esperado de un Plan PRO-251.",
       "invalid"
     );
   }
@@ -162,7 +167,7 @@ function validateActivityList(problems, path, label, value) {
     return;
   }
   const joined = values.join(" · ");
-  if (hasMixedContent(joined, 900)) {
+  if (hasMixedContent(joined, 1200)) {
     addProblem(problems, path, label, `${label} parece contener partes de otras secciones.`, "invalid");
   }
 }
@@ -223,16 +228,20 @@ function validatePlanRecord(record, options = {}) {
       validateDateText(problems, `${base}.fecha_inicio_propuesta`, `${prefix}: fecha de inicio`, training.fecha_inicio_propuesta);
       validateDateText(problems, `${base}.fecha_fin_propuesta`, `${prefix}: fecha de finalización`, training.fecha_fin_propuesta);
       validateTrainingType(problems, `${base}.tipo`, `${prefix}: tipo`, training.tipo);
-      validateActivityList(problems, `${base}.actividades_teoricas`, `${prefix}: actividades teóricas`, training.actividades_teoricas);
-      validateActivityList(problems, `${base}.actividades_practicas`, `${prefix}: actividades prácticas`, training.actividades_practicas);
-      validateRequiredText(problems, `${base}.impacto_esperado`, `${prefix}: impacto esperado`, training.impacto_esperado, { maxLength: 900, detectMixed: true });
-      validateRequiredText(problems, `${base}.vision_largo_plazo`, `${prefix}: visión a largo plazo`, training.vision_largo_plazo, { maxLength: 900, detectMixed: true });
     });
   }
 
+  const shared = resolveSharedDetails(output);
+  output.detalles_plan = shared;
+  const sharedBase = output.capacitaciones.length ? "capacitaciones.0" : "detalles_plan";
+  validateActivityList(problems, `${sharedBase}.actividades_teoricas`, "Actividades teóricas del plan", shared.actividades_teoricas);
+  validateActivityList(problems, `${sharedBase}.actividades_practicas`, "Actividades prácticas del plan", shared.actividades_practicas);
+  validateRequiredText(problems, `${sharedBase}.impacto_esperado`, "Impacto esperado del plan", shared.impacto_esperado, { maxLength: 1200, detectMixed: true });
+  validateRequiredText(problems, `${sharedBase}.vision_largo_plazo`, "Visión a largo plazo del plan", shared.vision_largo_plazo, { maxLength: 1200, detectMixed: true });
+
   output.problemas_campos = problems;
   output.campos_faltantes = Object.values(problems).map((problem) => problem.message);
-  const totalFields = 5 + Object.keys(diagnosticLabels).length + Math.max(1, output.capacitaciones.length * 9);
+  const totalFields = 5 + Object.keys(diagnosticLabels).length + 4 + Math.max(1, output.capacitaciones.length * 5);
   output.confianza = Math.max(0, Math.min(100, Math.round(((totalFields - Object.keys(problems).length) / totalFields) * 100)));
 
   const isPlan = options.isPlan !== false;
