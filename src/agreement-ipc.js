@@ -145,13 +145,13 @@ function sanitizeAgreementUpdate(current, payload, planOptions) {
     capacitacion: {
       id_plan: selectedTrainingId,
       plan_id: selectedOption?.planId || stringValue(payload.capacitacion?.plan_id),
-      nombre: stringValue(payload.capacitacion?.nombre) || selectedOption?.name || "",
+      nombre: selectedOption?.name || stringValue(payload.capacitacion?.nombre),
       vinculada: Boolean(selectedTrainingId)
     },
     patrocinio: {
       financiamiento_total: boolValue(payload.patrocinio?.financiamiento_total),
       financiamiento_parcial: boolValue(payload.patrocinio?.financiamiento_parcial),
-      porcentaje_financiado: stringValue(payload.patrocinio?.porcentaje_financiado),
+      porcentaje_financiado: stringValue(payload.patrocinio?.porcentaje_financiado).replace(",", "."),
       anticipo_sueldo_honorarios: boolValue(payload.patrocinio?.anticipo_sueldo_honorarios),
       cambio_modalidad_trabajo: boolValue(payload.patrocinio?.cambio_modalidad_trabajo),
       licencia_remunerada: boolValue(payload.patrocinio?.licencia_remunerada),
@@ -161,7 +161,7 @@ function sanitizeAgreementUpdate(current, payload, planOptions) {
     correccion_manual: true,
     fecha_correccion: new Date().toISOString(),
     advertencias: (current.advertencias || []).filter((item) =>
-      !/requiere confirmaci[oó]n manual|estado Firmado fue inferido/i.test(String(item || ""))
+      !/requiere confirmaci[oó]n manual|estado Firmado fue inferido|verifica visualmente las firmas/i.test(String(item || ""))
     ),
     deteccion: {
       ...(current.deteccion || {}),
@@ -396,5 +396,6 @@ module.exports = {
   similarity,
   planTrainingOptions,
   matchTraining,
+  sanitizeAgreementUpdate,
   registerAgreementIpc
 };
