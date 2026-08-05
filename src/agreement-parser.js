@@ -333,6 +333,9 @@ function evaluateAgreement(record, options = {}) {
 
   if (!compact(output.capacitacion.id_plan)) missing.push("ID de la capacitación del plan");
   if (!supportCount(output.patrocinio)) missing.push("Apoyo institucional seleccionado");
+  if (String(output.acuerdo.estado_acuerdo || "").toUpperCase() === "REVISAR") {
+    missing.push("Verificar estado y firmas del acuerdo");
+  }
 
   if (output.patrocinio.financiamiento_total && output.patrocinio.financiamiento_parcial) {
     missing.push("Selecciona únicamente financiamiento total o parcial");
