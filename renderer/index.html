@@ -19,46 +19,66 @@
       </div>
       <div class="top-actions">
         <button class="button ghost" id="openDataButton" type="button">Datos</button>
-        <span class="version" id="versionLabel">v0.3.0</span>
+        <span class="version" id="versionLabel">v0.5.0</span>
       </div>
     </header>
 
     <main class="main-content">
-      <section class="upload-card">
-        <div class="upload-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4L8 8M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+      <section class="workflow-card">
+        <div class="workflow-copy">
+          <span class="eyebrow">Nuevo flujo</span>
+          <h2>Importar planes desde una tabla</h2>
+          <p>Copia el prompt, analiza los PDF en ChatGPT y pega aquí la tabla TSV resultante.</p>
         </div>
-        <div class="upload-copy">
-          <h2>Cargar planes</h2>
-          <p>PDF digitales o escaneados · máximo 500</p>
-        </div>
-        <div class="upload-actions">
-          <button class="button secondary" id="folderButton" type="button">Carpeta</button>
-          <button class="button primary" id="filesButton" type="button">Seleccionar PDF</button>
-        </div>
-      </section>
-
-      <section class="selection-panel hidden" id="selectionPanel">
-        <div>
-          <strong id="selectionCount">0 archivos</strong>
-          <span id="selectionHint">Listos para procesar</span>
-        </div>
-        <div class="selection-actions">
-          <button class="button ghost" id="clearSelectionButton" type="button">Quitar</button>
-          <button class="button primary" id="processButton" type="button">Procesar</button>
+        <div class="workflow-steps" aria-label="Pasos">
+          <span><b>1</b> Copiar prompt</span>
+          <span><b>2</b> Subir PDF a ChatGPT</span>
+          <span><b>3</b> Pegar tabla</span>
         </div>
       </section>
 
-      <section class="progress-card hidden" id="progressCard" aria-live="polite">
-        <div class="progress-head">
-          <div>
-            <strong id="progressTitle">Procesando</strong>
-            <span id="progressFile"></span>
+      <section class="table-import-card">
+        <div class="table-import-header">
+          <div class="table-import-title">
+            <div class="table-icon" aria-hidden="true">TSV</div>
+            <div>
+              <h2>Tabla de planes</h2>
+              <p>Una fila por cada capacitación propuesta.</p>
+            </div>
           </div>
-          <span id="progressPercent">0%</span>
+          <button class="button primary" id="copyPromptButton" type="button">Copiar prompt</button>
         </div>
-        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
-        <p id="progressMessage">Preparando archivos...</p>
+
+        <details class="prompt-details">
+          <summary>Ver el prompt completo</summary>
+          <pre id="promptPreview"></pre>
+        </details>
+
+        <label class="table-input-label" for="tableInput">Pega la tabla TSV</label>
+        <textarea
+          id="tableInput"
+          class="table-input"
+          spellcheck="false"
+          placeholder="archivo_pdf&#9;codigo_documento&#9;periodo_plan&#9;nombre_docente&#9;..."
+        ></textarea>
+
+        <div class="table-import-footer">
+          <div>
+            <strong id="tableInputHint">Todavía no has pegado una tabla.</strong>
+            <span>La primera fila debe contener exactamente los encabezados solicitados.</span>
+          </div>
+          <div class="table-import-actions">
+            <button class="button ghost" id="clearTableButton" type="button" disabled>Limpiar</button>
+            <button class="button primary" id="importTableButton" type="button" disabled>Procesar tabla</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="import-result hidden" id="importResult" aria-live="polite">
+        <div>
+          <strong id="importResultTitle">Tabla procesada</strong>
+          <span id="importResultText"></span>
+        </div>
       </section>
 
       <section class="stats-grid" aria-label="Resumen">
@@ -111,16 +131,16 @@
                 <th>Carrera</th>
                 <th>Periodo</th>
                 <th>Capacitaciones</th>
-                <th>Lectura</th>
+                <th>Origen</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="resultsBody"></tbody>
           </table>
           <div class="empty-state" id="emptyState">
-            <div class="empty-icon">PDF</div>
-            <strong>Carga tus primeros planes</strong>
-            <span>La información extraída aparecerá aquí.</span>
+            <div class="empty-icon">TSV</div>
+            <strong>Pega tu primera tabla</strong>
+            <span>Los planes validados aparecerán aquí.</span>
           </div>
         </div>
 
@@ -140,7 +160,7 @@
         <h2 id="drawerTitle">Docente</h2>
       </div>
       <div class="drawer-actions">
-        <button class="button secondary compact" id="openPdfButton" type="button">Abrir PDF</button>
+        <button class="button secondary compact hidden" id="openPdfButton" type="button">Abrir PDF</button>
         <button class="button secondary compact" id="editPlanButton" type="button">Editar</button>
         <button class="button primary compact hidden" id="savePlanButton" type="button">Guardar</button>
         <button class="button ghost compact hidden" id="cancelEditButton" type="button">Cancelar</button>
