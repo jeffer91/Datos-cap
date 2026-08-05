@@ -88,7 +88,7 @@ function textFromWords(words) {
 
 function cleanCell(value) {
   return compact(value)
-    .replace(/^(?:#|n[º°o]?|nombre\s+de\s+capacitaci[oó]n\s+propuesta|horas\s+de\s+capacitaci[oó]n\s+propuesta|fecha\s+de\s+propuesta\s+de\s+ejecuci[oó]n|tipo\s+de\s+capacitaci[oó]n\s+propuesta)\s*/i, "")
+    .replace(/^(?:#|n[º°o]?(?=\s|$)|nombre\s+de\s+capacitaci[oó]n\s+propuesta|horas\s+de\s+capacitaci[oó]n\s+propuesta|fecha\s+de\s+propuesta\s+de\s+ejecuci[oó]n|tipo\s+de\s+capacitaci[oó]n\s+propuesta)\s*/i, "")
     .replace(/^[|:;,.\-–—\s]+|[|:;,.\-–—\s]+$/g, "")
     .trim();
 }
