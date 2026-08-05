@@ -4,7 +4,14 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 function subscribe(channel, callback) {
   if (typeof callback !== "function") return () => {};
-  const listener = (_event, payload) => callback(payload);
+  const listener = (_event, payload) => {
+    if (channel === "plans:progress") {
+      const agreementScreen = window.location.pathname.toLowerCase().includes("agreements");
+      if (agreementScreen && payload?.scope !== "agreements") return;
+      if (!agreementScreen && payload?.scope === "agreements") return;
+    }
+    callback(payload);
+  };
   ipcRenderer.on(channel, listener);
   return () => ipcRenderer.removeListener(channel, listener);
 }
