@@ -238,6 +238,7 @@ tbody tr:hover { background: #fafcff; }
 .status-pill.review { color: var(--warning); background: var(--warning-soft); }
 .status-pill.error { color: var(--danger); background: var(--danger-soft); }
 .method-pill { padding: 5px 8px; border-radius: 8px; color: #475569; background: #f1f5f9; font-size: 10px; font-weight: 800; }
+.problem-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; margin-right: 4px; padding: 0 6px; border-radius: 999px; color: #fff; background: var(--danger); font-size: 10px; font-weight: 900; }
 .detail-button { border: 0; color: var(--primary); background: transparent; font-weight: 800; font-size: 12px; }
 .detail-button:hover { text-decoration: underline; }
 .empty-state { min-height: 310px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); }
@@ -281,6 +282,7 @@ tbody tr:hover { background: #fafcff; }
 .drawer-content { padding: 20px 22px 34px; overflow-y: auto; }
 .record-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .manual-badge { padding: 6px 9px; border-radius: 999px; color: var(--primary); background: var(--primary-soft); }
+.problem-guide { margin: -5px 0 20px; padding: 10px 12px; border: 1px solid #fecaca; border-radius: 10px; color: #991b1b; background: #fff7f7; font-size: 11px; font-weight: 700; }
 .detail-section { margin-bottom: 26px; }
 .detail-section:last-child { margin-bottom: 0; }
 .detail-section h3 { margin: 0 0 11px; font-size: 13px; }
@@ -289,22 +291,34 @@ tbody tr:hover { background: #fafcff; }
 .detail-item.full { grid-column: 1 / -1; }
 .detail-item span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
 .detail-item strong, .detail-item p { margin: 0; display: block; color: var(--text); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.detail-item.field-problem { border-color: #ef4444; background: #fff5f5; box-shadow: 0 0 0 1px rgba(239, 68, 68, .08); }
+.detail-item.field-problem span { color: #b91c1c; }
+.detail-item small, .training-value small, .edit-field small { display: block; margin-top: 7px; color: #b91c1c; font-size: 10px; line-height: 1.4; font-weight: 700; }
 .training-card { padding: 15px; margin-bottom: 11px; border: 1px solid var(--line); border-radius: 13px; }
 .training-card:last-child { margin-bottom: 0; }
+.training-card.training-problem, .training-edit-card.training-problem { border-color: #f87171; background: #fffafa; }
 .training-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .training-head strong { font-size: 13px; line-height: 1.4; }
 .training-head span { flex: 0 0 auto; color: var(--primary); background: var(--primary-soft); border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 800; }
 .training-detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
-.training-detail span { display: block; margin-top: 8px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.training-detail span { display: block; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .training-detail p { margin: 3px 0 0; font-size: 11px; line-height: 1.55; }
-.training-detail.ordered { display: grid; grid-template-columns: 145px 1fr; gap: 7px 12px; }
-.training-detail.ordered span, .training-detail.ordered p { margin: 0; }
+.training-detail.ordered { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.training-value { display: grid; grid-template-columns: 145px 1fr; gap: 4px 12px; padding: 5px 0; border-radius: 8px; }
+.training-value span { grid-column: 1; }
+.training-value p { grid-column: 2; margin: 0; }
+.training-value small { grid-column: 2; margin-top: 2px; }
+.training-value.field-problem-inline { margin: 0 -7px; padding: 8px 7px; border: 1px solid #fca5a5; background: #fff5f5; }
+.training-value.field-problem-inline span { color: #b91c1c; }
+.section-problem { padding: 12px; border: 1px solid #fca5a5; border-radius: 12px; background: #fffafa; }
+.section-error { display: block; margin: -4px 0 10px; color: #b91c1c; font-size: 10px; font-weight: 700; }
 .review-section { padding: 14px; border-radius: 12px; background: var(--danger-soft); }
 .issue-list { margin: 0; padding-left: 18px; color: var(--danger); font-size: 11px; line-height: 1.65; }
 
 .edit-notice { margin-bottom: 20px; padding: 10px 12px; border-radius: 10px; color: #3651a7; background: var(--primary-soft); font-size: 11px; }
+.edit-notice.warning { border: 1px solid #fecaca; color: #991b1b; background: #fff7f7; font-weight: 700; }
 .edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
-.edit-field { display: grid; gap: 6px; min-width: 0; }
+.edit-field { display: grid; gap: 6px; min-width: 0; padding: 0; border-radius: 11px; }
 .edit-field.full { grid-column: 1 / -1; }
 .edit-field span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .035em; }
 .edit-field input, .edit-field textarea {
@@ -320,12 +334,19 @@ tbody tr:hover { background: #fafcff; }
 .edit-field input { height: 40px; padding: 0 11px; }
 .edit-field textarea { min-height: 84px; padding: 10px 11px; resize: vertical; line-height: 1.45; }
 .edit-field input:focus, .edit-field textarea:focus { border-color: #94a9ef; box-shadow: 0 0 0 3px rgba(49,87,213,.08); }
+.edit-field.field-problem { padding: 8px; border: 1px solid #f87171; background: #fff5f5; }
+.edit-field.field-problem span { color: #b91c1c; }
+.edit-field.field-problem input, .edit-field.field-problem textarea { border-color: #ef4444; background: #fff; }
+.edit-field.field-problem input:focus, .edit-field.field-problem textarea:focus { box-shadow: 0 0 0 3px rgba(239, 68, 68, .12); }
+.edit-field.fixed-field input { color: #475569; background: #f1f5f9; cursor: default; }
 .section-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
 .section-heading-row h3 { margin: 0; }
 .training-edit-card { padding: 14px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 13px; background: #fbfcfe; }
 .training-edit-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .training-edit-head strong { font-size: 12px; }
+.training-edit-card.training-problem .training-edit-head strong { color: #b91c1c; }
 .edit-empty { padding: 24px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; font-size: 11px; }
+.edit-empty.field-problem { border-color: #ef4444; color: #b91c1c; background: #fff5f5; }
 
 .toast-stack { position: fixed; right: 22px; bottom: 22px; z-index: 120; display: grid; gap: 9px; }
 .toast { min-width: 260px; max-width: 380px; padding: 12px 14px; border-radius: 12px; color: #fff; background: #243047; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22); font-size: 12px; animation: toast-in 0.18s ease; }
@@ -354,5 +375,6 @@ tbody tr:hover { background: #fafcff; }
   .drawer-header h2 { max-width: calc(100vw - 48px); }
   .detail-grid, .edit-grid { grid-template-columns: 1fr; }
   .detail-item.full, .edit-field.full { grid-column: auto; }
-  .training-detail.ordered { grid-template-columns: 1fr; }
+  .training-value { grid-template-columns: 1fr; }
+  .training-value span, .training-value p, .training-value small { grid-column: 1; }
 }
