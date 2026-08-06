@@ -20,6 +20,16 @@ function run() {
   assert.strictEqual(typeof positional.readPositionalPdf, "function");
   assert.strictEqual(typeof positional.groupWordsIntoLines, "function");
   assert.strictEqual(positional.isUsablePlanText("texto corto"), false);
+  const splitWords = positional.splitTextItem({
+    str: "Nombre completo",
+    width: 120,
+    height: 10,
+    transform: [1, 0, 0, 10, 50, 700]
+  }, 1, 800);
+  assert.strictEqual(splitWords.length, 2);
+  assert.ok(splitWords[1].left > splitWords[0].right);
+  assert.ok(splitWords[1].right <= 170.000001);
+
   const bundledPdfJs = require("pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js");
   assert.strictEqual(typeof bundledPdfJs.getDocument, "function");
 
