@@ -1,7 +1,7 @@
 {
   "name": "datos-cap",
-  "version": "0.5.1",
-  "description": "Aplicación de escritorio para extraer, revisar y corregir planes docentes y acuerdos de patrocinio desde PDF digitales o escaneados, con lectura posicional, OCR multipaso, consenso de códigos, deduplicación, revalidación e IA local opcional.",
+  "version": "0.6.0",
+  "description": "Aplicación de escritorio para extraer, comparar, validar y corregir planes docentes y acuerdos de patrocinio desde PDF digitales o escaneados, con motores independientes, consenso por campo, OCR multipaso, validaciones por capas, deduplicación e IA local opcional.",
   "main": "bootstrap.js",
   "author": "Jefferson Villarreal",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "scripts": {
     "start": "electron .",
     "check": "node scripts/check.js",
-    "test": "node tests/module-load.test.js && node tests/plan-parser.test.js && node tests/plan-layout.test.js && node tests/plan-validation.test.js && node tests/plan-intelligence.test.js && node tests/local-ai-review.test.js && node tests/agreement-parser.test.js && node tests/storage.test.js",
+    "test": "node tests/module-load.test.js && node tests/plan-parser.test.js && node tests/plan-layout.test.js && node tests/plan-validation.test.js && node tests/plan-intelligence.test.js && node tests/plan-multiengine.test.js && node tests/local-ai-review.test.js && node tests/agreement-parser.test.js && node tests/storage.test.js",
     "verify": "npm run check && npm test"
   },
   "dependencies": {
