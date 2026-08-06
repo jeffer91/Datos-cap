@@ -85,7 +85,6 @@
       if (!badge) {
         badge = document.createElement("span");
         badge.className = "validation-warning-count";
-        badge.style.cssText = "display:inline-flex;align-items:center;margin-right:6px;padding:2px 7px;border-radius:999px;background:#fff4cc;color:#7a5200;font-size:12px;font-weight:700;";
         actionCell.insertBefore(badge, actionCell.firstChild);
       }
       const text = `⚠ ${warnings}`;
@@ -132,25 +131,22 @@
     if (!summary) {
       summary = document.createElement("section");
       summary.className = "multivalidation-summary";
-      summary.style.cssText = "margin:0 0 16px;padding:14px 16px;border:1px solid #d8e1ee;border-radius:12px;background:#f8fbff;";
       drawer.insertBefore(summary, drawer.firstChild);
     }
 
     const layerHtml = layers.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${layers.map(([name, result]) => {
+      ? `<div class="multivalidation-layers">${layers.map(([name, result]) => {
         const ok = Boolean(result?.ok);
-        const background = ok ? "#e8f7ee" : "#fdecec";
-        const color = ok ? "#17643b" : "#9e2525";
-        return `<span style="padding:3px 8px;border-radius:999px;background:${background};color:${color};font-size:12px;font-weight:700">${escapeHtml(name)}: ${ok ? "correcto" : "revisar"}</span>`;
+        return `<span class="multivalidation-layer ${ok ? "ok" : "review"}">${escapeHtml(name)}: ${ok ? "correcto" : "revisar"}</span>`;
       }).join("")}</div>`
       : "";
 
     summary.innerHTML = `
-      <strong style="display:block">Validación multimotor</strong>
-      <span style="display:block;margin-top:4px;color:#526174;font-size:13px">${escapeHtml(labels[record.estado_detallado] || record.estado || "")}</span>
-      ${engines.length ? `<p style="margin:8px 0 0;font-size:13px"><b>Motores:</b> ${engines.map(escapeHtml).join(" · ")}</p>` : ""}
+      <strong>Validación multimotor</strong>
+      <span class="multivalidation-state">${escapeHtml(labels[record.estado_detallado] || record.estado || "")}</span>
+      ${engines.length ? `<p class="multivalidation-engines"><b>Motores:</b> ${engines.map(escapeHtml).join(" · ")}</p>` : ""}
       ${layerHtml}
-      ${warnings.length ? `<p style="margin:8px 0 0;font-size:12px;color:#7a5200">${warnings.map((item) => escapeHtml(item.message)).join(" · ")}</p>` : ""}
+      ${warnings.length ? `<p class="multivalidation-warnings">${warnings.map((item) => escapeHtml(item.message)).join(" · ")}</p>` : ""}
     `;
     summary.dataset.signature = signature;
   }
