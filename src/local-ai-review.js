@@ -78,17 +78,32 @@ function timeoutSignal(milliseconds) {
   return { signal: controller.signal, clear: () => clearTimeout(timer) };
 }
 
+function fieldHasProblem(record, path) {
+  const problems = record?.problemas_campos || {};
+  if (problems[path]) return true;
+  if (path.startsWith("detalles_plan.")) {
+    const field = path.slice("detalles_plan.".length);
+    return Object.keys(problems).some((problemPath) => problemPath === path || problemPath.endsWith(`.${field}`));
+  }
+  return false;
+}
+
 function mergeAiCandidate(record, candidate) {
   const output = JSON.parse(JSON.stringify(record || {}));
-  const prefer = (current, proposed) => clean(current) || clean(proposed);
+  const prefer = (current, proposed, path) => {
+    const left = clean(current);
+    const right = clean(proposed);
+    if (!right) return current;
+    return !left || fieldHasProblem(output, path) ? proposed : current;
+  };
   output.docente = output.docente || {};
   output.diagnostico = output.diagnostico || {};
 
   Object.entries(candidate?.docente || {}).forEach(([field, value]) => {
-    output.docente[field] = prefer(output.docente[field], value);
+    output.docente[field] = prefer(output.docente[field], value, `docente.${field}`);
   });
   Object.entries(candidate?.diagnostico || {}).forEach(([field, value]) => {
-    output.diagnostico[field] = prefer(output.diagnostico[field], value);
+    output.diagnostico[field] = prefer(output.diagnostico[field], value, `diagnostico.${field}`);
   });
 
   const currentTrainings = Array.isArray(output.capacitaciones) ? output.capacitaciones : [];
@@ -112,27 +127,49 @@ function mergeAiCandidate(record, candidate) {
   } else {
     output.capacitaciones = currentTrainings.map((training, index) => {
       const proposed = aiTrainings[index] || {};
+      const base = `capacitaciones.${index}`;
+      const proposedHours = Number(proposed.horas || 0);
+      const currentHours = Number(training.horas || 0);
       return {
         ...training,
-        nombre: prefer(training.nombre, proposed.nombre),
-        horas: Number(training.horas || proposed.horas || 0),
-        fecha_inicio_propuesta: prefer(training.fecha_inicio_propuesta, proposed.fecha_inicio_propuesta),
-        fecha_fin_propuesta: prefer(training.fecha_fin_propuesta, proposed.fecha_fin_propuesta),
-        tipo: prefer(training.tipo, proposed.tipo)
+        nombre: prefer(training.nombre, proposed.nombre, `${base}.nombre`),
+        horas: proposedHours > 0 && (!currentHours || fieldHasProblem(output, `${base}.horas`)) ? proposedHours : currentHours,
+        fecha_inicio_propuesta: prefer(training.fecha_inicio_propuesta, proposed.fecha_inicio_propuesta, `${base}.fecha_inicio_propuesta`),
+        fecha_fin_propuesta: prefer(training.fecha_fin_propuesta, proposed.fecha_fin_propuesta, `${base}.fecha_fin_propuesta`),
+        tipo: prefer(training.tipo, proposed.tipo, `${base}.tipo`)
       };
     });
   }
 
+  const currentDetails = output.detalles_plan || {};
+  const proposedDetails = candidate?.detalles_plan || {};
   output.detalles_plan = {
-    ...(candidate?.detalles_plan || {}),
-    ...(output.detalles_plan || {})
+    actividades_teoricas: Array.isArray(proposedDetails.actividades_teoricas)
+      && proposedDetails.actividades_teoricas.length
+      && (!Array.isArray(currentDetails.actividades_teoricas)
+        || !currentDetails.actividades_teoricas.length
+        || fieldHasProblem(output, "detalles_plan.actividades_teoricas"))
+      ? proposedDetails.actividades_teoricas.map(clean).filter(Boolean)
+      : (currentDetails.actividades_teoricas || []),
+    actividades_practicas: Array.isArray(proposedDetails.actividades_practicas)
+      && proposedDetails.actividades_practicas.length
+      && (!Array.isArray(currentDetails.actividades_practicas)
+        || !currentDetails.actividades_practicas.length
+        || fieldHasProblem(output, "detalles_plan.actividades_practicas"))
+      ? proposedDetails.actividades_practicas.map(clean).filter(Boolean)
+      : (currentDetails.actividades_practicas || []),
+    impacto_esperado: prefer(currentDetails.impacto_esperado, proposedDetails.impacto_esperado, "detalles_plan.impacto_esperado"),
+    vision_largo_plazo: prefer(currentDetails.vision_largo_plazo, proposedDetails.vision_largo_plazo, "detalles_plan.vision_largo_plazo")
   };
   output.inteligencia = {
     ...(output.inteligencia || {}),
     ia_local: true,
     modelo_ia_local: configuredModel()
   };
-  output.advertencias = [...new Set([...(output.advertencias || []), "La IA local completó únicamente campos que estaban vacíos; revisa los datos antes de confirmar."])];
+  output.advertencias = [...new Set([
+    ...(output.advertencias || []),
+    "La IA local completó campos vacíos o marcados como incorrectos; revisa los datos antes de confirmar."
+  ])];
   return output;
 }
 
@@ -184,6 +221,7 @@ module.exports = {
   PLAN_SCHEMA,
   configuredModel,
   isLocalAiEnabled,
+  fieldHasProblem,
   mergeAiCandidate,
   reviewPlanWithLocalAi
 };
