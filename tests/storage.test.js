@@ -16,9 +16,33 @@ function planTraining(name = "Capacitación corregida") {
     tipo: "Aprobación",
     actividades_teoricas: ["Fundamentos"],
     actividades_practicas: ["Prácticas"],
-    impacto_esperado: "Impacto",
-    vision_largo_plazo: "Visión"
+    impacto_esperado: "Impacto esperado",
+    vision_largo_plazo: "Visión institucional"
   }];
+}
+
+function completeDiagnostics() {
+  return {
+    capacitacion_12_meses: "Curso previo",
+    avances_aplicados: "Avances disciplinares",
+    comodidad_metodologias: "Cómodo",
+    estrategias_pedagogicas: "Aprendizaje basado en proyectos",
+    herramientas_tecnologicas: "Simuladores",
+    formacion_adicional: "Doctorado",
+    tipo_formacion: "Específica"
+  };
+}
+
+function completeTeacher(overrides = {}) {
+  return {
+    codigo_documento: "UGPA-RGI2-07-PRO-251-2024-10",
+    periodo_plan: "2024-10",
+    nombre: "Docente corregido",
+    carrera: "Desarrollo de Software",
+    tiempo_dedicacion: "Tiempo Completo",
+    nivel_academico_actual: "Maestría",
+    ...overrides
+  };
 }
 
 function run() {
@@ -29,13 +53,8 @@ function run() {
     planStorage.upsertMany([{
       id: "plan-manual",
       archivo: { nombre: "plan-anterior.pdf", hash: "hash-anterior", ruta: "C:/anterior/plan.pdf", fecha_procesamiento: "2026-08-05T10:00:00.000Z" },
-      docente: {
-        codigo_documento: "UGPA-RGI2-07-PRO-251-2024-10",
-        periodo_plan: "2024-10",
-        nombre: "Docente corregido",
-        carrera: "Desarrollo de Software"
-      },
-      diagnostico: { tipo_formacion: "Específica" },
+      docente: completeTeacher(),
+      diagnostico: completeDiagnostics(),
       capacitaciones: planTraining(),
       estado: "REVISAR",
       confianza: 88,
@@ -52,12 +71,7 @@ function run() {
     planStorage.upsertMany([{
       id: "plan-ocr-nuevo",
       archivo: { nombre: "plan-nuevo.pdf", hash: "hash-nuevo", ruta: "C:/nuevo/plan.pdf", fecha_procesamiento: "2026-08-05T11:00:00.000Z" },
-      docente: {
-        codigo_documento: "UGPA-RGI2-07-PRO-251-2024-10",
-        periodo_plan: "2024-10",
-        nombre: "Texto OCR incorrecto",
-        carrera: "Desarrollo de Software"
-      },
+      docente: completeTeacher({ nombre: "Texto OCR incorrecto" }),
       diagnostico: {},
       capacitaciones: [],
       estado: "COMPLETO",
@@ -74,35 +88,44 @@ function run() {
     assert.strictEqual(preservedPlan.id, "plan-manual");
     assert.strictEqual(preservedPlan.docente.nombre, "Docente corregido");
     assert.strictEqual(preservedPlan.archivo.ruta, "C:/nuevo/plan.pdf");
-    assert.ok(preservedPlan.problemas_campos["docente.periodo_plan"]);
+    assert.strictEqual(preservedPlan.estado, "COMPLETO");
+    assert.deepStrictEqual(preservedPlan.problemas_campos, {});
     assert.strictEqual(preservedPlan.deteccion.confirmado_manualmente, true);
 
     const duplicateStorage = new PlanStorage(path.join(root, "duplicados"));
     duplicateStorage.upsertMany([{
       id: "plan-codigo",
       archivo: { nombre: "plan-codigo.pdf", hash: "hash-codigo", ruta: "C:/planes/plan-codigo.pdf", fecha_procesamiento: "2026-08-05T09:00:00.000Z" },
-      docente: {
+      docente: completeTeacher({
         codigo_documento: "UGPA-RGI1-50-PRO-251-2025-10",
         periodo_plan: "2025-10",
         nombre: "Luis Miguel Lincango Cabezas",
         carrera: "Mecánica Automotriz"
-      },
-      diagnostico: {},
-      capacitaciones: planTraining("Diagnóstico automotriz"),
+      }),
+      diagnostico: completeDiagnostics(),
+      capacitaciones: [{
+        ...planTraining("Diagnóstico automotriz")[0],
+        fecha_inicio_propuesta: "",
+        fecha_fin_propuesta: "",
+        tipo: ""
+      }],
       estado: "REVISAR",
       problemas_campos: {},
       advertencias: []
     }, {
       id: "plan-alias",
       archivo: { nombre: "UGA12B~1.PDF", hash: "hash-alias", ruta: "C:/planes/UGA12B~1.PDF", fecha_procesamiento: "2026-08-05T10:00:00.000Z" },
-      docente: {
+      docente: completeTeacher({
         codigo_documento: "UGA12B~1.PDF",
         periodo_plan: "",
         nombre: "Luis Miguel Lincango Cabezas",
         carrera: "Mecanica Automotriz"
-      },
-      diagnostico: {},
-      capacitaciones: planTraining("Diagnóstico automotriz"),
+      }),
+      diagnostico: completeDiagnostics(),
+      capacitaciones: [{
+        ...planTraining("Diagnostico automotriz")[0],
+        horas: 0
+      }],
       estado: "REVISAR",
       problemas_campos: {},
       advertencias: []
@@ -113,6 +136,11 @@ function run() {
     assert.strictEqual(consolidated[0].docente.codigo_documento, "UGPA-RGI1-50-PRO-251-2025-10");
     assert.strictEqual(consolidated[0].archivos_relacionados.length, 2);
     assert.strictEqual(consolidated[0].deteccion.consolidado_duplicado, true);
+    assert.strictEqual(consolidated[0].capacitaciones[0].horas, 40);
+    assert.strictEqual(consolidated[0].capacitaciones[0].fecha_inicio_propuesta, "octubre de 2025");
+    assert.strictEqual(consolidated[0].capacitaciones[0].tipo, "Aprobación");
+    assert.strictEqual(consolidated[0].estado, "COMPLETO");
+    assert.deepStrictEqual(consolidated[0].problemas_campos, {});
 
     const agreementStorage = new AgreementStorage(path.join(root, "acuerdos"));
     agreementStorage.upsertMany([{
