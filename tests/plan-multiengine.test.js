@@ -4,6 +4,7 @@ const assert = require("assert");
 const {
   cleanExtractionText,
   extractCodeCandidates,
+  detectTemplate,
   runHeaderCodeEngine
 } = require("../src/header-code-engine");
 const { runTextTableEngine } = require("../src/text-table-engine");
@@ -78,6 +79,14 @@ function run() {
   assert.strictEqual(code.period, "2025-10");
   assert.strictEqual(code.template, "MODERNA");
 
+  assert.strictEqual(detectTemplate(
+    "PLAN INDIVIDUAL DE FORMACIÓN\nY CAPACITACIÓN DOCENTE\nDOCENTE: Willian Rodrigo Espinoza Perez"
+  ), "MODERNA");
+  assert.strictEqual(detectTemplate(
+    "PLAN INDIVIDUAL DE FORMACIÓN\nY CAPACITACIÓN\nDOCENTE: ZAPATA YANEZ VERONICA MARCELA"
+  ), "ANTIGUA");
+  assert.strictEqual(detectTemplate("Texto insuficiente"), "DESCONOCIDA");
+
   const tableText = `
 4. Resumen de Capacitación Propuestas
 #
@@ -105,6 +114,22 @@ Desde Marzo 1 de
   assert.strictEqual(table.rows[0].horas, 40);
   assert.strictEqual(table.rows[1].nombre, "Metodologías Ágiles para la Gestión Moderna");
   assert.strictEqual(table.rows[1].tipo.toUpperCase(), "APROBACIÓN");
+
+  const rowNumberOnOwnLine = runTextTableEngine(`
+4. Resumen de Capacitación Propuestas
+1
+Desarrollador de contenidos de aprendizaje 40
+Desde el 15 de diciembre de 2025 hasta el 12 de enero de 2026
+APROBACIÓN
+2
+Metodologías Ágiles para la Gestión Moderna 40
+Desde el 1 de marzo de 2026 hasta el 31 de marzo de 2026
+APROBACIÓN
+5. Indicadores
+`);
+  assert.strictEqual(rowNumberOnOwnLine.rowCount, 2);
+  assert.strictEqual(rowNumberOnOwnLine.rows[0].horas, 40);
+  assert.strictEqual(rowNumberOnOwnLine.rows[1].horas, 40);
 
   const linear = completeRecord();
   const positional = completeRecord({
