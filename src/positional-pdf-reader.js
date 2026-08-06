@@ -53,14 +53,12 @@ function splitTextItem(item, pageNumber, pageHeight) {
   const top = Math.max(0, pageHeight - baseline - height);
   const totalWidth = Math.max(Number(item.width || 0), text.length * Math.max(3, height * 0.38));
   const parts = text.split(/\s+/).filter(Boolean);
-  const characters = Math.max(1, parts.reduce((sum, part) => sum + part.length, 0) + Math.max(0, parts.length - 1));
+  const totalUnits = Math.max(1, parts.reduce((sum, part) => sum + part.length, 0) + Math.max(0, parts.length - 1));
+  const unitWidth = totalWidth / totalUnits;
   let cursor = x;
 
   return parts.map((part, index) => {
-    const ratio = Math.max(1, part.length) / characters;
-    const width = index === parts.length - 1
-      ? Math.max(2, x + totalWidth - cursor)
-      : Math.max(2, totalWidth * ratio);
+    const width = Math.max(2, unitWidth * Math.max(1, part.length));
     const word = {
       page: pageNumber,
       block: 0,
@@ -79,7 +77,7 @@ function splitTextItem(item, pageNumber, pageHeight) {
       text: part,
       source: "PDFJS"
     };
-    cursor += width + Math.max(1.5, height * 0.18);
+    cursor += width + (index < parts.length - 1 ? unitWidth : 0);
     return word;
   });
 }
@@ -250,6 +248,14 @@ function buildPageLayout(words, lines, pageNumber, pageWidth, pageHeight) {
   return layout;
 }
 
+function pageViewport(page) {
+  let viewport = page.getViewport(1.0);
+  if (!Number.isFinite(viewport?.width) || !Number.isFinite(viewport?.height)) {
+    viewport = page.getViewport({ scale: 1.0 });
+  }
+  return viewport;
+}
+
 async function readPositionalPdf(filePath, options = {}) {
   const maxPages = Math.max(1, Number(options.maxPages || 20));
   const data = new Uint8Array(fs.readFileSync(filePath));
@@ -264,7 +270,7 @@ async function readPositionalPdf(filePath, options = {}) {
     const totalPages = Math.min(document.numPages, maxPages);
     for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
-      const viewport = page.getViewport(1.0);
+      const viewport = pageViewport(page);
       const content = await page.getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false });
       const words = (content.items || []).flatMap((item) => splitTextItem(item, pageNumber, viewport.height));
       const lines = groupWordsIntoLines(words);
@@ -313,5 +319,6 @@ module.exports = {
   groupWordsIntoLines,
   planSignalScore,
   isUsablePlanText,
+  pageViewport,
   readPositionalPdf
 };
