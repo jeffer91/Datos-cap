@@ -77,10 +77,15 @@ function collectRowBlocks(section) {
   const blocks = [];
   let current = null;
   for (const line of lines) {
-    const row = line.match(/^\s*(\d{1,2})[.)]?\s+(.+)$/);
-    if (row && Number(row[1]) > 0 && Number(row[1]) <= 30) {
+    const rowWithText = line.match(/^\s*(\d{1,2})[.)]?\s+(.+)$/);
+    const rowOnly = line.match(/^\s*(\d{1,2})[.)]?\s*$/);
+    const rowNumber = Number(rowWithText?.[1] || rowOnly?.[1] || 0);
+    if (rowNumber > 0 && rowNumber <= 30) {
       if (current) blocks.push(current);
-      current = { order: Number(row[1]), lines: [row[2].trim()] };
+      current = {
+        order: rowNumber,
+        lines: rowWithText?.[2] ? [rowWithText[2].trim()] : []
+      };
       continue;
     }
     if (current) current.lines.push(line);
@@ -151,7 +156,7 @@ function parseRow(block) {
   return {
     orden: Number(block.order || 0),
     nombre: name,
-    horas,
+    horas: hours,
     fecha_inicio_propuesta: date.start,
     fecha_fin_propuesta: date.end,
     fecha_rango_original: date.original,
