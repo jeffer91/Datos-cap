@@ -108,11 +108,15 @@ function detectTemplate(text, positionalPages = []) {
     .replace(/[^a-zA-Z0-9]+/g, " ")
     .toLowerCase();
   const headerCorner = wordsInHeaderCorner(positionalPages);
-  const hasCodeLabel = /\bcodigo\b/i.test(normalized) || /\bc[oó]digo\b/i.test(source);
+  const cover = source.slice(0, 2400);
+  const hasCodeLabel = /\bcodigo\b/i.test(normalized) || /\bc[oó]digo\s*:/i.test(source);
   const hasModernCode = extractCodeCandidates(`${source}\n${headerCorner}`).length > 0;
-  const hasPlan = normalized.includes("plan individual") && normalized.includes("capacitacion docente");
-  if (hasModernCode || hasCodeLabel) return "MODERNA";
-  if (hasPlan) return "ANTIGUA";
+  const hasModernTitle = /PLAN\s+INDIVIDUAL[\s\S]{0,180}?CAPACITACI[ÓO]N\s+DOCENTE(?!\s*:)/i.test(cover);
+  const hasLegacyCover = /PLAN\s+INDIVIDUAL[\s\S]{0,180}?CAPACITACI[ÓO]N\s+DOCENTE\s*:/i.test(cover)
+    && !hasModernTitle;
+
+  if (hasModernCode || hasCodeLabel || hasModernTitle) return "MODERNA";
+  if (hasLegacyCover) return "ANTIGUA";
   return "DESCONOCIDA";
 }
 
