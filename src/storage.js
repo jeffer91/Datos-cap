@@ -7,6 +7,7 @@ const {
   mergePlanRecords,
   isValidPlanCode
 } = require("./plan-intelligence");
+const { validatePlanRecord } = require("./plan-validation");
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -67,10 +68,38 @@ function findDuplicateIndex(records, record, excludedIndex = -1) {
   return bestScore >= 0.93 ? bestIndex : -1;
 }
 
+function hasUsefulPlanData(record) {
+  const name = String(record?.docente?.nombre || "").trim();
+  const career = String(record?.docente?.carrera || "").trim();
+  const diagnostics = Object.values(record?.diagnostico || {}).filter((value) => String(value || "").trim()).length;
+  return Boolean(name && career && (diagnostics >= 2 || (record?.capacitaciones?.length || 0) > 0));
+}
+
+function evaluateStoredRecord(record) {
+  if (record?.estado === "ERROR") {
+    return validatePlanRecord(record, { preserveError: true });
+  }
+  const possiblePlan = Boolean(
+    record?.deteccion?.posible_plan
+    || record?.deteccion?.confirmado_como_plan
+    || hasUsefulPlanData(record)
+  );
+  return validatePlanRecord(record, {
+    isPlan: record?.estado !== "NO_ES_PLAN" || possiblePlan,
+    possiblePlan,
+    preserveError: true
+  });
+}
+
+function mergeAndEvaluate(left, right) {
+  return evaluateStoredRecord(mergePlanRecords(left, right));
+}
+
 function consolidateRecords(records) {
   const output = [];
   let removed = 0;
-  for (const record of Array.isArray(records) ? records : []) {
+  for (const sourceRecord of Array.isArray(records) ? records : []) {
+    const record = evaluateStoredRecord(sourceRecord);
     const index = findDuplicateIndex(output, record);
     if (index < 0) {
       output.push(record);
@@ -78,7 +107,7 @@ function consolidateRecords(records) {
     }
     const previousId = output[index]?.id || record?.id;
     output[index] = {
-      ...mergePlanRecords(output[index], record),
+      ...mergeAndEvaluate(output[index], record),
       id: previousId
     };
     removed += 1;
@@ -94,7 +123,7 @@ class PlanStorage {
   }
 
   load() {
-    const data = readJson(this.filePath, { version: 2, updatedAt: "", records: [] });
+    const data = readJson(this.filePath, { version: 3, updatedAt: "", records: [] });
     if (!Array.isArray(data.records)) data.records = [];
     return data;
   }
@@ -113,12 +142,13 @@ class PlanStorage {
     let inserted = 0;
     let updated = 0;
 
-    for (const record of Array.isArray(records) ? records : []) {
+    for (const sourceRecord of Array.isArray(records) ? records : []) {
+      const record = evaluateStoredRecord(sourceRecord);
       const index = findDuplicateIndex(data.records, record);
       if (index >= 0) {
         const previousId = data.records[index]?.id || record?.id;
         data.records[index] = {
-          ...mergePlanRecords(data.records[index], record),
+          ...mergeAndEvaluate(data.records[index], record),
           id: previousId
         };
         updated += 1;
@@ -130,7 +160,7 @@ class PlanStorage {
 
     const consolidated = consolidateRecords(data.records);
     data.records = consolidated.records;
-    data.version = 2;
+    data.version = 3;
     data.updatedAt = new Date().toISOString();
     writeJsonAtomic(this.filePath, data);
     return {
@@ -144,9 +174,10 @@ class PlanStorage {
   deduplicate() {
     const data = this.load();
     const consolidated = consolidateRecords(data.records);
-    if (consolidated.removed > 0) {
+    const changed = consolidated.removed > 0 || JSON.stringify(consolidated.records) !== JSON.stringify(data.records);
+    if (changed) {
       data.records = consolidated.records;
-      data.version = 2;
+      data.version = 3;
       data.updatedAt = new Date().toISOString();
       writeJsonAtomic(this.filePath, data);
     }
@@ -159,7 +190,7 @@ class PlanStorage {
     const data = this.load();
     const index = data.records.findIndex((item) => item?.id === id);
     if (index < 0) throw new Error("El plan ya no existe en la base local.");
-    data.records[index] = {
+    data.records[index] = evaluateStoredRecord({
       ...updatedRecord,
       id,
       archivo: {
@@ -167,13 +198,16 @@ class PlanStorage {
         ...(updatedRecord?.archivo || {})
       },
       archivos_relacionados: updatedRecord?.archivos_relacionados || data.records[index]?.archivos_relacionados || []
-    };
+    });
     const consolidated = consolidateRecords(data.records);
     data.records = consolidated.records;
-    data.version = 2;
+    data.version = 3;
     data.updatedAt = new Date().toISOString();
     writeJsonAtomic(this.filePath, data);
-    return data.records.find((item) => item?.id === id) || updatedRecord;
+    const savedById = data.records.find((item) => item?.id === id);
+    if (savedById) return savedById;
+    const mergedIndex = findDuplicateIndex(data.records, updatedRecord);
+    return mergedIndex >= 0 ? data.records[mergedIndex] : evaluateStoredRecord(updatedRecord);
   }
 
   getSummary() {
@@ -189,7 +223,7 @@ class PlanStorage {
   }
 
   clear() {
-    writeJsonAtomic(this.filePath, { version: 2, updatedAt: new Date().toISOString(), records: [] });
+    writeJsonAtomic(this.filePath, { version: 3, updatedAt: new Date().toISOString(), records: [] });
     return { ok: true };
   }
 }
@@ -201,5 +235,7 @@ module.exports = {
   writeJsonAtomic,
   exactMatch,
   findDuplicateIndex,
+  hasUsefulPlanData,
+  evaluateStoredRecord,
   consolidateRecords
 };
