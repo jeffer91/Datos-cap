@@ -1,0 +1,65 @@
+.validation-warning-count {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fff4cc;
+  color: #7a5200;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.multivalidation-summary {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #d8e1ee;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.multivalidation-summary > strong {
+  display: block;
+}
+
+.multivalidation-state {
+  display: block;
+  margin-top: 4px;
+  color: #526174;
+  font-size: 13px;
+}
+
+.multivalidation-engines {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.multivalidation-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.multivalidation-layer {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.multivalidation-layer.ok {
+  background: #e8f7ee;
+  color: #17643b;
+}
+
+.multivalidation-layer.review {
+  background: #fdecec;
+  color: #9e2525;
+}
+
+.multivalidation-warnings {
+  margin: 8px 0 0;
+  color: #7a5200;
+  font-size: 12px;
+}
