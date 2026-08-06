@@ -28,6 +28,15 @@
       .toLowerCase();
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   function recordKey(record) {
     return [record?.docente?.nombre, record?.docente?.codigo_documento || record?.archivo?.nombre]
       .map(normalize)
@@ -54,24 +63,35 @@
       if (!record) return;
       const pill = row.querySelector(".status-pill");
       if (pill) {
-        pill.textContent = labels[record.estado_detallado] || labels[record.estado] || record.estado || "Revisar";
-        pill.classList.remove("complete", "review", "error");
-        pill.classList.add(statusClass(record));
-        pill.title = record.estado_detallado || record.estado || "";
+        const label = labels[record.estado_detallado] || labels[record.estado] || record.estado || "Revisar";
+        const className = statusClass(record);
+        if (pill.textContent !== label) pill.textContent = label;
+        if (!pill.classList.contains(className) || pill.classList.length !== 2) {
+          pill.classList.remove("complete", "review", "error");
+          pill.classList.add(className);
+        }
+        const title = record.estado_detallado || record.estado || "";
+        if (pill.title !== title) pill.title = title;
       }
 
       const actionCell = row.lastElementChild;
       if (!actionCell) return;
-      actionCell.querySelectorAll(".validation-warning-count").forEach((item) => item.remove());
       const warnings = Object.keys(record.advertencias_campos || {}).length;
-      if (warnings) {
-        const badge = document.createElement("span");
+      let badge = actionCell.querySelector(".validation-warning-count");
+      if (!warnings) {
+        if (badge) badge.remove();
+        return;
+      }
+      if (!badge) {
+        badge = document.createElement("span");
         badge.className = "validation-warning-count";
-        badge.textContent = `⚠ ${warnings}`;
-        badge.title = `${warnings} advertencia${warnings === 1 ? "" : "s"} que no bloquean el plan`;
         badge.style.cssText = "display:inline-flex;align-items:center;margin-right:6px;padding:2px 7px;border-radius:999px;background:#fff4cc;color:#7a5200;font-size:12px;font-weight:700;";
         actionCell.insertBefore(badge, actionCell.firstChild);
       }
+      const text = `⚠ ${warnings}`;
+      const title = `${warnings} advertencia${warnings === 1 ? "" : "s"} que no bloquean el plan`;
+      if (badge.textContent !== text) badge.textContent = text;
+      if (badge.title !== title) badge.title = title;
     });
   }
 
@@ -83,37 +103,56 @@
       || null;
   }
 
+  function summarySignature(record) {
+    return JSON.stringify({
+      id: record?.id,
+      estado: record?.estado,
+      detallado: record?.estado_detallado,
+      motores: (record?.motores || []).map((engine) => engine.nombre),
+      validaciones: record?.validaciones || {},
+      advertencias: record?.advertencias_campos || {}
+    });
+  }
+
   function enhanceDrawer() {
     const drawer = document.getElementById("drawerContent");
     if (!drawer || !drawer.children.length) return;
-    drawer.querySelectorAll(".multivalidation-summary").forEach((item) => item.remove());
     const record = findDrawerRecord();
-    if (!record) return;
+    let summary = drawer.querySelector(".multivalidation-summary");
+    if (!record) {
+      if (summary) summary.remove();
+      return;
+    }
 
+    const signature = summarySignature(record);
+    if (summary?.dataset.signature === signature) return;
     const engines = (record.motores || []).map((engine) => engine.nombre).filter(Boolean);
     const layers = Object.entries(record.validaciones || {});
     const warnings = Object.values(record.advertencias_campos || {});
-    const summary = document.createElement("section");
-    summary.className = "multivalidation-summary";
-    summary.style.cssText = "margin:0 0 16px;padding:14px 16px;border:1px solid #d8e1ee;border-radius:12px;background:#f8fbff;";
+    if (!summary) {
+      summary = document.createElement("section");
+      summary.className = "multivalidation-summary";
+      summary.style.cssText = "margin:0 0 16px;padding:14px 16px;border:1px solid #d8e1ee;border-radius:12px;background:#f8fbff;";
+      drawer.insertBefore(summary, drawer.firstChild);
+    }
 
     const layerHtml = layers.length
       ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${layers.map(([name, result]) => {
         const ok = Boolean(result?.ok);
         const background = ok ? "#e8f7ee" : "#fdecec";
         const color = ok ? "#17643b" : "#9e2525";
-        return `<span style="padding:3px 8px;border-radius:999px;background:${background};color:${color};font-size:12px;font-weight:700">${name}: ${ok ? "correcto" : "revisar"}</span>`;
+        return `<span style="padding:3px 8px;border-radius:999px;background:${background};color:${color};font-size:12px;font-weight:700">${escapeHtml(name)}: ${ok ? "correcto" : "revisar"}</span>`;
       }).join("")}</div>`
       : "";
 
     summary.innerHTML = `
       <strong style="display:block">Validación multimotor</strong>
-      <span style="display:block;margin-top:4px;color:#526174;font-size:13px">${labels[record.estado_detallado] || record.estado || ""}</span>
-      ${engines.length ? `<p style="margin:8px 0 0;font-size:13px"><b>Motores:</b> ${engines.join(" · ")}</p>` : ""}
+      <span style="display:block;margin-top:4px;color:#526174;font-size:13px">${escapeHtml(labels[record.estado_detallado] || record.estado || "")}</span>
+      ${engines.length ? `<p style="margin:8px 0 0;font-size:13px"><b>Motores:</b> ${engines.map(escapeHtml).join(" · ")}</p>` : ""}
       ${layerHtml}
-      ${warnings.length ? `<p style="margin:8px 0 0;font-size:12px;color:#7a5200">${warnings.map((item) => item.message).join(" · ")}</p>` : ""}
+      ${warnings.length ? `<p style="margin:8px 0 0;font-size:12px;color:#7a5200">${warnings.map((item) => escapeHtml(item.message)).join(" · ")}</p>` : ""}
     `;
-    drawer.insertBefore(summary, drawer.firstChild);
+    summary.dataset.signature = signature;
   }
 
   function enhance() {
