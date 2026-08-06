@@ -18,6 +18,17 @@ const CANONICAL_CAREERS = Object.freeze([
   "Seguridad y Prevención de Riesgos Laborales"
 ]);
 
+const CONTAMINATION_PATTERNS = Object.freeze([
+  /\b(?:resumen|indicadores?|actividades?|impacto|visi[oó]n)\s+(?:de|a|esperado)/i,
+  /\bnombre\s+de\s+capacitaci[oó]n\s+propuesta/i,
+  /\bhoras\s+de\s+capacitaci[oó]n/i,
+  /\bfecha\s+de\s+propuesta\s+de\s+ejecuci[oó]n/i,
+  /\btotal\s+de\s+horas/i,
+  /\bcumplimiento\s+del\s+indicador/i,
+  /\binstrumento\s+de\s+evaluaci[oó]n/i,
+  /\bformaci[oó]n\s+docente\b/i
+]);
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value || {}));
 }
@@ -88,29 +99,67 @@ function isValidPlanCode(value) {
   return Boolean(match && Number(match[2]) > 0);
 }
 
-function repairPlanCode(...sources) {
-  const source = clean(sources.filter(Boolean).join("\n")).toUpperCase();
-  if (!source) return "";
+function canonicalCode(groups) {
+  const sequence = Number(numericOcr(groups?.sequence));
+  const year = numericOcr(groups?.year);
+  const month = Number(numericOcr(groups?.month));
+  const rgi = Number(numericOcr(groups?.rgi));
+  if (![1, 2].includes(rgi) || !sequence || !/^20\d{2}$/.test(year) || month < 1 || month > 12) return "";
+  return `UGPA-RGI${rgi}-${String(sequence).padStart(2, "0")}-PRO-251-${year}-${String(month).padStart(2, "0")}`;
+}
 
-  const direct = source.match(/UGPA\s*[- ]?\s*RGI\s*([12])\s*[- ]?\s*(\d{1,3})\s*[- ]?\s*PRO\s*[- ]?\s*251\s*[- ]?\s*(20\d{2})\s*[- ]?\s*(1[0-2]|0?[1-9])/i);
-  if (direct && Number(direct[2]) > 0) {
-    return `UGPA-RGI${direct[1]}-${String(Number(direct[2])).padStart(2, "0")}-PRO-251-${direct[3]}-${String(Number(direct[4])).padStart(2, "0")}`;
+function codeCandidatesFromSource(value) {
+  const source = clean(value).toUpperCase();
+  if (!source) return [];
+  const output = [];
+  const add = (code) => {
+    if (isValidPlanCode(code)) output.push(code);
+  };
+
+  const direct = /UGPA\s*[- ]?\s*RGI\s*([12])\s*[- ]?\s*(\d{1,3})\s*[- ]?\s*PRO\s*[- ]?\s*251\s*[- ]?\s*(20\d{2})\s*[- ]?\s*(1[0-2]|0?[1-9])/gi;
+  let match;
+  while ((match = direct.exec(source)) !== null) {
+    add(canonicalCode({ rgi: match[1], sequence: match[2], year: match[3], month: match[4] }));
   }
 
-  const compact = source
+  const compactSource = source
     .replace(/[‐‑‒–—―￾�]/g, "-")
     .replace(/\s+/g, " ")
     .replace(/R[G6][I1L|]\s*([12])/g, "RGI$1")
     .replace(/PR[OQ0]\s*[- ]?\s*25[I1L|]/g, "PRO-251");
+  const tolerant = /U[G6]P[A4].{0,18}RGI([12]).{0,15}([0-9OQIL|SB]{1,3}).{0,20}PRO-251.{0,15}(20[0-9OQIL|SB]{2}).{0,10}([0-9OQIL|SB]{1,2})(?=\D|$)/gi;
+  while ((match = tolerant.exec(compactSource)) !== null) {
+    add(canonicalCode({ rgi: match[1], sequence: match[2], year: match[3], month: match[4] }));
+  }
+  return output;
+}
 
-  const tolerant = compact.match(/U[G6]P[A4].{0,18}RGI([12]).{0,15}([0-9OQIL|SB]{1,3}).{0,20}PRO-251.{0,15}(20[0-9OQIL|SB]{2}).{0,10}([0-9OQIL|SB]{1,2})(?=\D|$)/i);
-  if (!tolerant) return "";
+function sourceWeight(index) {
+  if (index === 0) return 2;
+  if (index === 1) return 1;
+  if (index === 2) return 4;
+  return 5;
+}
 
-  const sequence = Number(numericOcr(tolerant[2]));
-  const year = numericOcr(tolerant[3]);
-  const month = Number(numericOcr(tolerant[4]));
-  if (!sequence || !/^20\d{2}$/.test(year) || month < 1 || month > 12) return "";
-  return `UGPA-RGI${tolerant[1]}-${String(sequence).padStart(2, "0")}-PRO-251-${year}-${String(month).padStart(2, "0")}`;
+function repairPlanCode(...sources) {
+  const scores = new Map();
+  const firstSeen = new Map();
+  let order = 0;
+
+  sources.forEach((source, index) => {
+    const candidates = codeCandidatesFromSource(source);
+    const occurrences = new Map();
+    candidates.forEach((code) => occurrences.set(code, (occurrences.get(code) || 0) + 1));
+    occurrences.forEach((count, code) => {
+      const cappedCount = Math.min(index === 1 ? 3 : 1, count);
+      scores.set(code, (scores.get(code) || 0) + (sourceWeight(index) * cappedCount));
+      if (!firstSeen.has(code)) firstSeen.set(code, order++);
+    });
+  });
+
+  return [...scores.entries()]
+    .sort((left, right) => right[1] - left[1] || firstSeen.get(left[0]) - firstSeen.get(right[0]))
+    .map(([code]) => code)[0] || "";
 }
 
 function extractPeriod(code) {
@@ -211,14 +260,15 @@ function applyPlanIntelligence(record, context = {}) {
   output.docente.nombre = cleanTeacherName(output.docente.nombre);
   output.docente.carrera = normalizeCareer(output.docente.carrera);
 
+  const previousCode = clean(output.docente.codigo_documento);
   const repairedCode = repairPlanCode(
-    output.docente.codigo_documento,
+    previousCode,
     context.rawText,
     context.fileName,
     ...(context.codeCandidates || [])
   );
-  const previousCode = clean(output.docente.codigo_documento);
-  if (repairedCode && (!isValidPlanCode(previousCode) || repairedCode === previousCode)) {
+  const manualCode = Boolean(output.correccion_manual || context.method === "CORRECCION_MANUAL");
+  if (repairedCode && (!manualCode || !isValidPlanCode(previousCode))) {
     output.docente.codigo_documento = repairedCode;
     output.docente.periodo_plan = extractPeriod(repairedCode);
   } else if (isValidPlanCode(previousCode)) {
@@ -229,7 +279,8 @@ function applyPlanIntelligence(record, context = {}) {
   output.inteligencia = {
     ...(output.inteligencia || {}),
     aplicada: true,
-    codigo_reparado: Boolean(repairedCode && repairedCode !== previousCode),
+    codigo_reparado: Boolean(repairedCode && repairedCode !== previousCode && output.docente.codigo_documento === repairedCode),
+    codigo_consenso: repairedCode || "",
     lectura_posicional: context.method === "DIGITAL_POSICIONAL",
     metodo: context.method || output.archivo?.metodo_lectura || ""
   };
@@ -270,15 +321,25 @@ function valueScore(value) {
   return source ? Math.min(20, Math.ceil(source.length / 8)) : 0;
 }
 
+function textQuality(value) {
+  const source = clean(value);
+  if (!source) return -1000;
+  let score = Math.min(24, Math.ceil(source.length / 10));
+  if (CONTAMINATION_PATTERNS.some((pattern) => pattern.test(source))) score -= 80;
+  if (/\bUGPA-RGI[12]\b/i.test(source)) score -= 35;
+  if (/�|￾/.test(source)) score -= 20;
+  return score;
+}
+
 function recordQuality(record) {
   let score = 0;
   if (record?.correccion_manual) score += 1000;
   if (isValidPlanCode(record?.docente?.codigo_documento)) score += 120;
   if (record?.docente?.periodo_plan) score += 30;
   score += valueScore(record?.docente?.nombre) + valueScore(record?.docente?.carrera);
-  score += Object.values(record?.diagnostico || {}).reduce((sum, value) => sum + valueScore(value), 0);
+  score += Object.values(record?.diagnostico || {}).reduce((sum, value) => sum + Math.max(0, textQuality(value)), 0);
   score += (record?.capacitaciones || []).reduce((sum, training) => sum
-    + valueScore(training.nombre)
+    + Math.max(0, textQuality(training.nombre))
     + (Number(training.horas || 0) > 0 ? 10 : 0)
     + valueScore(training.fecha_inicio_propuesta)
     + valueScore(training.fecha_fin_propuesta)
@@ -287,17 +348,83 @@ function recordQuality(record) {
   return score;
 }
 
-function chooseValue(primary, secondary) {
+function chooseValue(primary, secondary, options = {}) {
   const left = clean(primary);
   const right = clean(secondary);
   if (!left) return secondary;
-  if (!right) return primary;
-  return right.length > left.length * 1.8 ? secondary : primary;
+  if (!right || options.lockPrimary) return primary;
+  const leftQuality = textQuality(left);
+  const rightQuality = textQuality(right);
+  if (rightQuality > leftQuality + 2) return secondary;
+  return primary;
+}
+
+function trainingCompleteness(training) {
+  return [
+    cleanTrainingName(training?.nombre),
+    Number(training?.horas || 0) > 0,
+    clean(training?.fecha_inicio_propuesta),
+    clean(training?.fecha_fin_propuesta),
+    clean(training?.tipo)
+  ].filter(Boolean).length;
+}
+
+function mergeTraining(primary, secondary, lockPrimary = false) {
+  const left = clone(primary || {});
+  const right = secondary || {};
+  return {
+    ...right,
+    ...left,
+    nombre: cleanTrainingName(chooseValue(left.nombre, right.nombre, { lockPrimary })),
+    horas: Number(left.horas || (!lockPrimary ? right.horas : 0) || 0),
+    fecha_inicio_propuesta: chooseValue(left.fecha_inicio_propuesta, right.fecha_inicio_propuesta, { lockPrimary }),
+    fecha_fin_propuesta: chooseValue(left.fecha_fin_propuesta, right.fecha_fin_propuesta, { lockPrimary }),
+    fecha_rango_original: chooseValue(left.fecha_rango_original, right.fecha_rango_original, { lockPrimary }),
+    tipo: chooseValue(left.tipo, right.tipo, { lockPrimary }),
+    actividades_teoricas: uniqueList([...(left.actividades_teoricas || []), ...(right.actividades_teoricas || [])]),
+    actividades_practicas: uniqueList([...(left.actividades_practicas || []), ...(right.actividades_practicas || [])]),
+    impacto_esperado: chooseValue(left.impacto_esperado, right.impacto_esperado, { lockPrimary }),
+    vision_largo_plazo: chooseValue(left.vision_largo_plazo, right.vision_largo_plazo, { lockPrimary }),
+    detalle_compartido_entre_capacitaciones: true
+  };
+}
+
+function mergeTrainings(primaryTrainings, secondaryTrainings, lockPrimary = false) {
+  const primary = clone(Array.isArray(primaryTrainings) ? primaryTrainings : []);
+  const secondary = clone(Array.isArray(secondaryTrainings) ? secondaryTrainings : []);
+  const used = new Set();
+
+  const merged = primary.map((training, index) => {
+    let bestIndex = -1;
+    let bestScore = 0;
+    secondary.forEach((candidate, candidateIndex) => {
+      if (used.has(candidateIndex)) return;
+      const nameScore = similarity(cleanTrainingName(training.nombre), cleanTrainingName(candidate.nombre));
+      const orderScore = Number(training.orden || index + 1) === Number(candidate.orden || candidateIndex + 1) ? 0.18 : 0;
+      const score = nameScore + orderScore;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = candidateIndex;
+      }
+    });
+    if (bestIndex < 0 || bestScore < 0.55) return training;
+    used.add(bestIndex);
+    return mergeTraining(training, secondary[bestIndex], lockPrimary);
+  });
+
+  secondary.forEach((training, index) => {
+    if (used.has(index)) return;
+    const duplicate = merged.some((current) => similarity(cleanTrainingName(current.nombre), cleanTrainingName(training.nombre)) >= 0.82);
+    if (!duplicate && trainingCompleteness(training) >= 2) merged.push(training);
+  });
+
+  return merged.map((training, index) => ({ ...training, orden: index + 1 }));
 }
 
 function mergePlanRecords(left, right) {
   const primary = recordQuality(left) >= recordQuality(right) ? clone(left) : clone(right);
   const secondary = primary.id === left.id ? right : left;
+  const lockPrimary = Boolean(primary.correccion_manual);
   primary.docente = primary.docente || {};
   primary.diagnostico = primary.diagnostico || {};
 
@@ -305,18 +432,28 @@ function mergePlanRecords(left, right) {
     if (field === "codigo_documento") {
       if (!isValidPlanCode(primary.docente[field]) && isValidPlanCode(secondary.docente[field])) primary.docente[field] = secondary.docente[field];
     } else {
-      primary.docente[field] = chooseValue(primary.docente[field], secondary.docente[field]);
+      primary.docente[field] = chooseValue(primary.docente[field], secondary.docente[field], { lockPrimary });
     }
   });
   primary.docente.periodo_plan = primary.docente.periodo_plan || extractPeriod(primary.docente.codigo_documento) || secondary?.docente?.periodo_plan || "";
 
   Object.keys(secondary?.diagnostico || {}).forEach((field) => {
-    primary.diagnostico[field] = chooseValue(primary.diagnostico[field], secondary.diagnostico[field]);
+    primary.diagnostico[field] = chooseValue(primary.diagnostico[field], secondary.diagnostico[field], { lockPrimary });
   });
 
-  if (recordQuality({ capacitaciones: secondary?.capacitaciones || [] }) > recordQuality({ capacitaciones: primary.capacitaciones || [] })) {
-    primary.capacitaciones = clone(secondary.capacitaciones || []);
-  }
+  primary.capacitaciones = mergeTrainings(primary.capacitaciones, secondary?.capacitaciones, lockPrimary);
+  primary.detalles_plan = {
+    actividades_teoricas: uniqueList([
+      ...(primary.detalles_plan?.actividades_teoricas || []),
+      ...(secondary?.detalles_plan?.actividades_teoricas || [])
+    ]),
+    actividades_practicas: uniqueList([
+      ...(primary.detalles_plan?.actividades_practicas || []),
+      ...(secondary?.detalles_plan?.actividades_practicas || [])
+    ]),
+    impacto_esperado: chooseValue(primary.detalles_plan?.impacto_esperado, secondary?.detalles_plan?.impacto_esperado, { lockPrimary }),
+    vision_largo_plazo: chooseValue(primary.detalles_plan?.vision_largo_plazo, secondary?.detalles_plan?.vision_largo_plazo, { lockPrimary })
+  };
 
   const files = [
     ...(primary.archivos_relacionados || []),
@@ -346,10 +483,12 @@ function mergePlanRecords(left, right) {
 
 module.exports = {
   CANONICAL_CAREERS,
+  CONTAMINATION_PATTERNS,
   clean,
   normalize,
   similarity,
   isValidPlanCode,
+  codeCandidatesFromSource,
   repairPlanCode,
   extractPeriod,
   cleanTeacherName,
@@ -361,6 +500,10 @@ module.exports = {
   trainingSimilarity,
   isShortAliasFile,
   duplicateScore,
+  textQuality,
   recordQuality,
+  chooseValue,
+  mergeTraining,
+  mergeTrainings,
   mergePlanRecords
 };
